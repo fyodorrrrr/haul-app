@@ -14,19 +14,24 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   final List<Map<String, String>> onboardingData = [
     {
-      'image': 'assets/onboarding1.png',
+      'image': 'assets/images/onboarding1.jpg',
       'title': 'Curated for You',
-      'subtitle': 'Explore timeless, handpicked pieces that match your vibe.',
+      'subtitle': 'Explore timeless, handpicked pieces that match your vibe. Style meets intention with every scroll.',
     },
     {
-      'image': 'assets/onboarding2.png',
-      'title': 'Sustainable Style',
-      'subtitle': 'Shop thrift, save the planet, and look good doing it.',
+      'image': 'assets/images/onboarding1.jpg',
+      'title': 'Effortless Search',
+      'subtitle': 'Quickly filter by size, style, and category. Find what you love without the hassle',
     },
     {
-      'image': 'assets/onboarding3.png',
-      'title': 'Your Closet, Your Rules',
-      'subtitle': 'Sell pre-loved pieces and make space for the new.',
+      'image': 'assets/images/onboarding1.jpg',
+      'title': 'Exclusive Bidding',
+      'subtitle': 'Bid on limited finds before they’re gone. Compete, win, and claim one-of-a-kind pieces.',
+    },
+    {
+      'image': 'assets/images/onboarding1.jpg',
+      'title': 'Checkout, Simplified',
+      'subtitle': 'From cart to closet in just a few taps. A seamless experience, every time you shop.',
     },
   ];
 
@@ -46,6 +51,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -53,11 +59,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           padding: const EdgeInsets.all(24),
           child: Column(
             children: [
-              const Text(
-                "HAUL",
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+             Padding(
+                padding: const EdgeInsets.only(bottom: 1), // reduce space below the logo
+                child: Image.asset(
+                  'assets/haul_logo_.png',
+                  height: screenSize.height * 0.05,
+                  width: screenSize.width * 0.2,
+                  fit: BoxFit.contain,
+                ),
               ),
-              const SizedBox(height: 30),
               Expanded(
                 child: PageView.builder(
                   controller: _controller,
@@ -94,7 +104,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 24),      
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -102,7 +112,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(7),
                     ),
                   ),
                   child: Text(

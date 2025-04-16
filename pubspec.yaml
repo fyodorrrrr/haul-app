@@ -9,6 +9,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  google_fonts: ^6.1.0
 
 dev_dependencies:
   flutter_test:
@@ -20,6 +21,8 @@ flutter:
   uses-material-design: true
   assets:
     - assets/haul_logo.png
+    - assets/images/onboarding1.jpg
+    - assets/haul_logo_.png
 
 flutter_native_splash:
   color: "#ffffff" 
