@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../widgets/onboarding_page.dart'; // custom widget
+import 'welcome_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -26,7 +27,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     {
       'image': 'assets/images/onboarding1.jpg',
       'title': 'Exclusive Bidding',
-      'subtitle': 'Bid on limited finds before they’re gone. Compete, win, and claim one-of-a-kind pieces.',
+      'subtitle': 'Bid on limited finds before they\'re gone. Compete, win, and claim one-of-a-kind pieces.',
     },
     {
       'image': 'assets/images/onboarding1.jpg',
@@ -44,7 +45,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     } else {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const Placeholder()), // change to Home/Login
+        MaterialPageRoute(builder: (_) => const WelcomeScreen()),
       );
     }
   }
@@ -52,18 +53,28 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
+    final bool isSmallScreen = screenSize.width < 350;
+    final bool isShortScreen = screenSize.height < 600;
+    
+    // Calculate adaptive padding
+    final double horizontalPadding = screenSize.width * 0.06;
+    final double verticalPadding = isShortScreen ? 12 : 24;
+    
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.symmetric(
+            horizontal: horizontalPadding,
+            vertical: verticalPadding,
+          ),
           child: Column(
             children: [
-             Padding(
-                padding: const EdgeInsets.only(bottom: 1), // reduce space below the logo
+              Padding(
+                padding: EdgeInsets.only(bottom: isShortScreen ? 0 : 1),
                 child: Image.asset(
                   'assets/haul_logo_.png',
-                  height: screenSize.height * 0.05,
+                  height: screenSize.height * (isShortScreen ? 0.04 : 0.05),
                   width: screenSize.width * 0.2,
                   fit: BoxFit.contain,
                 ),
@@ -85,16 +96,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   },
                 ),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: isShortScreen ? 10 : 20),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(
                   onboardingData.length,
                   (index) => AnimatedContainer(
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    margin: EdgeInsets.symmetric(horizontal: isSmallScreen ? 2 : 4),
                     duration: const Duration(milliseconds: 200),
-                    width: _currentIndex == index ? 12 : 8,
-                    height: 8,
+                    width: _currentIndex == index ? (isSmallScreen ? 10 : 12) : (isSmallScreen ? 6 : 8),
+                    height: isSmallScreen ? 6 : 8,
                     decoration: BoxDecoration(
                       color: _currentIndex == index
                           ? Colors.black
@@ -104,13 +115,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 24),      
+              SizedBox(height: isShortScreen ? 16 : 24),      
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: _nextPage,
                   style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    padding: EdgeInsets.symmetric(
+                      vertical: isShortScreen ? 10 : 14,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(7),
                     ),
@@ -119,10 +132,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     _currentIndex == onboardingData.length - 1
                         ? 'Get Started'
                         : 'Next',
+                    style: TextStyle(
+                      fontSize: isSmallScreen ? 14 : 16,
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: isShortScreen ? 10 : 16),
             ],
           ),
         ),

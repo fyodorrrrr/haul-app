@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'onboarding_screen.dart';
+import 'theme/app_theme.dart';
 
 void main() {
   runApp(const MainApp());
@@ -10,8 +11,10 @@ class MainApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
-      home: OnboardingScreen(),
+    return MaterialApp(
+      title: 'Haul',
+      theme: AppTheme.lightTheme(),
+      home: const OnboardingScreen(),
       debugShowCheckedModeBanner: false,
     );
   }
