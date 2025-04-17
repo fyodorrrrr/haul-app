@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1037279820884",
+    "project_id": "haul-thrift-shop",
+    "storage_bucket": "haul-thrift-shop.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1037279820884:android:e12c15a324d75c08b3c1c1",
+        "android_client_info": {
+          "package_name": "com.example.haul"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC7Q9uzlb8TubKnbDfkva0IM2SQAMv2k64"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
