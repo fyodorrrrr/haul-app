@@ -43,59 +43,53 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Padding(
             padding: EdgeInsets.symmetric(
               horizontal: size.width * 0.08,
-              vertical: 24,
+              vertical: size.height * 0.02,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Logo
+                // Logo and Tagline
                 Center(
                   child: Column(
                     children: [
-                      Text(
-                        'HAUL',
-                        style: GoogleFonts.montserrat(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 2,
-                        ),
+                      // Logo Image
+                      Image.asset(
+                        'assets/haul_logo.png',
+                        height: size.height * 0.4, // Adjusted height to match the design
                       ),
+                      SizedBox(height: size.height * 0.002), // Adjust font size for responsiveness
+                      // Tagline
                       Text(
-                        'THRIFT SHOP',
-                        style: GoogleFonts.montserrat(
-                          fontSize: 12,
-                          letterSpacing: 1.5,
+                        "Let's thrift together",
+                        style: GoogleFonts.poppins(
+                          fontSize: isSmallScreen ? 14 : 16, // Slightly larger font size for better readability
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey.shade600,
                         ),
                       ),
                     ],
                   ),
                 ),
-                
+
                 SizedBox(height: size.height * 0.04),
-                
-                // Section Title
-                Text(
-                  'Login',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                
-                SizedBox(height: size.height * 0.04),
-                
+
                 // Login Form
                 Form(
                   key: _formKey,
                   child: Column(
                     children: [
-                      // Email/Username Field
+                      // Email Field
                       TextFormField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           hintText: 'Email',
+                          filled: true,
+                          fillColor: Colors.grey.shade200,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide.none,
+                          ),
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
@@ -104,20 +98,26 @@ class _LoginScreenState extends State<LoginScreen> {
                           return null;
                         },
                       ),
-                      
-                      SizedBox(height: 16),
-                      
+
+                      SizedBox(height: size.height * 0.02),
+
                       // Password Field
                       TextFormField(
                         controller: _passwordController,
                         obscureText: _obscurePassword,
                         decoration: InputDecoration(
                           hintText: 'Password',
+                          filled: true,
+                          fillColor: Colors.grey.shade200,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide.none,
+                          ),
                           suffixIcon: IconButton(
                             icon: Icon(
-                              _obscurePassword 
-                                ? Icons.visibility_off_outlined
-                                : Icons.visibility_outlined,
+                              _obscurePassword
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
                               color: Colors.grey.shade700,
                             ),
                             onPressed: () {
@@ -134,7 +134,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           return null;
                         },
                       ),
-                      
+
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(
@@ -147,9 +147,10 @@ class _LoginScreenState extends State<LoginScreen> {
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
                           child: Text(
-                            'Forgot Password?',
-                            style: TextStyle(
+                            'Forgot your Password?',
+                            style: GoogleFonts.poppins(
                               fontSize: isSmallScreen ? 12 : 14,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
@@ -157,10 +158,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     ],
                   ),
                 ),
-                
+
                 SizedBox(height: size.height * 0.04),
-                
-                // Login Button
+
+                // Sign In Button
                 ElevatedButton(
                   onPressed: () {
                     if (_formKey.currentState!.validate()) {
@@ -171,7 +172,36 @@ class _LoginScreenState extends State<LoginScreen> {
                       );
                     }
                   },
-                  child: const Text('Login'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    padding: EdgeInsets.symmetric(vertical: size.height * 0.02),
+                  ),
+                  child: const Text(
+                    'Sign In',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+
+                SizedBox(height: size.height * 0.02),
+
+                // Create Account Link
+                Center(
+                  child: TextButton(
+                    onPressed: () {
+                      // Navigate to create account screen
+                    },
+                    child: Text(
+                      'Create an account',
+                      style: GoogleFonts.poppins(
+                        fontSize: isSmallScreen ? 12 : 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -180,4 +210,4 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
-} 
+}
