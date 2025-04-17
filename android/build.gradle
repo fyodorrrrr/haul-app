@@ -5,6 +5,21 @@ allprojects {
     }
 }
 
+// Add the buildscript block here
+buildscript {
+    repositories {
+        google()  // Required for Firebase
+        mavenCentral()
+    }
+    dependencies {
+        // Existing classpath for Gradle
+        classpath 'com.android.tools.build:gradle:7.0.4' // Or your current version
+        
+        // Add the Google Services classpath here
+        classpath 'com.google.gms:google-services:4.3.15'  // Or latest version
+    }
+}
+
 rootProject.buildDir = "../build"
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
