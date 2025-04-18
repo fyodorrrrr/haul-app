@@ -30,57 +30,87 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  //FIREBASE LOGICS
-  Future<void> registerUser() async {
-  try {
-    final userCredential = await FirebaseAuth.instance
-        .createUserWithEmailAndPassword(
-          email: _emailController.text.trim(),
-          password: _passwordController.text.trim(),
-        );
+  // Add this function before the build method
+  Future<bool> isEmailAlreadyInUse(String email) async {
+    try {
+      // Fetch sign-in methods for the email address
+      final list = await FirebaseAuth.instance.fetchSignInMethodsForEmail(email);
 
-    // Optionally update display name
-    await userCredential.user?.updateDisplayName(_nameController.text.trim());
-
-
-    // Store user data in Firestore
-    await FirebaseFirestore.instance
-    .collection('users')
-    .doc(userCredential.user!.uid)
-    .set({
-    'uid': userCredential.user!.uid,
-    'name': _nameController.text.trim(),
-    'email': _emailController.text.trim(),
-    'role': 'buyer', // can be 'pending_seller' after seller request
-    'created_at': FieldValue.serverTimestamp(),
-  });
-
-    // Navigate to home on successful registration
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const HomeScreen()),
-    );
-  } on FirebaseAuthException catch (e) {
-    String message = 'Something went wrong';
-    if (e.code == 'email-already-in-use') {
-      message = 'This email is already in use.';
-    } else if (e.code == 'invalid-email') {
-      message = 'The email address is invalid.';
-    } else if (e.code == 'weak-password') {
-      message = 'The password is too weak.';
+      // If the list is not empty, the email is already in use
+      return list.isNotEmpty;
+    } catch (e) {
+      return false;
     }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
-  } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Unexpected error occurred')),
-    );
   }
-}
 
+  // FIREBASE LOGICS
+  Future<void> registerUser() async {
+    try {
+      // First check if email is already in use
+      bool emailExists = await isEmailAlreadyInUse(_emailController.text.trim());
+      if (emailExists) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('This email is already registered. Please use a different email.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
 
+      // If email is not in use, proceed with registration
+      final userCredential = await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+      );
+
+      // Optionally update display name
+      await userCredential.user?.updateDisplayName(_nameController.text.trim());
+
+      // Store user data in Firestore
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userCredential.user!.uid)
+          .set({
+        'uid': userCredential.user!.uid,
+        'name': _nameController.text.trim(),
+        'email': _emailController.text.trim(),
+        'role': 'buyer', // can be 'pending_seller' after seller request
+        'created_at': FieldValue.serverTimestamp(),
+      });
+
+      // Navigate to home on successful registration
+      Navigator.pushReplacement(
+        context,  
+        MaterialPageRoute(
+          builder: (_) => HomeScreen(userData: {
+            'uid': FirebaseAuth.instance.currentUser!.uid,
+            'name': _nameController.text.trim(),
+            'email': _emailController.text.trim(),
+          }),
+        ),
+      );
+    } on FirebaseAuthException catch (e) {
+      String message = 'Something went wrong';
+      if (e.code == 'email-already-in-use') {
+        message = 'This email is already in use.';
+      } else if (e.code == 'invalid-email') {
+        message = 'The email address is invalid.';
+      } else if (e.code == 'weak-password') {
+        message = 'The password is too weak.';
+      }
+
+      // Show a notification with the error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unexpected error occurred')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -178,8 +208,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         decoration: const InputDecoration(
                           hintText: 'Full Name',
                         ),
+                        onEditingComplete: () {
+                          setState(() {
+                            _nameController.text = _nameController.text.trim();
+                          });
+                        },
                         validator: (value) {
-                          if (value == null || value.isEmpty) {
+                          if (value == null || value.trim().isEmpty) {
                             return 'Please enter your name';
                           }
                           return null;
@@ -205,10 +240,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         decoration: const InputDecoration(
                           hintText: 'Email',
                         ),
+                        onEditingComplete: () {
+                          setState(() {
+                            _emailController.text = _emailController.text.trim();
+                          });
+                        },
                         validator: (value) {
-                          if (value == null || value.isEmpty) {
+                          if (value == null || value.trim().isEmpty) {
                             return 'Please enter your email';
-                          } else if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                          } else if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value.trim())) {
                             return 'Please enter a valid email address';
                           }
                           return null;
@@ -237,10 +277,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             },
                           ),
                         ),
+                        onChanged: (value) {
+                          _passwordController.text = value.trim();
+                          _passwordController.selection = TextSelection.fromPosition(
+                            TextPosition(offset: _passwordController.text.length),
+                          );
+                        },
                         validator: (value) {
-                          if (value == null || value.isEmpty) {
+                          if (value == null || value.trim().isEmpty) {
                             return 'Please enter a password';
-                          } else if (value.length < 6) {
+                          } else if (value.trim().length < 6) {
                             return 'Password must be at least 6 characters';
                           }
                           return null;
@@ -269,10 +315,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             },
                           ),
                         ),
+                        onChanged: (value) {
+                          _confirmPasswordController.text = value.trim();
+                          _confirmPasswordController.selection = TextSelection.fromPosition(
+                            TextPosition(offset: _confirmPasswordController.text.length),
+                          );
+                        },
                         validator: (value) {
-                          if (value == null || value.isEmpty) {
+                          if (value == null || value.trim().isEmpty) {
                             return 'Please confirm your password';
-                          } else if (value != _passwordController.text) {
+                          } else if (value.trim() != _passwordController.text.trim()) {
                             return 'Passwords do not match';
                           }
                           return null;
@@ -288,11 +340,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ElevatedButton(
                   onPressed: () {
                     if (_formKey.currentState!.validate()) {
-                      registerUser(); //firebase to register user
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(builder: (_) => const HomeScreen()),
-                      );
+                      registerUser(); // Remove the Navigator.pushReplacement from here
                     }
                   },
                   child: const Text('Create Account'),
@@ -335,4 +383,4 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ),
     );
   }
-} 
+}
