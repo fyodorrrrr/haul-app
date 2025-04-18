@@ -3,7 +3,13 @@ import 'onboarding_screen.dart';
 import 'theme/app_theme.dart';
 import 'package:firebase_core/firebase_core.dart';
 
-void main() {
+// void main() {
+//   runApp(const MainApp());
+// }
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized(); // Ensure that Flutter bindings are initialized
+  await Firebase.initializeApp(); // Initialize Firebase
   runApp(const MainApp());
 }
 

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'login_screen.dart';
 import 'home_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -27,6 +29,58 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _confirmPasswordController.dispose();
     super.dispose();
   }
+
+  //FIREBASE LOGICS
+  Future<void> registerUser() async {
+  try {
+    final userCredential = await FirebaseAuth.instance
+        .createUserWithEmailAndPassword(
+          email: _emailController.text.trim(),
+          password: _passwordController.text.trim(),
+        );
+
+    // Optionally update display name
+    await userCredential.user?.updateDisplayName(_nameController.text.trim());
+
+
+    // Store user data in Firestore
+    await FirebaseFirestore.instance
+    .collection('users')
+    .doc(userCredential.user!.uid)
+    .set({
+    'uid': userCredential.user!.uid,
+    'name': _nameController.text.trim(),
+    'email': _emailController.text.trim(),
+    'role': 'buyer', // can be 'pending_seller' after seller request
+    'created_at': FieldValue.serverTimestamp(),
+  });
+
+    // Navigate to home on successful registration
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const HomeScreen()),
+    );
+  } on FirebaseAuthException catch (e) {
+    String message = 'Something went wrong';
+    if (e.code == 'email-already-in-use') {
+      message = 'This email is already in use.';
+    } else if (e.code == 'invalid-email') {
+      message = 'The email address is invalid.';
+    } else if (e.code == 'weak-password') {
+      message = 'The password is too weak.';
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Unexpected error occurred')),
+    );
+  }
+}
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -234,7 +288,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ElevatedButton(
                   onPressed: () {
                     if (_formKey.currentState!.validate()) {
-                      // Handle registration and navigate to home
+                      registerUser(); //firebase to register user
                       Navigator.pushReplacement(
                         context,
                         MaterialPageRoute(builder: (_) => const HomeScreen()),
