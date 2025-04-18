@@ -30,23 +30,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  // Add this function before the build method
   Future<bool> isEmailAlreadyInUse(String email) async {
     try {
-      // Fetch sign-in methods for the email address
       final list = await FirebaseAuth.instance.fetchSignInMethodsForEmail(email);
-
-      // If the list is not empty, the email is already in use
       return list.isNotEmpty;
     } catch (e) {
       return false;
     }
   }
 
-  // FIREBASE LOGICS
   Future<void> registerUser() async {
     try {
-      // First check if email is already in use
       bool emailExists = await isEmailAlreadyInUse(_emailController.text.trim());
       if (emailExists) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -58,17 +52,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
         return;
       }
 
-      // If email is not in use, proceed with registration
       final userCredential = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
 
-      // Optionally update display name
       await userCredential.user?.updateDisplayName(_nameController.text.trim());
 
-      // Store user data in Firestore
       await FirebaseFirestore.instance
           .collection('users')
           .doc(userCredential.user!.uid)
@@ -76,11 +67,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         'uid': userCredential.user!.uid,
         'name': _nameController.text.trim(),
         'email': _emailController.text.trim(),
-        'role': 'buyer', // can be 'pending_seller' after seller request
+        'role': 'buyer',
         'created_at': FieldValue.serverTimestamp(),
       });
 
-      // Navigate to home on successful registration
       Navigator.pushReplacement(
         context,  
         MaterialPageRoute(
@@ -101,7 +91,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
         message = 'The password is too weak.';
       }
 
-      // Show a notification with the error message
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(message)),
       );
@@ -133,80 +122,46 @@ class _RegisterScreenState extends State<RegisterScreen> {
           child: Padding(
             padding: EdgeInsets.symmetric(
               horizontal: size.width * 0.08,
-              vertical: 16,
+              vertical: 0,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Logo and Title
                 Center(
                   child: Column(
                     children: [
-                      Text(
-                        'HAUL',
-                        style: GoogleFonts.montserrat(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 2,
-                        ),
+                      Image.asset(
+                        'assets/haul_logo.png',
+                        height: size.height * 0.4,
                       ),
-                      Text(
-                        'THRIFT SHOP',
-                        style: GoogleFonts.montserrat(
-                          fontSize: 12,
-                          letterSpacing: 1.5,
+                      Transform.translate(
+                        offset: Offset(0, -20), // Move upward by 10 pixels
+                        child: Text(
+                          'Let\'s create an account for you',
+                          style: GoogleFonts.poppins(
+                            fontSize: isSmallScreen ? 14 : 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey.shade600,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
                 
-                SizedBox(height: size.height * 0.04),
-                
-                // Section header
-                Container(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(
-                        color: Colors.grey.shade200,
-                        width: 1,
-                      ),
-                    ),
-                  ),
-                  child: Text(
-                    'Create Account',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                
-                SizedBox(height: size.height * 0.03),
-                
-                // Registration Form
+                SizedBox(height: size.height * 0.002),
+                             
                 Form(
                   key: _formKey,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Personal Information',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 16,
-                        ),
-                      ),
-                      
-                      SizedBox(height: 16),
-                      
-                      // Full Name Field
                       TextFormField(
                         controller: _nameController,
                         decoration: const InputDecoration(
                           hintText: 'Full Name',
+                          contentPadding: EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                          isDense: true,
                         ),
                         onEditingComplete: () {
                           setState(() {
@@ -221,24 +176,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         },
                       ),
                       
-                      SizedBox(height: 20),
+                      SizedBox(height: 12),
                       
-                      const Text(
-                        'Account Information',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 16,
-                        ),
-                      ),
-                      
-                      SizedBox(height: 16),
-                      
-                      // Email Field
                       TextFormField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
                         decoration: const InputDecoration(
                           hintText: 'Email',
+                          contentPadding: EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                          isDense: true,
                         ),
                         onEditingComplete: () {
                           setState(() {
@@ -255,14 +201,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         },
                       ),
                       
-                      SizedBox(height: 16),
+                      SizedBox(height: 12),
                       
-                      // Password Field
                       TextFormField(
                         controller: _passwordController,
                         obscureText: _obscurePassword,
                         decoration: InputDecoration(
                           hintText: 'Password',
+                          contentPadding: EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                          isDense: true,
                           suffixIcon: IconButton(
                             icon: Icon(
                               _obscurePassword 
@@ -293,14 +240,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         },
                       ),
                       
-                      SizedBox(height: 16),
+                      SizedBox(height: 12),
                       
-                      // Confirm Password Field
                       TextFormField(
                         controller: _confirmPasswordController,
                         obscureText: _obscureConfirmPassword,
                         decoration: InputDecoration(
                           hintText: 'Confirm Password',
+                          contentPadding: EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                          isDense: true,
                           suffixIcon: IconButton(
                             icon: Icon(
                               _obscureConfirmPassword 
@@ -334,28 +282,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
                 
-                SizedBox(height: size.height * 0.05),
+                SizedBox(height: size.height * 0.03),
                 
-                // Register Button
                 ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    padding: EdgeInsets.symmetric(vertical: 10),
+                  ),
                   onPressed: () {
                     if (_formKey.currentState!.validate()) {
-                      registerUser(); // Remove the Navigator.pushReplacement from here
+                      registerUser();
                     }
                   },
-                  child: const Text('Create Account'),
+                  child: const Text('Sign Up'),
                 ),
                 
-                SizedBox(height: 24),
+                SizedBox(height: 16),
                 
-                // Already have an account
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
                       'Already have an account?',
-                      style: TextStyle(
-                        fontSize: isSmallScreen ? 14 : 16,
+                      style: GoogleFonts.poppins(
+                        fontSize: isSmallScreen ? 12 : 14,
                         color: Colors.grey.shade700,
                       ),
                     ),
@@ -368,8 +317,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       },
                       child: Text(
                         'Login',
-                        style: TextStyle(
-                          fontSize: isSmallScreen ? 14 : 16,
+                        style: GoogleFonts.poppins(
+                          fontSize: isSmallScreen ? 12 : 14,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
