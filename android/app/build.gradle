@@ -10,6 +10,8 @@ android {
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
+
+
     buildFeatures {
         buildConfig  true
     }
@@ -31,6 +33,12 @@ android {
         targetSdk = 24
         versionCode = 1
         versionName = "1.0"
+        multiDexEnabled true
+    }
+
+    // The AndroidX multidex library is required for apps with over 64K methods.
+    dependencies {
+    implementation "androidx.multidex:multidex:2.0.1"
     }
 
    
