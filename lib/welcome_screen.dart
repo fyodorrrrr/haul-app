@@ -115,7 +115,7 @@ class WelcomeScreen extends StatelessWidget {
                       onPressed: () {
                         Navigator.pushReplacement(
                           context,
-                          MaterialPageRoute(builder: (_) => const HomeScreen()),
+                          MaterialPageRoute(builder: (_) => HomeScreen(userData: {})),
                         );
                       },
                       child: Text(

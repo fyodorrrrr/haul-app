@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+  final Map<String, dynamic> userData;
+
+  const HomeScreen({super.key, required this.userData});
 
   @override
   Widget build(BuildContext context) {
