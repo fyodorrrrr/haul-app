@@ -158,8 +158,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     children: [
                       TextFormField(
                         controller: _nameController,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           hintText: 'Full Name',
+                          hintStyle: GoogleFonts.poppins(
+                            fontSize: 14,
+                            color: Colors.black,
+                          ),
                           contentPadding: EdgeInsets.symmetric(vertical: 10, horizontal: 12),
                           isDense: true,
                         ),
@@ -181,8 +185,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       TextFormField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           hintText: 'Email',
+                          hintStyle: GoogleFonts.poppins(
+                            fontSize: 14,
+                            color: Colors.black,
+                          ),
                           contentPadding: EdgeInsets.symmetric(vertical: 10, horizontal: 12),
                           isDense: true,
                         ),
@@ -208,6 +216,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         obscureText: _obscurePassword,
                         decoration: InputDecoration(
                           hintText: 'Password',
+                          hintStyle: GoogleFonts.poppins(
+                            fontSize: 14,
+                            color: Colors.black,
+                          ),
                           contentPadding: EdgeInsets.symmetric(vertical: 10, horizontal: 12),
                           isDense: true,
                           suffixIcon: IconButton(
@@ -247,6 +259,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         obscureText: _obscureConfirmPassword,
                         decoration: InputDecoration(
                           hintText: 'Confirm Password',
+                          hintStyle: GoogleFonts.poppins(
+                            fontSize: 14,
+                            color: Colors.black,
+                          ),
                           contentPadding: EdgeInsets.symmetric(vertical: 10, horizontal: 12),
                           isDense: true,
                           suffixIcon: IconButton(

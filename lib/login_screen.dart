@@ -132,6 +132,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         keyboardType: TextInputType.emailAddress,
                         decoration: InputDecoration(
                           hintText: 'Email',
+                          hintStyle: GoogleFonts.poppins(
+                            fontSize: isSmallScreen ? 12 : 14,
+                            color: Colors.black,
+                          ),
                           filled: true,
                           fillColor: Colors.grey.shade200,
                           border: OutlineInputBorder(
@@ -155,6 +159,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         obscureText: _obscurePassword,
                         decoration: InputDecoration(
                           hintText: 'Password',
+                          hintStyle: GoogleFonts.poppins(
+                            fontSize: isSmallScreen ? 12 : 14,
+                            color: Colors.black,
+                          ),
                           filled: true,
                           fillColor: Colors.grey.shade200,
                           border: OutlineInputBorder(
