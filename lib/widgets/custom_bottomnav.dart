@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class CustomBottomNavBar extends StatefulWidget {
   final int currentIndex;
@@ -17,7 +18,11 @@ class CustomBottomNavBar extends StatefulWidget {
 class _CustomBottomNavBarState extends State<CustomBottomNavBar> {
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final bool isSmallScreen = size.width < 350;
+    
     return Container(
+      height: isSmallScreen ? 65 : 70,
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -46,6 +51,7 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar> {
 
   Widget _buildNavItem(int index, IconData icon, String label) {
     final isSelected = widget.currentIndex == index;
+    
     return InkWell(
       onTap: () => widget.onTap(index),
       child: Column(
@@ -54,15 +60,15 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar> {
           Icon(
             icon,
             color: isSelected ? Colors.black : Colors.grey,
-            size: 24,
+            size: isSelected ? 26 : 24,
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           Text(
             label,
-            style: TextStyle(
-              fontSize: 12,
+            style: GoogleFonts.poppins(
+              fontSize: 11,
               color: isSelected ? Colors.black : Colors.grey,
-              fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
             ),
           ),
         ],
