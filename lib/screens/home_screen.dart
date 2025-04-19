@@ -1,12 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import '/widgets/custom_appbar.dart'; // adjust the import path as needed
-import '/widgets/custom_bottomnav.dart'; // adjust the import path as needed
+import '../widgets/custom_appbar.dart';
+import '../widgets/custom_bottomnav.dart';
+import 'explore_screen.dart';
+import 'wishlist_screen.dart';
+import 'cart_screen.dart';
+import 'profile_screen.dart';
+import 'main_home_screen.dart'; // Import the new main home screen
+
 
 class HomeScreen extends StatefulWidget {
   final Map<String, dynamic> userData;
-
-  const HomeScreen({super.key, required this.userData});
+  
+  const HomeScreen({
+    Key? key, 
+    required this.userData,
+  }) : super(key: key);
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -18,47 +26,37 @@ class _HomeScreenState extends State<HomeScreen> {
   void _onTabTapped(int index) {
     setState(() {
       _selectedIndex = index;
-      // Navigate or switch pages based on index if needed
     });
   }
-
+  
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final isSmallScreen = size.width < 360;
-
+    // Define screens array
+    final List<Widget> screens = [
+      MainHomeScreen(userData: widget.userData), // Home (index 0)
+      const ExploreScreen(),                    // Explore (index 1)
+      const WishlistScreen(),                   // Wishlist (index 2)
+      const CartScreen(),                       // Cart (index 3)
+      ProfileScreen(userData: widget.userData), // Profile (index 4)
+    ];
+    
+    // Get titles for app bar based on selected tab
+    final List<String> titles = ['Home', 'Explore', 'Wishlist', 'Cart', 'Profile'];
+    final String title = titles[_selectedIndex];
+    
+    // Show search only on Home and Explore tabs
+    final bool showSearch = _selectedIndex == 0 || _selectedIndex == 1;
+    
     return Scaffold(
-      appBar: PreferredSize(
-        preferredSize: Size.fromHeight(isSmallScreen ? 90.0 : 120.0), // Dynamic AppBar height
-        child: CustomAppBar(
-          // title: 'HAUL',
-          showSearchBar: true,
-        ),
+      backgroundColor: Colors.white,
+      appBar: CustomAppBar(
+        title: title,
+        showSearchBar: showSearch,
       ),
-      body: SafeArea( // Ensure that SafeArea is wrapping the whole Scaffold
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.check_circle_outline,
-                size: 80,
-                color: Colors.green,
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Successfully Logged In',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Welcome to Haul Thrift Shop',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-            ],
-          ),
+      body: SafeArea(
+        child: IndexedStack(
+          index: _selectedIndex,
+          children: screens,
         ),
       ),
       bottomNavigationBar: CustomBottomNavBar(
