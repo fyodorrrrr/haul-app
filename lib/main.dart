@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'screens/onboarding_screen.dart';
+import 'screens/buyer/onboarding_screen.dart';
 import 'theme/app_theme.dart';
-import 'screens/home_screen.dart';
+import 'screens/buyer/home_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 
 
