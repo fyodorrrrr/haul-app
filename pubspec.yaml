@@ -26,6 +26,7 @@ flutter:
   assets:
     - assets/haul_logo.png
     - assets/images/onboarding1.jpg
+    - assets/images/welcome_screen.jpg
     - assets/haul_logo_.png
 
 flutter_native_splash:
