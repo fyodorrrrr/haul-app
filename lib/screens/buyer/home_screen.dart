@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../widgets/custom_appbar.dart';
-import '../widgets/custom_bottomnav.dart';
+import '/widgets/custom_appbar.dart';
+import '/widgets/custom_bottomnav.dart';
 import 'explore_screen.dart';
 import 'wishlist_screen.dart';
 import 'cart_screen.dart';
