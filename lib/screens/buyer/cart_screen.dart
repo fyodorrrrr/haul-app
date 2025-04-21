@@ -24,7 +24,7 @@ class CartScreen extends StatelessWidget {
             ),
           ),
           
-          // Cart items
+          // Cart items Testing Jose
           Expanded(
             child: ListView.builder(
               itemCount: 3,
