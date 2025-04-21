@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'dart:ui';
 import 'login_screen.dart';
 import 'register_screen.dart';
 import 'home_screen.dart';
@@ -11,127 +12,143 @@ class WelcomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final bool isSmallScreen = size.width < 350;
-    final theme = Theme.of(context);
+
+    final loginTextStyle = GoogleFonts.poppins(
+      fontSize: isSmallScreen ? 12 : 14,
+      fontWeight: FontWeight.w400,
+      color: Colors.white,
+    );
+
+    final registerTextStyle = GoogleFonts.poppins(
+      fontSize: isSmallScreen ? 12 : 14,
+      fontWeight: FontWeight.w400,
+      color: Colors.black,
+    );
+
+    final linkTextStyle = GoogleFonts.poppins(
+      fontSize: isSmallScreen ? 14 : 16,
+      fontWeight: FontWeight.w500,
+      color: const Color.fromARGB(255, 114, 114, 114),
+    );
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: size.width * 0.08,
-            vertical: 24,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Hero image (person in red sweater)
-              Expanded(
-                flex: 5,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.asset(
-                    'assets/images/onboarding1.jpg', // Replace with your model image
-                    fit: BoxFit.cover,
+        child: Column(
+          children: [
+            // Hero image with blur effect
+            Expanded(
+              flex: 4,
+              child: Stack(
+                children: [
+                  // Base image
+                  Positioned.fill(
+                    child: Image.asset(
+                      'assets/images/welcome_screen.jpg',
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
                   ),
-                ),
+                  
+                  // Blur overlay
+                  Positioned.fill(
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 2.0, sigmaY: 4.0),
+                      child: Container(
+                        color: Colors.black.withOpacity(0.15), // Darkens the blurred image
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              
-              const SizedBox(height: 32),
-              
-              // Logo
-              Expanded(
-                flex: 2,
+            ),
+            
+            // Logo and buttons container
+            Expanded(
+              flex: 3,
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: size.width * 0.08),
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    Text(
-                      'HAUL',
-                      style: GoogleFonts.montserrat(
-                        fontSize: 36,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 2,
-                      ),
+                    // Logo
+                    Image.asset(
+                      'assets/haul_logo_.png',
+                      height: size.height * 0.06,
                     ),
-                    Text(
-                      'THRIFT SHOP',
-                      style: GoogleFonts.montserrat(
-                        fontSize: 14,
-                        letterSpacing: 1.5,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Find vintage treasures & unique fashion',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: isSmallScreen ? 14 : 16,
-                        color: Colors.grey.shade700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              
-              // Buttons
-              Expanded(
-                flex: 3,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Login Button
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const LoginScreen()),
-                          );
-                        },
-                        child: const Text('Login'),
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 16),
-                    
-                    // Register Button
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const RegisterScreen()),
-                          );
-                        },
-                        child: const Text('Register'),
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 24),
-                    
-                    // Guest Option
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(builder: (_) => HomeScreen(userData: {})),
-                        );
-                      },
-                      child: Text(
-                        'Continue as Guest',
-                        style: TextStyle(
-                          fontSize: isSmallScreen ? 14 : 16,
+             
+                    // Buttons container
+                    Column(
+                      children: [
+                        // Login Button
+                        SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.black,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            child: Text('Login', style: loginTextStyle),
+                          ),
                         ),
-                      ),
+                        
+                        const SizedBox(height: 16),
+                        
+                        // Register Button
+                        SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: OutlinedButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => const RegisterScreen()),
+                              );
+                            },
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.black,
+                              side: const BorderSide(color: Colors.black),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            child: Text('Register',style: registerTextStyle),
+                          ),
+                        ),
+                        
+                        const SizedBox(height: 16),
+                        
+                        // Continue as Guest
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(builder: (_) => HomeScreen(userData: {})),
+                            );
+                          },
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.black87,
+                          ),
+                          child: Text('Continue as Guest', style: linkTextStyle),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
-} 
+}
