@@ -17,6 +17,7 @@ class MainHomeScreen extends StatefulWidget {
 
 class _MainHomeScreenState extends State<MainHomeScreen> {
   List<Product> products = [];
+  final String imageUrl = 'https://firebasestorage.googleapis.com/v0/b/haul-thrift-shop.firebasestorage.app/o/product.png?alt=media&token=8a229200-6b08-44c6-95ae-cf0efa4b1b5a'; 
 
   @override
   void initState() {
@@ -42,73 +43,73 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
   }
 
 
-// Future<void> addDummyProducts() async {
-//   final firestore = FirebaseFirestore.instance;
+Future<void> addDummyProducts() async {
+  final firestore = FirebaseFirestore.instance;
 
-//   final dummyProducts = [
-//     {
-//       'id': firestore.collection('products').doc().id,
-//       'name': 'Vintage Denim Jacket',
-//       'description': 'Classic denim jacket with retro vibes.',
-//       'price': 49.99,
-//       'category': 'Outerwear',
-//       'condition': 'Used - Like New',
-//       'size': 'M',
-//       'imageUrl': 'https://via.placeholder.com/150', // Placeholder image URL
-//       'brand': 'Levi\'s',
-//     },
-//     {
-//       'id': firestore.collection('products').doc().id,
-//       'name': 'Retro Leather Boots',
-//       'description': 'Brown leather boots perfect for a rugged look.',
-//       'price': 65.50,
-//       'category': 'Footwear',
-//       'condition': 'Used - Good',
-//       'size': '9',
-//       'imageUrl': 'https://via.placeholder.com/150', // Placeholder image URL
-//       'brand': 'Dr. Martens',
-//     },
-//     {
-//       'id': firestore.collection('products').doc().id,
-//       'name': 'Graphic Band Tee',
-//       'description': 'Vintage band tee from 90s rock tour.',
-//       'price': 25.00,
-//       'category': 'Tops',
-//       'condition': 'Used - Fair',
-//       'size': 'L',
-//       'imageUrl': 'https://via.placeholder.com/150', // Placeholder image URL
-//       'brand': 'Hanes',
-//     },
-//     {
-//       'id': firestore.collection('products').doc().id,
-//       'name': 'Plaid Mini Skirt',
-//       'description': 'Preppy red plaid skirt, perfect for layering.',
-//       'price': 22.00,
-//       'category': 'Bottoms',
-//       'condition': 'Used - Good',
-//       'size': 'S',
-//       'imageUrl': 'https://via.placeholder.com/150', // Placeholder image URL
-//       'brand': 'Zara',
-//     },
-//     {
-//       'id': firestore.collection('products').doc().id,
-//       'name': 'Oversized Hoodie',
-//       'description': 'Comfy and cozy oversized hoodie.',
-//       'price': 30.00,
-//       'category': 'Outerwear',
-//       'condition': 'Used - Excellent',
-//       'size': 'XL',
-//       'imageUrl': 'https://via.placeholder.com/150', // Placeholder image URL
-//       'brand': 'Champion',
-//     },
-//   ];
+  final dummyProducts = [
+    {
+      'id': firestore.collection('products').doc().id,
+      'name': 'Vintage Denim Jacket',
+      'description': 'Classic denim jacket with retro vibes.',
+      'price': 49.99,
+      'category': 'Outerwear',
+      'condition': 'Used - Like New',
+      'size': 'M',
+      'imageUrl': imageUrl, // Placeholder image URL
+      'brand': 'Levi\'s',
+    },
+    {
+      'id': firestore.collection('products').doc().id,
+      'name': 'Retro Leather Boots',
+      'description': 'Brown leather boots perfect for a rugged look.',
+      'price': 65.50,
+      'category': 'Footwear',
+      'condition': 'Used - Good',
+      'size': '9',
+      'imageUrl': imageUrl, // Placeholder image URL
+      'brand': 'Dr. Martens',
+    },
+    {
+      'id': firestore.collection('products').doc().id,
+      'name': 'Graphic Band Tee',
+      'description': 'Vintage band tee from 90s rock tour.',
+      'price': 25.00,
+      'category': 'Tops',
+      'condition': 'Used - Fair',
+      'size': 'L',
+      'imageUrl': imageUrl, // Placeholder image URL
+      'brand': 'Hanes',
+    },
+    {
+      'id': firestore.collection('products').doc().id,
+      'name': 'Plaid Mini Skirt',
+      'description': 'Preppy red plaid skirt, perfect for layering.',
+      'price': 22.00,
+      'category': 'Bottoms',
+      'condition': 'Used - Good',
+      'size': 'S',
+      'imageUrl': imageUrl, // Placeholder image URL
+      'brand': 'Zara',
+    },
+    {
+      'id': firestore.collection('products').doc().id,
+      'name': 'Oversized Hoodie',
+      'description': 'Comfy and cozy oversized hoodie.',
+      'price': 30.00,
+      'category': 'Outerwear',
+      'condition': 'Used - Excellent',
+      'size': 'XL',
+      'imageUrl': imageUrl, // Placeholder image URL
+      'brand': 'Champion',
+    },
+  ];
 
-//   for (final product in dummyProducts) {
-//     await firestore.collection('products').doc(product['id'] as String).set(product);
-//   }
+  for (final product in dummyProducts) {
+    await firestore.collection('products').doc(product['id'] as String).set(product);
+  }
 
-//   print("Dummy products added.");
-// }
+  print("Dummy products added.");
+}
 
 
 
