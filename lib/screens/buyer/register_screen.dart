@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'login_screen.dart';
 import 'home_screen.dart';
+import 'verify_email_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -55,6 +56,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
+      
+      // Send verification email
+      await userCredential.user!.sendEmailVerification();
 
       await FirebaseFirestore.instance
           .collection('users')
@@ -66,17 +70,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
         'created_at': FieldValue.serverTimestamp(),
       });
 
+      // Redirect to VerifyEmailScreen
       Navigator.pushReplacement(
-        context,  
+        context,
         MaterialPageRoute(
-          builder: (_) => HomeScreen(userData: {
-            'uid': FirebaseAuth.instance.currentUser!.uid,
-            'email': _emailController.text.trim(),
-          }),
+          builder: (_) => VerifyEmailScreen(email: _emailController.text.trim()),
         ),
       );
     } on FirebaseAuthException catch (e) {
-      String message = 'Something went wrong';
+      String message = 'Registration failed';
       if (e.code == 'email-already-in-use') {
         message = 'This email is already in use.';
       } else if (e.code == 'invalid-email') {
@@ -84,15 +86,44 @@ class _RegisterScreenState extends State<RegisterScreen> {
       } else if (e.code == 'weak-password') {
         message = 'The password is too weak.';
       }
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(message)),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unexpected error occurred')),
+        const SnackBar(content: Text('An unexpected error occurred')),
       );
     }
+  
+  
+
+    //   Navigator.pushReplacement(
+    //     context,  
+    //     MaterialPageRoute(
+    //       builder: (_) => HomeScreen(userData: {
+    //         'uid': FirebaseAuth.instance.currentUser!.uid,
+    //         'email': _emailController.text.trim(),
+    //       }),
+    //     ),
+    //   );
+    // } on FirebaseAuthException catch (e) {
+    //   String message = 'Something went wrong';
+    //   if (e.code == 'email-already-in-use') {
+    //     message = 'This email is already in use.';
+    //   } else if (e.code == 'invalid-email') {
+    //     message = 'The email address is invalid.';
+    //   } else if (e.code == 'weak-password') {
+    //     message = 'The password is too weak.';
+    //   }
+
+    //   ScaffoldMessenger.of(context).showSnackBar(
+    //     SnackBar(content: Text(message)),
+    //   );
+    // } catch (e) {
+    //   ScaffoldMessenger.of(context).showSnackBar(
+    //     const SnackBar(content: Text('Unexpected error occurred')),
+    //   );
+    // }
   }
 
   @override
