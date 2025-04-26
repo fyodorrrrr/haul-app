@@ -92,43 +92,35 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Logo
-                Padding(
-                  padding: EdgeInsets.only(top: size.height * 0.02),
-                  child: Image.asset(
-                    'assets/haul_logo.png',
-                    height: size.height * 0.1,
-                  ),
-                ),
-                
-                SizedBox(height: size.height * 0.06),
+                          
+                SizedBox(height: size.height * 0.08),
                 
                 // Email icon
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
                     color: Colors.grey.shade100,
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     Icons.email_outlined,
-                    size: isSmallScreen ? 50 : 70,
+                    size: isSmallScreen ? 60 : 80,
                     color: Colors.black,
                   ),
                 ),
                 
-                SizedBox(height: size.height * 0.04),
+                SizedBox(height: size.height * 0.05),
                 
                 // Check your email text
                 Text(
                   'Check your email',
                   style: GoogleFonts.poppins(
-                    fontSize: isSmallScreen ? 20 : 24,
+                    fontSize: isSmallScreen ? 22 : 26,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 
-                SizedBox(height: size.height * 0.01),
+                SizedBox(height: size.height * 0.02),
                 
                 // Email description
                 Text(
