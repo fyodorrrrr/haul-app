@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -15,59 +17,120 @@ class VerifyEmailScreen extends StatefulWidget {
 class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
   bool _isVerified = false;
   bool _isLoading = false;
+  bool _isResending = false;
+  int _resendCooldown = 0;
+  Timer? _verificationTimer;
+  Timer? _cooldownTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _startAutoVerificationCheck();
+  }
+
+  @override
+  void dispose() {
+    _verificationTimer?.cancel();
+    _cooldownTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startAutoVerificationCheck() {
+    _verificationTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (mounted) _checkEmailVerified();
+    });
+  }
+
+  void _startResendCooldown() {
+    setState(() => _resendCooldown = 30);
+    _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (_resendCooldown > 0) {
+        setState(() => _resendCooldown--);
+      } else {
+        _cooldownTimer?.cancel();
+      }
+    });
+  }
 
   Future<void> _checkEmailVerified() async {
+    if (_isVerified) return;
+    
     setState(() => _isLoading = true);
-    
-    // Reload user to get latest verification status
-    await FirebaseAuth.instance.currentUser?.reload();
-    final user = FirebaseAuth.instance.currentUser;
-    
-    if (user != null && user.emailVerified) {
-      // Update Firestore if verified
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .update({'emailVerified': true});
+    try {
+      await FirebaseAuth.instance.currentUser?.reload();
+      final user = FirebaseAuth.instance.currentUser;
       
-      setState(() => _isVerified = true);
-      
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => HomeScreen(userData: {
-            'uid': user.uid,
-            'email': user.email,
-          }),
-        ),
-      );
+      if (user != null && user.emailVerified) {
+        await _updateFirestoreVerification(user.uid);
+        setState(() => _isVerified = true);
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => HomeScreen(userData: {
+                'uid': user.uid,
+                'email': user.email ?? widget.email,
+              }),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          _buildSnackBar('Error: ${e.toString()}', isError: true),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
-    setState(() => _isLoading = false);
+  }
+
+  Future<void> _updateFirestoreVerification(String uid) async {
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .update({'emailVerified': true, 'verified_at': FieldValue.serverTimestamp()});
   }
 
   Future<void> _resendVerificationEmail() async {
+    setState(() => _isResending = true);
     try {
       await FirebaseAuth.instance.currentUser?.sendEmailVerification();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Verification email resent!',
-            style: GoogleFonts.poppins(),
-          ),
-          backgroundColor: Colors.black,
-        ),
-      );
+      _startResendCooldown();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          _buildSnackBar('Verification email resent!'),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Error: ${e.toString()}',
-            style: GoogleFonts.poppins(),
-          ),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          _buildSnackBar('Error: ${e.toString()}', isError: true),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isResending = false);
     }
+  }
+
+  SnackBar _buildSnackBar(String message, {bool isError = false}) {
+    return SnackBar(
+      content: Text(
+        message,
+        style: GoogleFonts.poppins(),
+      ),
+      backgroundColor: isError ? Colors.red : Colors.black,
+    );
+  }
+
+  Future<void> _openEmailApp() async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Please check your email app'),
+        backgroundColor: Colors.black,
+      ),
+    );
   }
 
   @override
@@ -92,26 +155,47 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                          
                 SizedBox(height: size.height * 0.08),
                 
-                // Email icon
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.email_outlined,
-                    size: isSmallScreen ? 60 : 80,
-                    color: Colors.black,
-                  ),
+                // Email icon with status badge
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.email_outlined,
+                        size: isSmallScreen ? 60 : 80,
+                        color: Colors.black,
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: _isVerified ? Colors.green : Colors.orange,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                        child: Icon(
+                          _isVerified ? Icons.check : Icons.access_time,
+                          size: 16,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 
                 SizedBox(height: size.height * 0.05),
                 
-                // Check your email text
+                // Title and description
                 Text(
                   'Check your email',
                   style: GoogleFonts.poppins(
@@ -122,7 +206,6 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                 
                 SizedBox(height: size.height * 0.02),
                 
-                // Email description
                 Text(
                   'We sent a verification link to:',
                   textAlign: TextAlign.center,
@@ -134,19 +217,44 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                 
                 SizedBox(height: 8),
                 
-                // Email address
-                Text(
-                  widget.email,
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(
-                    fontSize: isSmallScreen ? 14 : 16,
-                    fontWeight: FontWeight.w500,
+                // Email address with copy option
+                GestureDetector(
+                  onTap: () {
+                    Clipboard.setData(ClipboardData(text: widget.email));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      _buildSnackBar('Email copied to clipboard'),
+                    );
+                  },
+                  child: Text(
+                    widget.email,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.poppins(
+                      fontSize: isSmallScreen ? 14 : 16,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
                 
-                SizedBox(height: size.height * 0.06),
+                SizedBox(height: size.height * 0.04),
                 
-                // I've verified button
+                // Open email app button
+                OutlinedButton.icon(
+                  onPressed: _openEmailApp,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.black,
+                    side: const BorderSide(color: Colors.black),
+                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  ),
+                  icon: const Icon(Icons.open_in_new, size: 18),
+                  label: Text(
+                    'Open Email App',
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+                  ),
+                ),
+                
+                SizedBox(height: size.height * 0.04),
+                
+                // Verification button
                 SizedBox(
                   width: double.infinity,
                   height: 50,
@@ -181,20 +289,33 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                 
                 SizedBox(height: 16),
                 
-                // Resend verification email
+                // Resend email button with cooldown
                 TextButton(
-                  onPressed: _resendVerificationEmail,
+                  onPressed: _resendCooldown > 0 || _isResending
+                      ? null
+                      : _resendVerificationEmail,
                   style: TextButton.styleFrom(
                     foregroundColor: Colors.black,
                   ),
-                  child: Text(
-                    'Resend verification email',
-                    style: GoogleFonts.poppins(
-                      fontSize: isSmallScreen ? 13 : 14,
-                      fontWeight: FontWeight.w500,
-                      decoration: TextDecoration.underline,
-                    ),
-                  ),
+                  child: _isResending
+                      ? SizedBox(
+                          height: 16,
+                          width: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.black,
+                          ),
+                        )
+                      : Text(
+                          _resendCooldown > 0
+                              ? 'Resend in $_resendCooldown seconds'
+                              : 'Resend verification email',
+                          style: GoogleFonts.poppins(
+                            fontSize: isSmallScreen ? 13 : 14,
+                            fontWeight: FontWeight.w500,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
                 ),
               ],
             ),
