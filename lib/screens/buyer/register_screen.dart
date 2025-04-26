@@ -14,7 +14,6 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -23,7 +22,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   void dispose() {
-    _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
@@ -58,14 +56,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
         password: _passwordController.text.trim(),
       );
 
-      await userCredential.user?.updateDisplayName(_nameController.text.trim());
-
       await FirebaseFirestore.instance
           .collection('users')
           .doc(userCredential.user!.uid)
           .set({
         'uid': userCredential.user!.uid,
-        'name': _nameController.text.trim(),
         'email': _emailController.text.trim(),
         'role': 'buyer',
         'created_at': FieldValue.serverTimestamp(),
@@ -76,7 +71,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
         MaterialPageRoute(
           builder: (_) => HomeScreen(userData: {
             'uid': FirebaseAuth.instance.currentUser!.uid,
-            'name': _nameController.text.trim(),
             'email': _emailController.text.trim(),
           }),
         ),
@@ -156,32 +150,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      TextFormField(
-                        controller: _nameController,
-                        decoration: InputDecoration(
-                          hintText: 'Full Name',
-                          hintStyle: GoogleFonts.poppins(
-                            fontSize: 14,
-                            color: Colors.black,
-                          ),
-                          contentPadding: EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                          isDense: true,
-                        ),
-                        onEditingComplete: () {
-                          setState(() {
-                            _nameController.text = _nameController.text.trim();
-                          });
-                        },
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Please enter your name';
-                          }
-                          return null;
-                        },
-                      ),
-                      
-                      SizedBox(height: 12),
-                      
                       TextFormField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
