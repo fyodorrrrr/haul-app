@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'home_screen.dart';
@@ -48,49 +49,164 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
     try {
       await FirebaseAuth.instance.currentUser?.sendEmailVerification();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Verification email resent!')),
+        SnackBar(
+          content: Text(
+            'Verification email resent!',
+            style: GoogleFonts.poppins(),
+          ),
+          backgroundColor: Colors.black,
+        ),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: ${e.toString()}')),
+        SnackBar(
+          content: Text(
+            'Error: ${e.toString()}',
+            style: GoogleFonts.poppins(),
+          ),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final bool isSmallScreen = size.width < 350;
+    
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Verify Email'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const Icon(Icons.email_outlined, size: 80, color: Colors.blue),
-            const SizedBox(height: 20),
-            Text(
-              'Check your email',
-              style: Theme.of(context).textTheme.headlineSmall,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: size.width * 0.08),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Logo
+                Padding(
+                  padding: EdgeInsets.only(top: size.height * 0.02),
+                  child: Image.asset(
+                    'assets/haul_logo.png',
+                    height: size.height * 0.1,
+                  ),
+                ),
+                
+                SizedBox(height: size.height * 0.06),
+                
+                // Email icon
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.email_outlined,
+                    size: isSmallScreen ? 50 : 70,
+                    color: Colors.black,
+                  ),
+                ),
+                
+                SizedBox(height: size.height * 0.04),
+                
+                // Check your email text
+                Text(
+                  'Check your email',
+                  style: GoogleFonts.poppins(
+                    fontSize: isSmallScreen ? 20 : 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                
+                SizedBox(height: size.height * 0.01),
+                
+                // Email description
+                Text(
+                  'We sent a verification link to:',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    fontSize: isSmallScreen ? 14 : 16,
+                    color: Colors.grey.shade700,
+                  ),
+                ),
+                
+                SizedBox(height: 8),
+                
+                // Email address
+                Text(
+                  widget.email,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    fontSize: isSmallScreen ? 14 : 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                
+                SizedBox(height: size.height * 0.06),
+                
+                // I've verified button
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : _checkEmailVerified,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      disabledBackgroundColor: Colors.grey.shade300,
+                    ),
+                    child: _isLoading
+                        ? SizedBox(
+                            height: 24,
+                            width: 24,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : Text(
+                            'I\'ve verified my email',
+                            style: GoogleFonts.poppins(
+                              fontSize: isSmallScreen ? 14 : 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                  ),
+                ),
+                
+                SizedBox(height: 16),
+                
+                // Resend verification email
+                TextButton(
+                  onPressed: _resendVerificationEmail,
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.black,
+                  ),
+                  child: Text(
+                    'Resend verification email',
+                    style: GoogleFonts.poppins(
+                      fontSize: isSmallScreen ? 13 : 14,
+                      fontWeight: FontWeight.w500,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 10),
-            Text(
-              'We sent a verification link to ${widget.email}',
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 30),
-            ElevatedButton(
-              onPressed: _isLoading ? null : _checkEmailVerified,
-              child: _isLoading
-                  ? const CircularProgressIndicator()
-                  : const Text('I\'ve verified my email'),
-            ),
-            TextButton(
-              onPressed: _resendVerificationEmail,
-              child: const Text('Resend verification email'),
-            ),
-          ],
+          ),
         ),
       ),
     );
