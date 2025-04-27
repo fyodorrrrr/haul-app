@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'login_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   final Map<String, dynamic> userData;
@@ -64,8 +66,28 @@ class ProfileScreen extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.only(bottom: 24),
               child: OutlinedButton(
-                onPressed: () {
-                  // Handle logout
+                onPressed: () async {
+                  try {
+                    // Sign out the user
+                    await FirebaseAuth.instance.signOut();
+
+                    // Navigate to the login screen or welcome screen
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (_) => const LoginScreen()),
+                    );
+                  } catch (e) {
+                    // Show an error message if logout fails
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Error logging out: ${e.toString()}',
+                          style: GoogleFonts.poppins(),
+                        ),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
                 },
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.black,
@@ -195,4 +217,4 @@ class ProfileScreen extends StatelessWidget {
       ),
     );
   }
-} 
+}
