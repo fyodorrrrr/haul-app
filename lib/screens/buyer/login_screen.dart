@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'home_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '/widgets/loading_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -20,6 +21,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
 //LOGIC FOR LOGIN 
   Future<void> signInUser() async {
+  LoadingScreen.show(context); // Show loading screen
   if (_formKey.currentState!.validate()) {
     try {
       // Step 1: Sign in with Firebase Auth
@@ -39,22 +41,25 @@ class _LoginScreenState extends State<LoginScreen> {
           .get();
 
       if (userDoc.exists) {
+        LoadingScreen.hide(context); // Hide loading screen on error
         final userData = userDoc.data() as Map<String, dynamic>;
 
         // Debug print (optional)
         print("User Info from Firestore: $userData");
-
+        
         // Step 4: Navigate to home or role-based screen
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => HomeScreen(userData: userData)),
         );
       } else {
+        LoadingScreen.hide(context); // Hide loading screen on error
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('No user data found in Firestore')),
         );
       }
     } catch (e) {
+      LoadingScreen.hide(context); // Hide loading screen on error
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Login failed: ${e.toString()}')),
       );

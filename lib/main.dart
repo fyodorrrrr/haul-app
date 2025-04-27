@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'screens/buyer/onboarding_screen.dart';
+import 'package:haul/screens/buyer/welcome_screen.dart';
+// import 'screens/buyer/onboarding_screen.dart';     //TEMPORARY CHANGE
 import 'theme/app_theme.dart';
-import 'screens/buyer/home_screen.dart';
+// import 'screens/buyer/home_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 
 
@@ -19,7 +20,7 @@ class MainApp extends StatelessWidget {
     return MaterialApp(
       title: 'Haul',
       theme: AppTheme.lightTheme(),
-      home: const OnboardingScreen(),
+      home: const WelcomeScreen(), // Change to OnboardingScreen() for onboarding
       debugShowCheckedModeBanner: false,
     );
   }
