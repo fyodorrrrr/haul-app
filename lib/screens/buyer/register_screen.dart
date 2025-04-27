@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'login_screen.dart';
 import 'home_screen.dart';
+import 'verify_email_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -14,7 +15,6 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -23,7 +23,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   void dispose() {
-    _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
@@ -57,32 +56,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
-
-      await userCredential.user?.updateDisplayName(_nameController.text.trim());
+      
+      // Send verification email
+      await userCredential.user!.sendEmailVerification();
 
       await FirebaseFirestore.instance
           .collection('users')
           .doc(userCredential.user!.uid)
           .set({
         'uid': userCredential.user!.uid,
-        'name': _nameController.text.trim(),
         'email': _emailController.text.trim(),
         'role': 'buyer',
         'created_at': FieldValue.serverTimestamp(),
       });
 
+      // Redirect to VerifyEmailScreen
       Navigator.pushReplacement(
-        context,  
+        context,
         MaterialPageRoute(
-          builder: (_) => HomeScreen(userData: {
-            'uid': FirebaseAuth.instance.currentUser!.uid,
-            'name': _nameController.text.trim(),
-            'email': _emailController.text.trim(),
-          }),
+          builder: (_) => VerifyEmailScreen(email: _emailController.text.trim()),
         ),
       );
     } on FirebaseAuthException catch (e) {
-      String message = 'Something went wrong';
+      String message = 'Registration failed';
       if (e.code == 'email-already-in-use') {
         message = 'This email is already in use.';
       } else if (e.code == 'invalid-email') {
@@ -90,15 +86,44 @@ class _RegisterScreenState extends State<RegisterScreen> {
       } else if (e.code == 'weak-password') {
         message = 'The password is too weak.';
       }
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(message)),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unexpected error occurred')),
+        const SnackBar(content: Text('An unexpected error occurred')),
       );
     }
+  
+  
+
+    //   Navigator.pushReplacement(
+    //     context,  
+    //     MaterialPageRoute(
+    //       builder: (_) => HomeScreen(userData: {
+    //         'uid': FirebaseAuth.instance.currentUser!.uid,
+    //         'email': _emailController.text.trim(),
+    //       }),
+    //     ),
+    //   );
+    // } on FirebaseAuthException catch (e) {
+    //   String message = 'Something went wrong';
+    //   if (e.code == 'email-already-in-use') {
+    //     message = 'This email is already in use.';
+    //   } else if (e.code == 'invalid-email') {
+    //     message = 'The email address is invalid.';
+    //   } else if (e.code == 'weak-password') {
+    //     message = 'The password is too weak.';
+    //   }
+
+    //   ScaffoldMessenger.of(context).showSnackBar(
+    //     SnackBar(content: Text(message)),
+    //   );
+    // } catch (e) {
+    //   ScaffoldMessenger.of(context).showSnackBar(
+    //     const SnackBar(content: Text('Unexpected error occurred')),
+    //   );
+    // }
   }
 
   @override
@@ -156,32 +181,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      TextFormField(
-                        controller: _nameController,
-                        decoration: InputDecoration(
-                          hintText: 'Full Name',
-                          hintStyle: GoogleFonts.poppins(
-                            fontSize: 14,
-                            color: Colors.black,
-                          ),
-                          contentPadding: EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                          isDense: true,
-                        ),
-                        onEditingComplete: () {
-                          setState(() {
-                            _nameController.text = _nameController.text.trim();
-                          });
-                        },
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Please enter your name';
-                          }
-                          return null;
-                        },
-                      ),
-                      
-                      SizedBox(height: 12),
-                      
                       TextFormField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
