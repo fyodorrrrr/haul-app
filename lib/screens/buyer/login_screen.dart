@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:haul/screens/buyer/register_screen.dart';
 import 'home_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -294,7 +295,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 Center(
                   child: TextButton(
                     onPressed: () {
-                      // Navigate to create account screen
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const RegisterScreen()),
+                      );
                     },
                     child: Text(
                       'Create an account',
