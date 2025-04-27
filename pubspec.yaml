@@ -30,6 +30,7 @@ flutter:
     - assets/images/onboarding1.jpg
     - assets/images/welcome_screen.jpg
     - assets/haul_logo_.png
+    - assets/google_logo.png
 
 flutter_native_splash:
   color: "#ffffff" 

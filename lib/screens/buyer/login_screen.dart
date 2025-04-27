@@ -18,55 +18,53 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
 
-
-//LOGIC FOR LOGIN 
+  //LOGIC FOR LOGIN 
   Future<void> signInUser() async {
-  LoadingScreen.show(context); // Show loading screen
-  if (_formKey.currentState!.validate()) {
-    try {
-      // Step 1: Sign in with Firebase Auth
-      UserCredential userCredential = await FirebaseAuth.instance
-          .signInWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-      );
-
-      // Step 2: Get UID of the logged in user
-      String uid = userCredential.user!.uid;
-
-      // Step 3: Fetch additional info from Firestore
-      DocumentSnapshot userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .get();
-
-      if (userDoc.exists) {
-        LoadingScreen.hide(context); // Hide loading screen on error
-        final userData = userDoc.data() as Map<String, dynamic>;
-
-        // Debug print (optional)
-        print("User Info from Firestore: $userData");
-        
-        // Step 4: Navigate to home or role-based screen
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => HomeScreen(userData: userData)),
+    LoadingScreen.show(context); // Show loading screen
+    if (_formKey.currentState!.validate()) {
+      try {
+        // Step 1: Sign in with Firebase Auth
+        UserCredential userCredential = await FirebaseAuth.instance
+            .signInWithEmailAndPassword(
+          email: _emailController.text.trim(),
+          password: _passwordController.text.trim(),
         );
-      } else {
+
+        // Step 2: Get UID of the logged in user
+        String uid = userCredential.user!.uid;
+
+        // Step 3: Fetch additional info from Firestore
+        DocumentSnapshot userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(uid)
+            .get();
+
+        if (userDoc.exists) {
+          LoadingScreen.hide(context); // Hide loading screen on error
+          final userData = userDoc.data() as Map<String, dynamic>;
+
+          // Debug print (optional)
+          print("User Info from Firestore: $userData");
+          
+          // Step 4: Navigate to home or role-based screen
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => HomeScreen(userData: userData)),
+          );
+        } else {
+          LoadingScreen.hide(context); // Hide loading screen on error
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No user data found in Firestore')),
+          );
+        }
+      } catch (e) {
         LoadingScreen.hide(context); // Hide loading screen on error
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No user data found in Firestore')),
+          SnackBar(content: Text('Login failed: ${e.toString()}')),
         );
       }
-    } catch (e) {
-      LoadingScreen.hide(context); // Hide loading screen on error
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Login failed: ${e.toString()}')),
-      );
     }
   }
-}
-
 
   @override
   void dispose() {
@@ -79,72 +77,66 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final bool isSmallScreen = size.width < 350;
-    final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-      ),
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: Colors.white,
+      // Remove app bar for cleaner look
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
             padding: EdgeInsets.symmetric(
               horizontal: size.width * 0.08,
-              vertical: size.height * 0.02,
+              vertical: size.height * 0.05, // Add more top padding
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Logo and Tagline
+                // Logo and Tagline - Make more compact
                 Center(
                   child: Column(
                     children: [
-                      // Logo Image
+                      // Smaller Logo Image
                       Image.asset(
                         'assets/haul_logo.png',
-                        height: size.height * 0.4, // Adjusted height to match the design
+                        height: size.height * 0.4, // Reduced from 0.4
                       ),
-                      SizedBox(height: size.height * 0.002), // Adjust font size for responsiveness
-                      // Tagline
-                      Text(
+                      Transform.translate(
+                        offset: Offset(0, -20), // Adjust the offset as needed
+                        child :Text(
                         "Let's thrift together",
                         style: GoogleFonts.poppins(
-                          fontSize: isSmallScreen ? 14 : 16, // Slightly larger font size for better readability
+                          fontSize: 16,
                           fontWeight: FontWeight.w600,
                           color: Colors.grey.shade600,
+                         ),
                         ),
                       ),
                     ],
                   ),
                 ),
 
-                SizedBox(height: size.height * 0.04),
+                SizedBox(height: size.height * 0.002),
 
                 // Login Form
                 Form(
                   key: _formKey,
                   child: Column(
                     children: [
-                      // Email Field
+                      // Email Field - updated style
                       TextFormField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
                         decoration: InputDecoration(
                           hintText: 'Email',
                           hintStyle: GoogleFonts.poppins(
-                            fontSize: isSmallScreen ? 12 : 14,
-                            color: Colors.black,
+                            fontSize: 14,
+                            color: Colors.grey.shade700,
                           ),
                           filled: true,
                           fillColor: Colors.grey.shade200,
+                          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(4),
                             borderSide: BorderSide.none,
                           ),
                         ),
@@ -156,22 +148,23 @@ class _LoginScreenState extends State<LoginScreen> {
                         },
                       ),
 
-                      SizedBox(height: size.height * 0.02),
+                      SizedBox(height: 16),
 
-                      // Password Field
+                      // Password Field - updated style
                       TextFormField(
                         controller: _passwordController,
                         obscureText: _obscurePassword,
                         decoration: InputDecoration(
                           hintText: 'Password',
                           hintStyle: GoogleFonts.poppins(
-                            fontSize: isSmallScreen ? 12 : 14,
-                            color: Colors.black,
+                            fontSize: 14,
+                            color: Colors.grey.shade700,
                           ),
                           filled: true,
                           fillColor: Colors.grey.shade200,
+                          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(4),
                             borderSide: BorderSide.none,
                           ),
                           suffixIcon: IconButton(
@@ -210,8 +203,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: Text(
                             'Forgot your Password?',
                             style: GoogleFonts.poppins(
-                              fontSize: isSmallScreen ? 12 : 14,
-                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ),
@@ -220,34 +213,82 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
 
-                SizedBox(height: size.height * 0.04),
+                SizedBox(height: 16),
 
                 // Sign In Button
                 ElevatedButton(
                   onPressed: () {
                     if (_formKey.currentState!.validate()) {
-                      signInUser(); // Call the sign-in function
-                      // Navigate to home screen
-                      // Navigator.pushReplacement(
-                      //   context,
-                      //   MaterialPageRoute(builder: (_) => HomeScreen(userData: {})),
-                      // );
+                      signInUser();
                     }
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.black,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(4),
                     ),
-                    padding: EdgeInsets.symmetric(vertical: size.height * 0.02),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
-                  child: const Text(
+                  child: Text(
                     'Sign In',
-                    style: TextStyle(color: Colors.white),
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w500,
+                      fontSize: 14,
+                    ),
                   ),
                 ),
 
-                SizedBox(height: size.height * 0.02),
+                // OR divider
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Row(
+                    children: [
+                      Expanded(child: Divider(color: Colors.grey.shade300)),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          "OR",
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ),
+                      Expanded(child: Divider(color: Colors.grey.shade300)),
+                    ],
+                  ),
+                ),
+
+                // Google Sign In Button
+                OutlinedButton.icon(
+                  onPressed: () {
+                    // Implement Google sign in
+                  },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.black,
+                    side: BorderSide(color: Colors.grey.shade300),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  icon: Image.asset(
+                    'assets/google_logo.png', // You'll need to add this asset
+                    height: 20,
+                    width: 20,
+                  ),
+                  label: Text(
+                    'Sign in with Google',
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w500,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+
+                SizedBox(height: 16),
 
                 // Create Account Link
                 Center(
@@ -258,9 +299,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Text(
                       'Create an account',
                       style: GoogleFonts.poppins(
-                        fontSize: isSmallScreen ? 12 : 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey.shade600,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.grey.shade700,
                       ),
                     ),
                   ),
