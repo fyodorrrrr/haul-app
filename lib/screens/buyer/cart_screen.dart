@@ -6,7 +6,7 @@ class CartScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
+    //final size = MediaQuery.of(context).size;
     
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
