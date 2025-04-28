@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '/widgets/loading_screen.dart';
+import '/theme/app_theme.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -127,7 +128,7 @@ class _LoginScreenState extends State<LoginScreen> {
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Google sign-in failed: ${_getFriendlyError(e)}')),
+        SnackBar(content: Text('Google sign-in failed: ${_getFriendlyError(e)}'), backgroundColor: AppTheme.errorColor,),
       );
     } finally {
       LoadingScreen.hide(context);

@@ -2,6 +2,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '/models/product_model.dart';
+import '/providers/wishlist_providers.dart';
+import 'package:provider/provider.dart';
+import '/models/wishlist_model.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
 
 class MainHomeScreen extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -18,12 +23,22 @@ class MainHomeScreen extends StatefulWidget {
 class _MainHomeScreenState extends State<MainHomeScreen> {
   List<Product> products = [];
   final String imageUrl = 'https://firebasestorage.googleapis.com/v0/b/haul-thrift-shop.firebasestorage.app/o/product.png?alt=media&token=8a229200-6b08-44c6-95ae-cf0efa4b1b5a'; 
+  String? userId; // User ID to be used for wishlist
+
 
   @override
   void initState() {
     super.initState();
-    // addDummyProducts();
-    fetchProducts(); // Fetch products when the screen is loaded
+    fetchUserId(); // Fetch user ID when the screen is loaded
+    fetchProducts(); // Fetch products
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final wishlistProvider = Provider.of<WishlistProvider>(context, listen: false);
+      if (userId != null) {
+        wishlistProvider.fetchWishlist(userId!); // Fetch wishlist using the provider
+      } else {
+        wishlistProvider.clearWishlist(); // Clear wishlist for guest users
+      }
+    });
   }
 
   Future<void> fetchProducts() async {
@@ -39,6 +54,17 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
       });
     } catch (e) {
       print('Error fetching products: $e');
+    }
+  }
+
+  void fetchUserId() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      setState(() {
+        userId = user.uid; // Fetch the userID
+      });
+    } else {
+      print('No user is currently logged in.');
     }
   }
 
@@ -218,45 +244,195 @@ Future<void> addDummyProducts() async {
   }
 
   Widget _buildForYouGrid(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final isSmallScreen = size.width < 360;
+    final itemWidth = (size.width - 48) / 2; // Account for padding and spacing
+    final itemHeight = itemWidth * 1.35; // Maintain aspect ratio
+
+    final wishlistProvider = Provider.of<WishlistProvider>(context);
+
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        childAspectRatio: 1,
+        childAspectRatio: itemWidth / itemHeight,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
       ),
-      itemCount: products.length, // Use the fetched products
+      itemCount: products.length,
       itemBuilder: (context, index) {
         final product = products[index];
+        final isInWishlist = wishlistProvider.isInWishlist(product.id);
+
         return Container(
           decoration: BoxDecoration(
-            color: Colors.grey.shade300,
+            color: Colors.white,
             borderRadius: BorderRadius.circular(8),
-          ),
-          child: Column(
-            children: [
-              // Display product image (if available)
-              product.imageUrl.isNotEmpty
-                  ? Image.network(product.imageUrl, height: 100, width: 100, fit: BoxFit.cover)
-                  : Container(height: 100, width: 100, color: Colors.grey.shade400), // Placeholder
-
-              // Display product name
-              Text(
-                product.name,
-                style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.1),
+                spreadRadius: 1,
+                blurRadius: 2,
+                offset: const Offset(0, 1),
               ),
-              
-              // Display product price
-              Text(
-                '\$${product.price}',
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  color: Colors.grey.shade600,
+            ],
+          ),
+          child: Stack(
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Product Image
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                    child: SizedBox(
+                      height: itemHeight * 0.6, // Image takes 60% of card height
+                      width: double.infinity,
+                      child: product.imageUrl.isNotEmpty
+                          ? Image.network(
+                              product.imageUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  color: Colors.grey.shade200,
+                                  child: Icon(
+                                    Icons.error_outline,
+                                    color: Colors.grey.shade400,
+                                    size: isSmallScreen ? 24 : 32,
+                                  ),
+                                );
+                              },
+                            )
+                          : Container(
+                              color: Colors.grey.shade200,
+                              child: Icon(
+                                Icons.image,
+                                color: Colors.grey.shade400,
+                                size: isSmallScreen ? 24 : 32,
+                              ),
+                            ),
+                    ),
+                  ),
+
+                  // Product Details
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.all(isSmallScreen ? 6.0 : 8.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            product.name,
+                            style: GoogleFonts.poppins(
+                              fontSize: isSmallScreen ? 12 : 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            '\$${product.price.toStringAsFixed(2)}',
+                            style: GoogleFonts.poppins(
+                              fontSize: isSmallScreen ? 14 : 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              // Wishlist Button
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  width: isSmallScreen ? 32 : 36,
+                  height: isSmallScreen ? 32 : 36,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        spreadRadius: 1,
+                        blurRadius: 1,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                  child: IconButton(
+                    icon: Icon(
+                      isInWishlist ? Icons.favorite : Icons.favorite_border,
+                      size: isSmallScreen ? 16 : 20,
+                      color: isInWishlist ? Colors.red : Colors.grey,
+                    ),
+                    padding: EdgeInsets.zero,
+                    onPressed: () async {
+                      if (userId == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Please log in to add items to your wishlist.',
+                              style: GoogleFonts.poppins(),
+                            ),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                        return;
+                      }
+
+                      try {
+                        if (isInWishlist) {
+                          await wishlistProvider.removeFromWishlist(product.id);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Removed from wishlist',
+                                style: GoogleFonts.poppins(),
+                              ),
+                              duration: const Duration(seconds: 1),
+                            ),
+                          );
+                        } else {
+                          await wishlistProvider.addToWishlist(
+                            WishlistModel(
+                              productId: product.id,
+                              userId: userId!,
+                              productName: product.name,
+                              productImage: product.imageUrl,
+                              productPrice: product.price,
+                              addedAt: DateTime.now(),
+                            ),
+                          );
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Added to wishlist',
+                                style: GoogleFonts.poppins(),
+                              ),
+                              duration: const Duration(seconds: 1),
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'An error occurred. Please try again.',
+                              style: GoogleFonts.poppins(),
+                            ),
+                            backgroundColor: Colors.red,
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    },
+                  ),
                 ),
               ),
             ],
