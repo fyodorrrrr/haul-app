@@ -13,10 +13,12 @@ buildscript {
     }
     dependencies {
         // Existing classpath for Gradle
-        classpath 'com.android.tools.build:gradle:8.1.0' // Or your current version
+        classpath 'com.android.tools.build:gradle:8.1.2'  // Latest stable
         
         // Add the Google Services classpath here
         classpath 'com.google.gms:google-services:4.3.15'  // Or latest version
+
+        classpath 'com.android.tools.build:gradle:8.3.0'  // Latest Gradle plugin (supports JDK 21)
     }
 }
 
