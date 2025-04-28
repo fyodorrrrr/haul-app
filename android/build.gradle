@@ -7,18 +7,22 @@ allprojects {
 
 // Add the buildscript block here
 buildscript {
+    ext.kotlin_version = '1.9.20' // Match Flutter's recommended version
     repositories {
         google()  // Required for Firebase
         mavenCentral()
     }
     dependencies {
         // Existing classpath for Gradle
-        classpath 'com.android.tools.build:gradle:8.1.2'  // Latest stable
+        classpath 'com.android.tools.build:gradle:8.3.0'  // Latest Gradle plugin (supports JDK 21)
         
         // Add the Google Services classpath here
         classpath 'com.google.gms:google-services:4.3.15'  // Or latest version
 
-        classpath 'com.android.tools.build:gradle:8.3.0'  // Latest Gradle plugin (supports JDK 21)
+        // Add the Kotlin Gradle plugin classpath here
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"  // Match Flutter's recommended version
+
+
     }
 }
 
