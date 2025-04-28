@@ -120,9 +120,9 @@ class _LoginScreenState extends State<LoginScreen> {
         MaterialPageRoute(
           builder: (_) => HomeScreen(userData: {
             'uid': userCredential.user!.uid,
-            'email': userCredential.user!.email,
-            'name': userCredential.user!.displayName,
-            'photoUrl': userCredential.user!.photoURL,
+            'email': userCredential.user!.email ?? 'No email',
+            'name': userCredential.user!.displayName ?? 'No name',
+            'photoUrl': userCredential.user!.photoURL ?? '',
           }),
         ),
       );
