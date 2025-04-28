@@ -10,7 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   google_fonts: ^6.1.0
-  google_sign_in: ^6.1.0
+  google_sign_in: ^6.1.1  # For Google Sign-In
   firebase_core: ^2.30.0
   firebase_auth: ^4.17.4
   cloud_firestore: ^4.15.6
