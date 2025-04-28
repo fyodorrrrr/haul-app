@@ -4,6 +4,7 @@ import 'package:haul/screens/buyer/register_screen.dart';
 import 'home_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '/widgets/loading_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -17,6 +18,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
   bool _obscurePassword = true;
 
   //LOGIC FOR LOGIN 
@@ -65,6 +67,89 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     }
+  }
+
+  // Google Sign-In
+  Future<void> _signInWithGoogle() async {
+    try {
+      LoadingScreen.show(context);
+      
+      // 1. Google Sign-In
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) {
+        LoadingScreen.hide(context);
+        return;
+      }
+
+      // 2. Get auth tokens
+      final GoogleSignInAuthentication googleAuth = 
+          await googleUser.authentication;
+
+      // 3. Create Firebase credential
+      final OAuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      // 4. Sign in to Firebase
+      final UserCredential userCredential = 
+          await FirebaseAuth.instance.signInWithCredential(credential);
+
+      // 5. Check/update Firestore
+      final userRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(userCredential.user!.uid);
+
+      final userDoc = await userRef.get();
+
+      if (!userDoc.exists) {
+        await userRef.set({
+          'uid': userCredential.user!.uid,
+          'email': userCredential.user!.email,
+          'name': userCredential.user!.displayName,
+          'photoUrl': userCredential.user!.photoURL,
+          'role': 'buyer',
+          'created_at': FieldValue.serverTimestamp(),
+          'provider': 'google',
+        });
+      }
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => HomeScreen(userData: {
+            'uid': userCredential.user!.uid,
+            'email': userCredential.user!.email,
+            'name': userCredential.user!.displayName,
+            'photoUrl': userCredential.user!.photoURL,
+          }),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Google sign-in failed: ${_getFriendlyError(e)}')),
+      );
+    } finally {
+      LoadingScreen.hide(context);
+    }
+  }
+
+  String _getFriendlyError(dynamic error) {
+    if (error is FirebaseAuthException) {
+      switch (error.code) {
+        case 'wrong-password':
+          return 'Incorrect password';
+        case 'user-not-found':
+          return 'No account found with this email';
+        case 'account-exists-with-different-credential':
+          return 'This email is already linked with another sign-in method';
+        case 'network-request-failed':
+          return 'Network error. Please check your connection';
+        default:
+          return error.message ?? 'Sign-in failed';
+      }
+    }
+    return error.toString();
   }
 
   @override
@@ -264,9 +349,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 // Google Sign In Button
                 OutlinedButton.icon(
-                  onPressed: () {
-                    // Implement Google sign in
-                  },
+                  onPressed: _signInWithGoogle,
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.black,
                     side: BorderSide(color: Colors.grey.shade300),
