@@ -4,6 +4,7 @@ import 'home_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '/widgets/loading_screen.dart';
+import '/theme/app_theme.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -61,7 +62,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       LoadingScreen.hide(context); // Hide loading screen on error
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Login failed: ${e.toString()}')),
+        SnackBar(content: Text('Login failed: ${e.toString()}'), backgroundColor: AppTheme.errorColor,),
       );
     }
   }

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'login_screen.dart';
+// import 'login_screen.dart';
+import 'welcome_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   final Map<String, dynamic> userData;
@@ -74,7 +75,7 @@ class ProfileScreen extends StatelessWidget {
                     // Navigate to the login screen or welcome screen
                     Navigator.pushReplacement(
                       context,
-                      MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      MaterialPageRoute(builder: (_) => const WelcomeScreen()),
                     );
                   } catch (e) {
                     // Show an error message if logout fails

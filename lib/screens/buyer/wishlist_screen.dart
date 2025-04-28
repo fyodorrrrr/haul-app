@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+// import '/models/product_model.dart';
+import '/providers/wishlist_providers.dart'; 
+import 'package:provider/provider.dart'; 
+import '/models/wishlist_model.dart'; 
+
 
 class WishlistScreen extends StatelessWidget {
   const WishlistScreen({Key? key}) : super(key: key);
+  
 
   @override
   Widget build(BuildContext context) {
+    final wishlistProvider = Provider.of<WishlistProvider>(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Column(
@@ -32,7 +39,7 @@ class WishlistScreen extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildStat('5', 'Items'),
+                _buildStat(wishlistProvider.wishlist.length.toString(), 'Items'),
                 _buildDivider(),
                 _buildStat('2', 'On sale'),
                 _buildDivider(),
@@ -81,12 +88,15 @@ class WishlistScreen extends StatelessWidget {
           
           // Wishlist Items
           Expanded(
-            child: ListView.builder(
-              itemCount: 5,
-              itemBuilder: (context, index) {
-                return _buildWishlistItem(context);
-              },
-            ),
+            child: wishlistProvider.wishlist.isEmpty
+                ? Center(child: Text('No items in your wishlist'))
+                : ListView.builder(
+                    itemCount: wishlistProvider.wishlist.length,
+                    itemBuilder: (context, index) {
+                      final wishlistItem = wishlistProvider.wishlist[index];
+                      return _buildWishlistItem(context, wishlistItem, wishlistProvider);
+                    },
+                  ),
           ),
         ],
       ),
@@ -122,9 +132,9 @@ class WishlistScreen extends StatelessWidget {
     );
   }
   
-  Widget _buildWishlistItem(BuildContext context) {
-    final itemNumber = (100 + UniqueKey().hashCode % 900).abs();
-    final price = (15 + UniqueKey().hashCode % 85).abs();
+  Widget _buildWishlistItem(BuildContext context, WishlistModel wishlistItem, WishlistProvider wishlistProvider) {
+    // final itemNumber = (100 + UniqueKey().hashCode % 900).abs();
+    // final price = (15 + UniqueKey().hashCode % 85).abs();
     
     return Container(
       height: 120,
@@ -164,7 +174,7 @@ class WishlistScreen extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    'Thrift Item $itemNumber',
+                    wishlistItem.productName,
                     style: GoogleFonts.poppins(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -185,7 +195,7 @@ class WishlistScreen extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        '\$$price.99',
+                        '\$${wishlistItem.productPrice}',
                         style: GoogleFonts.poppins(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -218,10 +228,14 @@ class WishlistScreen extends StatelessWidget {
             width: 40,
             alignment: Alignment.topCenter,
             padding: const EdgeInsets.only(top: 12.0, right: 12.0),
-            child: Icon(
-              Icons.close,
+            child: IconButton(
+              onPressed: () {
+                // Remove item from wishlist
+                wishlistProvider.removeFromWishlist(wishlistItem.productId);
+              },
+              icon: Icon(Icons.close,
               size: 18,
-              color: Colors.grey.shade500,
+              color: Colors.grey.shade500,)
             ),
           ),
         ],
