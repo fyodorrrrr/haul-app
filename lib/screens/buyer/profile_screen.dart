@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 // import 'login_screen.dart';
 import 'welcome_screen.dart';
+import '/widgets/loading_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   final Map<String, dynamic> userData;
@@ -68,7 +69,9 @@ class ProfileScreen extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 24),
               child: OutlinedButton(
                 onPressed: () async {
+                  LoadingScreen.show(context);
                   try {
+                    
                     // Sign out the user
                     await FirebaseAuth.instance.signOut();
 
@@ -79,6 +82,7 @@ class ProfileScreen extends StatelessWidget {
                     );
                   } catch (e) {
                     // Show an error message if logout fails
+                    LoadingScreen.hide(context); 
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(

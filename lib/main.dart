@@ -6,6 +6,7 @@ import 'theme/app_theme.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart'; // Import the generated file for Firebase options
 import 'providers/wishlist_providers.dart'; // Import your provider
+import 'providers/cart_providers.dart'; 
 
 
 void main() async {
@@ -23,6 +24,7 @@ class MainApp extends StatelessWidget {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => WishlistProvider()),
+        ChangeNotifierProvider(create: (_) => CartProvider()),
       ],
       child: 
       MaterialApp(
