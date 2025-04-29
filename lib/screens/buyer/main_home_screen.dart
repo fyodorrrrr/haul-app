@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:haul/providers/cart_providers.dart';
 import '/models/product_model.dart';
 import '/providers/wishlist_providers.dart';
 import 'package:provider/provider.dart';
@@ -33,10 +34,14 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     fetchProducts(); // Fetch products
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final wishlistProvider = Provider.of<WishlistProvider>(context, listen: false);
+      final cartProvider = Provider.of<CartProvider>(context, listen: false);
+
       if (userId != null) {
         wishlistProvider.fetchWishlist(userId!); // Fetch wishlist using the provider
+        cartProvider.fetchCart(userId!);
       } else {
-        wishlistProvider.clearWishlist(); // Clear wishlist for guest users
+        wishlistProvider.clearWishlist();
+        cartProvider.clearCart(); // Clear wishlist for guest users
       }
     });
   }

@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-// import '/models/product_model.dart';
-import '/providers/wishlist_providers.dart'; 
-import 'package:provider/provider.dart'; 
-import '/models/wishlist_model.dart'; 
-
+import 'package:provider/provider.dart';
+import '/providers/wishlist_providers.dart';
+import '/providers/cart_providers.dart'; // Import CartProvider
+import '/models/wishlist_model.dart';
+import '/models/cart_model.dart';
 
 class WishlistScreen extends StatelessWidget {
   const WishlistScreen({Key? key}) : super(key: key);
-  
 
   @override
   Widget build(BuildContext context) {
     final wishlistProvider = Provider.of<WishlistProvider>(context);
+    final cartProvider = Provider.of<CartProvider>(context); // Access CartProvider
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Column(
@@ -28,7 +29,7 @@ class WishlistScreen extends StatelessWidget {
               ),
             ),
           ),
-          
+
           // Stats bar
           Container(
             padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
@@ -47,9 +48,9 @@ class WishlistScreen extends StatelessWidget {
               ],
             ),
           ),
-          
+
           const SizedBox(height: 24),
-          
+
           // Sorting options
           Row(
             children: [
@@ -83,9 +84,9 @@ class WishlistScreen extends StatelessWidget {
               ),
             ],
           ),
-          
+
           const SizedBox(height: 16),
-          
+
           // Wishlist Items
           Expanded(
             child: wishlistProvider.wishlist.isEmpty
@@ -94,7 +95,7 @@ class WishlistScreen extends StatelessWidget {
                     itemCount: wishlistProvider.wishlist.length,
                     itemBuilder: (context, index) {
                       final wishlistItem = wishlistProvider.wishlist[index];
-                      return _buildWishlistItem(context, wishlistItem, wishlistProvider);
+                      return _buildWishlistItem(context, wishlistItem, wishlistProvider, cartProvider);
                     },
                   ),
           ),
@@ -102,7 +103,7 @@ class WishlistScreen extends StatelessWidget {
       ),
     );
   }
-  
+
   Widget _buildStat(String value, String label) {
     return Column(
       children: [
@@ -123,7 +124,7 @@ class WishlistScreen extends StatelessWidget {
       ],
     );
   }
-  
+
   Widget _buildDivider() {
     return Container(
       height: 30,
@@ -131,11 +132,15 @@ class WishlistScreen extends StatelessWidget {
       color: Colors.grey.shade300,
     );
   }
-  
-  Widget _buildWishlistItem(BuildContext context, WishlistModel wishlistItem, WishlistProvider wishlistProvider) {
-    // final itemNumber = (100 + UniqueKey().hashCode % 900).abs();
-    // final price = (15 + UniqueKey().hashCode % 85).abs();
-    
+
+  Widget _buildWishlistItem(
+    BuildContext context,
+    WishlistModel wishlistItem,
+    WishlistProvider wishlistProvider,
+    CartProvider cartProvider, // Pass CartProvider
+  ) {
+    final isInCart = cartProvider.isInCart(wishlistItem.productId); // Check if item is in cart
+
     return Container(
       height: 120,
       margin: const EdgeInsets.only(bottom: 16),
@@ -162,9 +167,24 @@ class WishlistScreen extends StatelessWidget {
                 topLeft: Radius.circular(12),
                 bottomLeft: Radius.circular(12),
               ),
+              image: wishlistItem.productImage.isNotEmpty
+                  ? DecorationImage(
+                      image: NetworkImage(wishlistItem.productImage),
+                      fit: BoxFit.cover,
+                    )
+                  : null, // Fallback if no image is provided
             ),
+            child: wishlistItem.productImage.isEmpty
+                ? Center(
+                    child: Icon(
+                      Icons.image_not_supported,
+                      color: Colors.grey.shade500,
+                      size: 24,
+                    ),
+                  )
+                : null,
           ),
-          
+
           // Product Info
           Expanded(
             child: Padding(
@@ -182,20 +202,12 @@ class WishlistScreen extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Vintage Collection',
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
                   const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        '\$${wishlistItem.productPrice}',
+                        '\$${wishlistItem.productPrice.toStringAsFixed(2)}',
                         style: GoogleFonts.poppins(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -204,15 +216,43 @@ class WishlistScreen extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                         decoration: BoxDecoration(
-                          color: Colors.black,
+                          color: isInCart ? Colors.grey : Colors.black, // Change color if in cart
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        child: Text(
-                          'Add to Cart',
-                          style: GoogleFonts.poppins(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.white,
+                        child: InkWell(
+                          onTap: isInCart
+                              ? null // Disable button if already in cart
+                              : () {
+                                  // Add to Cart Logic
+                                  cartProvider.addToCart(
+                                    CartModel(
+                                      productId: wishlistItem.productId,
+                                      userId: wishlistItem.userId,
+                                      productName: wishlistItem.productName,
+                                      imageURL: wishlistItem.productImage,
+                                      productPrice: wishlistItem.productPrice,
+                                      addedAt: DateTime.now(),
+                                    ),
+                                  );
+
+                                  // Show confirmation message
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        '${wishlistItem.productName} added to cart!',
+                                        style: GoogleFonts.poppins(),
+                                      ),
+                                      duration: const Duration(seconds: 2),
+                                    ),
+                                  );
+                                },
+                          child: Text(
+                            isInCart ? 'Added' : 'Add to Cart', // Dynamic button text
+                            style: GoogleFonts.poppins(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                       ),
@@ -222,7 +262,7 @@ class WishlistScreen extends StatelessWidget {
               ),
             ),
           ),
-          
+
           // Remove button
           Container(
             width: 40,
@@ -233,13 +273,15 @@ class WishlistScreen extends StatelessWidget {
                 // Remove item from wishlist
                 wishlistProvider.removeFromWishlist(wishlistItem.productId);
               },
-              icon: Icon(Icons.close,
-              size: 18,
-              color: Colors.grey.shade500,)
+              icon: Icon(
+                Icons.close,
+                size: 18,
+                color: Colors.grey.shade500,
+              ),
             ),
           ),
         ],
       ),
     );
   }
-} 
+}
