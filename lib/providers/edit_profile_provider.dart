@@ -1,10 +1,13 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import '/models/user_profile_model.dart';
+import '/providers/user_profile_provider.dart';
 
 class EditProfileProvider extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -15,14 +18,18 @@ class EditProfileProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
   
+  // Add a reference to the centralized profile provider
+  UserProfileProvider? _userProfileProvider;
+  
   // Getters
   UserProfile? get userProfile => _userProfile;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   
-  // Initialize with user profile
-  void setUserProfile(UserProfile profile) {
+  // Initialize with user profile and the centralized provider
+  void initialize(UserProfile profile, UserProfileProvider userProfileProvider) {
     _userProfile = profile;
+    _userProfileProvider = userProfileProvider;
     notifyListeners();
   }
   
@@ -55,13 +62,19 @@ class EditProfileProvider extends ChangeNotifier {
         'updated_at': FieldValue.serverTimestamp(),
       });
       
-      // Update local user profile
-      _userProfile = _userProfile?.copyWith(
+      // After successful update, create updated profile
+      final updatedProfile = _userProfile!.copyWith(
         fullName: fullName.trim(),
         phone: phone.trim(),
         gender: gender ?? _userProfile!.gender,
         birthDate: birthDate,
       );
+      
+      // Update local copy
+      _userProfile = updatedProfile;
+      
+      // Also update the centralized user profile provider if available
+      _userProfileProvider?.updateUserProfile(updatedProfile);
       
       _isLoading = false;
       notifyListeners();
@@ -119,7 +132,11 @@ class EditProfileProvider extends ChangeNotifier {
       await user.updatePhotoURL(downloadUrl);
       
       // Update local user profile
-      _userProfile = _userProfile?.copyWith(photoUrl: downloadUrl);
+      final updatedProfile = _userProfile!.copyWith(photoUrl: downloadUrl);
+      _userProfile = updatedProfile;
+      
+      // Update the centralized provider if available
+      _userProfileProvider?.updateUserProfile(updatedProfile);
       
       _isLoading = false;
       notifyListeners();

@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '/models/user_profile_model.dart';
 import '/providers/edit_profile_provider.dart';
+import '/providers/user_profile_provider.dart';
 
 class EditProfileScreen extends StatefulWidget {
   final UserProfile userProfile;
@@ -35,10 +36,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _selectedGender = widget.userProfile.gender;
     _selectedDate = widget.userProfile.birthDate;
     
-    // Initialize provider with user profile
+    // Initialize provider with user profile and the centralized provider
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<EditProfileProvider>(context, listen: false)
-          .setUserProfile(widget.userProfile);
+      final editProvider = Provider.of<EditProfileProvider>(context, listen: false);
+      final userProfileProvider = Provider.of<UserProfileProvider>(context, listen: false);
+      
+      editProvider.initialize(widget.userProfile, userProfileProvider);
     });
   }
 
