@@ -8,6 +8,7 @@ import 'package:provider/provider.dart'; // Import the generated file for Fireba
 import 'providers/wishlist_providers.dart'; // Import your provider
 import 'providers/cart_providers.dart';  // Import your provider
 import 'providers/auth_provider.dart'; // Import your provider
+import 'providers/user_registration_provider.dart'; // Import your provider
 import '/screens/buyer/forgot_password_screen.dart';
 
 void main() async {
@@ -26,6 +27,7 @@ class MainApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => WishlistProvider()),
         ChangeNotifierProvider(create: (_) => CartProvider()),
+        ChangeNotifierProvider(create: (_) => UserRegistrationProvider()),
         Provider<AuthProvider>(create: (_) => AuthProvider()),
       ],
       child: 

@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-// import 'login_screen.dart';
+import 'package:intl/intl.dart';
 import 'welcome_screen.dart';
 import '/widgets/loading_screen.dart';
+import '/models/user_profile_model.dart';
 
 class ProfileScreen extends StatelessWidget {
   final Map<String, dynamic> userData;
@@ -15,7 +16,8 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    //final size = MediaQuery.of(context).size;
+    // Convert Map to UserProfile model
+    UserProfile userProfile = _getUserProfile();
     
     return SingleChildScrollView(
       child: Padding(
@@ -35,13 +37,17 @@ class ProfileScreen extends StatelessWidget {
             ),
             
             // Profile Header
-            _buildProfileHeader(context),
+            _buildProfileHeader(context, userProfile),
             
             const SizedBox(height: 24),
             
             // Account Section
             _buildSectionHeader('Account'),
-            _buildMenuItem(Icons.person, 'Personal Information'),
+            _buildMenuItem(
+              Icons.person, 
+              'Personal Information',
+              onTap: () => _showPersonalInfo(context, userProfile),
+            ),
             _buildMenuItem(Icons.location_on_outlined, 'Saved Addresses'),
             _buildMenuItem(Icons.payment, 'Payment Methods'),
             
@@ -68,32 +74,7 @@ class ProfileScreen extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.only(bottom: 24),
               child: OutlinedButton(
-                onPressed: () async {
-                  LoadingScreen.show(context);
-                  try {
-                    
-                    // Sign out the user
-                    await FirebaseAuth.instance.signOut();
-
-                    // Navigate to the login screen or welcome screen
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (_) => const WelcomeScreen()),
-                    );
-                  } catch (e) {
-                    // Show an error message if logout fails
-                    LoadingScreen.hide(context); 
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Error logging out: ${e.toString()}',
-                          style: GoogleFonts.poppins(),
-                        ),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  }
-                },
+                onPressed: () => _logout(context),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.black,
                   side: const BorderSide(color: Colors.black),
@@ -117,7 +98,48 @@ class ProfileScreen extends StatelessWidget {
     );
   }
   
-  Widget _buildProfileHeader(BuildContext context) {
+  // Convert Map data to UserProfile object
+  UserProfile _getUserProfile() {
+    try {
+      return UserProfile.fromMap(userData);
+    } catch (e) {
+      // Fallback for if the map doesn't have all required fields
+      return UserProfile(
+        uid: userData['uid'] ?? '',
+        email: userData['email'] ?? 'guest@example.com',
+        fullName: userData['fullName'] ?? 'Guest User',
+        gender: userData['gender'] ?? '',
+        phone: userData['phone'] ?? '',
+        role: userData['role'] ?? 'buyer',
+        provider: userData['provider'] ?? 'email',
+      );
+    }
+  }
+
+  // Logout function  
+  Future<void> _logout(BuildContext context) async {
+    LoadingScreen.show(context);
+    try {
+      await FirebaseAuth.instance.signOut();
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+      );
+    } catch (e) {
+      LoadingScreen.hide(context); 
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Error logging out: ${e.toString()}',
+            style: GoogleFonts.poppins(),
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+  
+  Widget _buildProfileHeader(BuildContext context, UserProfile profile) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16),
       child: Row(
@@ -129,14 +151,22 @@ class ProfileScreen extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.grey.shade300,
               shape: BoxShape.circle,
+              image: profile.photoUrl != null && profile.photoUrl!.isNotEmpty
+                ? DecorationImage(
+                    image: NetworkImage(profile.photoUrl!),
+                    fit: BoxFit.cover,
+                  )
+                : null,
             ),
-            child: Center(
-              child: Icon(
-                Icons.person,
-                size: 40,
-                color: Colors.grey.shade600,
-              ),
-            ),
+            child: profile.photoUrl == null || profile.photoUrl!.isEmpty
+                ? Center(
+                    child: Icon(
+                      Icons.person,
+                      size: 40,
+                      color: Colors.grey.shade600,
+                    ),
+                  )
+                : null,
           ),
           
           const SizedBox(width: 16),
@@ -147,7 +177,7 @@ class ProfileScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  userData['name'] ?? 'Guest User',
+                  profile.fullName.isNotEmpty ? profile.fullName : 'Guest User',
                   style: GoogleFonts.poppins(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -155,7 +185,7 @@ class ProfileScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  userData['email'] ?? 'guest@example.com',
+                  profile.email,
                   style: GoogleFonts.poppins(
                     fontSize: 14,
                     color: Colors.grey.shade600,
@@ -170,6 +200,7 @@ class ProfileScreen extends StatelessWidget {
             icon: const Icon(Icons.edit_outlined),
             onPressed: () {
               // Handle edit profile
+              _showEditProfile(context, profile);
             },
           ),
         ],
@@ -190,7 +221,7 @@ class ProfileScreen extends StatelessWidget {
     );
   }
   
-  Widget _buildMenuItem(IconData icon, String title) {
+  Widget _buildMenuItem(IconData icon, String title, {VoidCallback? onTap}) {
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
       child: ListTile(
@@ -216,9 +247,103 @@ class ProfileScreen extends StatelessWidget {
           size: 16,
           color: Colors.grey,
         ),
-        onTap: () {
-          // Handle menu item tap
-        },
+        onTap: onTap,
+      ),
+    );
+  }
+
+  // Show user's personal information
+  void _showPersonalInfo(BuildContext context, UserProfile profile) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Personal Information',
+              style: GoogleFonts.poppins(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 24),
+            
+            _buildInfoRow('Full Name', profile.fullName),
+            _buildInfoRow('Email', profile.email),
+            _buildInfoRow('Phone', profile.phone),
+            _buildInfoRow('Gender', profile.gender),
+            if (profile.birthDate != null)
+              _buildInfoRow('Birth Date', DateFormat('MMMM d, yyyy').format(profile.birthDate!)),
+            
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: Text(
+                  'Close',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              color: Colors.grey.shade600,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value.isNotEmpty ? value : 'Not provided',
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  // Edit profile dialog
+  void _showEditProfile(BuildContext context, UserProfile profile) {
+    // This would be implemented to edit profile
+    // For now, show a coming soon message
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Profile editing coming soon!',
+          style: GoogleFonts.poppins(),
+        ),
       ),
     );
   }
