@@ -6,8 +6,9 @@ import 'theme/app_theme.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart'; // Import the generated file for Firebase options
 import 'providers/wishlist_providers.dart'; // Import your provider
-import 'providers/cart_providers.dart'; 
-
+import 'providers/cart_providers.dart';  // Import your provider
+import 'providers/auth_provider.dart'; // Import your provider
+import '/screens/buyer/forgot_password_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized(); // Ensure that Flutter bindings are initialized
@@ -25,6 +26,7 @@ class MainApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => WishlistProvider()),
         ChangeNotifierProvider(create: (_) => CartProvider()),
+        Provider<AuthProvider>(create: (_) => AuthProvider()),
       ],
       child: 
       MaterialApp(
