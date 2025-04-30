@@ -8,6 +8,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '/widgets/loading_screen.dart';
 import '/theme/app_theme.dart';
+import 'register_info_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -77,9 +78,15 @@ class _LoginScreenState extends State<LoginScreen> {
       LoadingScreen.show(context);
       
       // 1. Google Sign-In
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn().catchError((error) {
+        print("Error in GoogleSignIn.signIn(): $error");
+        throw error;
+      });
       if (googleUser == null) {
         LoadingScreen.hide(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Google Sign-In was canceled')),
+        );
         return;
       }
 
@@ -102,37 +109,79 @@ class _LoginScreenState extends State<LoginScreen> {
           .collection('users')
           .doc(userCredential.user!.uid);
 
-      final userDoc = await userRef.get();
+      try {
+        final userDoc = await userRef.get();
+        
+        // First ensure loading screen is dismissed
+        LoadingScreen.hide(context);
+        
+        // Create a map to store user data
+        Map<String, dynamic> userData;
 
-      if (!userDoc.exists) {
-        await userRef.set({
-          'uid': userCredential.user!.uid,
-          'email': userCredential.user!.email,
-          'name': userCredential.user!.displayName,
-          'photoUrl': userCredential.user!.photoURL,
-          'role': 'buyer',
-          'created_at': FieldValue.serverTimestamp(),
-          'provider': 'google',
-        });
-      }
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => HomeScreen(userData: {
+        if (!userDoc.exists) {
+          // New user - create basic record
+          userData = {
             'uid': userCredential.user!.uid,
-            'email': userCredential.user!.email ?? 'No email',
-            'name': userCredential.user!.displayName ?? 'No name',
-            'photoUrl': userCredential.user!.photoURL ?? '',
-          }),
-        ),
-      );
+            'email': userCredential.user!.email,
+            'fullName': userCredential.user!.displayName,
+            'photoUrl': userCredential.user!.photoURL,
+            'role': 'buyer',
+            'created_at': FieldValue.serverTimestamp(),
+            'provider': 'google',
+          };
+          
+          await userRef.set(userData);
+          
+          // Use post-frame callback for navigation
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(
+                builder: (_) => RegisterInfoScreen(userData: userData),
+              ),
+              (route) => false, // Remove all previous routes
+            );
+          });
+        } else {
+          // Existing user - get their data
+          userData = userDoc.data() as Map<String, dynamic>;
+          
+          // Check if profile is complete
+          if (userData['phone'] == null || userData['gender'] == null) {
+            // Use post-frame callback for navigation
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(
+                  builder: (_) => RegisterInfoScreen(userData: userData),
+                ),
+                (route) => false, // Remove all previous routes
+              );
+            });
+          } else {
+            // Use post-frame callback for navigation
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(
+                  builder: (_) => HomeScreen(userData: userData),
+                ),
+                (route) => false, // Remove all previous routes
+              );
+            });
+          }
+        }
+      } catch (firestoreError) {
+        LoadingScreen.hide(context);
+        print("Firestore error: $firestoreError");
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Database error: ${_getFriendlyError(firestoreError)}'))
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Google sign-in failed: ${_getFriendlyError(e)}'), backgroundColor: AppTheme.errorColor,),
-      );
-    } finally {
       LoadingScreen.hide(context);
+      print("Google sign-in process error: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Google sign-in failed: ${_getFriendlyError(e)}'), 
+        backgroundColor: AppTheme.errorColor)
+      );
     }
   }
 
