@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '/models/cart_model.dart';
+import '/utils/snackbar_helper.dart';
 
 class CartProvider with ChangeNotifier {
   List<CartModel> _cart = [];
 
   List<CartModel> get cart => _cart;
 
-  // Fetch cart items from Firebase
+  // Fetch cart from Firestore
   Future<void> fetchCart(String userId) async {
     try {
       final snapshot = await FirebaseFirestore.instance
@@ -24,7 +25,7 @@ class CartProvider with ChangeNotifier {
     }
   }
 
-  // Add an item to the cart
+  // Add a product to cart
   Future<void> addToCart(CartModel cartItem) async {
     try {
       await FirebaseFirestore.instance
@@ -65,5 +66,35 @@ class CartProvider with ChangeNotifier {
   // Check if a product is in the cart
   bool isInCart(String productId) {
     return _cart.any((item) => item.productId == productId);
+  }
+
+  // Handle add to cart logic
+  Future<void> handleAddToCart({
+    required BuildContext context,
+    required String productId,
+    required String userId,
+    required CartModel cartItem,
+  }) async {
+    try {
+      if (isInCart(productId)) {
+        await removeFromCart(productId);
+        SnackBarHelper.showSnackBar(
+          context,
+          'Removed from cart',
+        );
+      } else {
+        await addToCart(cartItem);
+        SnackBarHelper.showSnackBar(
+          context,
+          'Added to cart',
+        );
+      }
+    } catch (e) {
+      SnackBarHelper.showSnackBar(
+        context,
+        'An error occurred. Please try again.',
+        isError: true,
+      );
+    }
   }
 }

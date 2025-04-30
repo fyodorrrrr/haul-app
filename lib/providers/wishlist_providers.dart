@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '/models/wishlist_model.dart';
+import '/utils/snackbar_helper.dart';
 
 class WishlistProvider with ChangeNotifier {
   List<WishlistModel> _wishlist = [];
@@ -61,10 +62,42 @@ class WishlistProvider with ChangeNotifier {
     return _wishlist.any((item) => item.productId == productId);
   }
 
+  // Handle wishlist logic
+  Future<void> handleWishlist({
+    required BuildContext context,
+    required String productId,
+    required String userId,
+    required WishlistModel wishlistItem,
+    required bool isInWishlist,
+  }) async {
+    try {
+      if (isInWishlist) {
+        await removeFromWishlist(productId);
+        SnackBarHelper.showSnackBar(
+          context,
+          'Removed from wishlist',
+        );
+      } else {
+        await addToWishlist(wishlistItem);
+        SnackBarHelper.showSnackBar(
+          context,
+          'Added to wishlist',
+        );
+      }
+    } catch (e) {
+      SnackBarHelper.showSnackBar(
+        context,
+        'An error occurred. Please try again.',
+        isError: true,
+      );
+    }
+  }
+
   // Clear the wishlist
   void clearWishlist() {
     _wishlist = [];
     notifyListeners();
   }
 }
+
 
