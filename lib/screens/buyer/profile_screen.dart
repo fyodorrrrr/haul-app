@@ -2,23 +2,34 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import '/providers/user_profile_provider.dart';
 import 'welcome_screen.dart';
 import '/widgets/loading_screen.dart';
 import '/models/user_profile_model.dart';
+import '/screens/buyer/edit_profile_screen.dart';
 
-class ProfileScreen extends StatelessWidget {
-  final Map<String, dynamic> userData;
-  
-  const ProfileScreen({
-    Key? key, 
-    this.userData = const {},
-  }) : super(key: key);
+class ProfileScreen extends StatefulWidget {
+  final UserProfile userProfile;
+
+  ProfileScreen({required this.userProfile});
 
   @override
+  _ProfileScreenState createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Fetch user profile when screen loads
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<UserProfileProvider>().fetchUserProfile();
+    });
+  }
+  
+  @override
   Widget build(BuildContext context) {
-    // Convert Map to UserProfile model
-    UserProfile userProfile = _getUserProfile();
-    
     return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -37,7 +48,7 @@ class ProfileScreen extends StatelessWidget {
             ),
             
             // Profile Header
-            _buildProfileHeader(context, userProfile),
+            _buildProfileHeader(context, widget.userProfile),
             
             const SizedBox(height: 24),
             
@@ -46,7 +57,7 @@ class ProfileScreen extends StatelessWidget {
             _buildMenuItem(
               Icons.person, 
               'Personal Information',
-              onTap: () => _showPersonalInfo(context, userProfile),
+              onTap: () => _showPersonalInfo(context, widget.userProfile),
             ),
             _buildMenuItem(Icons.location_on_outlined, 'Saved Addresses'),
             _buildMenuItem(Icons.payment, 'Payment Methods'),
@@ -98,24 +109,6 @@ class ProfileScreen extends StatelessWidget {
     );
   }
   
-  // Convert Map data to UserProfile object
-  UserProfile _getUserProfile() {
-    try {
-      return UserProfile.fromMap(userData);
-    } catch (e) {
-      // Fallback for if the map doesn't have all required fields
-      return UserProfile(
-        uid: userData['uid'] ?? '',
-        email: userData['email'] ?? 'guest@example.com',
-        fullName: userData['fullName'] ?? 'Guest User',
-        gender: userData['gender'] ?? '',
-        phone: userData['phone'] ?? '',
-        role: userData['role'] ?? 'buyer',
-        provider: userData['provider'] ?? 'email',
-      );
-    }
-  }
-
   // Logout function  
   Future<void> _logout(BuildContext context) async {
     LoadingScreen.show(context);
@@ -336,15 +329,36 @@ class ProfileScreen extends StatelessWidget {
   
   // Edit profile dialog
   void _showEditProfile(BuildContext context, UserProfile profile) {
-    // This would be implemented to edit profile
-    // For now, show a coming soon message
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Profile editing coming soon!',
-          style: GoogleFonts.poppins(),
-        ),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EditProfileScreen(userProfile: profile),
       ),
+    ).then((updated) {
+      if (updated == true) {
+        // Refresh user profile data after successful update
+        context.read<UserProfileProvider>().fetchUserProfile();
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile updated successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    });
+  }
+}
+
+class ProfileScreenWrapper extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<UserProfileProvider>(
+      builder: (context, provider, child) {
+        return provider.userProfile != null
+            ? ProfileScreen(userProfile: provider.userProfile!)
+            : const Center(child: CircularProgressIndicator());
+      },
     );
   }
 }

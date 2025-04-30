@@ -6,8 +6,8 @@ import 'wishlist_screen.dart';
 import 'cart_screen.dart';
 import 'profile_screen.dart';
 import 'main_home_screen.dart'; // Import the new main home screen
-
-
+import 'package:provider/provider.dart'; // Import provider for UserProfileProvider
+import '/providers/user_profile_provider.dart';
 
 class HomeScreen extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -24,6 +24,15 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
+  @override
+  void initState() {
+    super.initState();
+    // Fetch user profile when app starts
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<UserProfileProvider>().fetchUserProfile();
+    });
+  }
+
   void _onTabTapped(int index) {
     setState(() {
       _selectedIndex = index;
@@ -38,7 +47,13 @@ class _HomeScreenState extends State<HomeScreen> {
       const ExploreScreen(),                    // Explore (index 1)
       const WishlistScreen(),                   // Wishlist (index 2)
       const CartScreen(),                       // Cart (index 3)
-      ProfileScreen(userData: widget.userData), // Profile (index 4)
+      Consumer<UserProfileProvider>(
+        builder: (context, provider, child) {
+          return provider.userProfile != null
+              ? ProfileScreen(userProfile: provider.userProfile!)
+              : const Center(child: CircularProgressIndicator());
+        },
+      ), // Profile (index 4)
     ];
     
     // Get titles for app bar based on selected tab
