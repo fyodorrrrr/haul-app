@@ -8,6 +8,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '/widgets/loading_screen.dart';
 import '/theme/app_theme.dart';
+import 'register_info_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -103,30 +104,55 @@ class _LoginScreenState extends State<LoginScreen> {
           .doc(userCredential.user!.uid);
 
       final userDoc = await userRef.get();
+      
+      // NEW: Create a map to store user data
+      Map<String, dynamic> userData;
 
       if (!userDoc.exists) {
-        await userRef.set({
+        // New user - create basic record
+        userData = {
           'uid': userCredential.user!.uid,
           'email': userCredential.user!.email,
-          'name': userCredential.user!.displayName,
+          'fullName': userCredential.user!.displayName,
           'photoUrl': userCredential.user!.photoURL,
           'role': 'buyer',
           'created_at': FieldValue.serverTimestamp(),
           'provider': 'google',
-        });
+        };
+        
+        await userRef.set(userData);
+        
+        // NEW: Route to RegisterInfoScreen for new users
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => RegisterInfoScreen(userData: userData),
+          ),
+        );
+      } else {
+        // Existing user - get their data
+        userData = userDoc.data() as Map<String, dynamic>;
+        
+        // NEW: Check if profile is complete
+        if (userData['phone'] == null || 
+            userData['gender'] == null) {
+          // Profile incomplete, go to RegisterInfoScreen
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => RegisterInfoScreen(userData: userData),
+            ),
+          );
+        } else {
+          // Profile complete, go to HomeScreen
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => HomeScreen(userData: userData),
+            ),
+          );
+        }
       }
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => HomeScreen(userData: {
-            'uid': userCredential.user!.uid,
-            'email': userCredential.user!.email ?? 'No email',
-            'name': userCredential.user!.displayName ?? 'No name',
-            'photoUrl': userCredential.user!.photoURL ?? '',
-          }),
-        ),
-      );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Google sign-in failed: ${_getFriendlyError(e)}'), backgroundColor: AppTheme.errorColor,),
