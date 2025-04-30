@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'welcome_screen.dart';
 import '/widgets/loading_screen.dart';
 import '/models/user_profile_model.dart';
+import '/screens/buyer/edit_profile_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   final Map<String, dynamic> userData;
@@ -336,15 +337,29 @@ class ProfileScreen extends StatelessWidget {
   
   // Edit profile dialog
   void _showEditProfile(BuildContext context, UserProfile profile) {
-    // This would be implemented to edit profile
-    // For now, show a coming soon message
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Profile editing coming soon!',
-          style: GoogleFonts.poppins(),
-        ),
+    // Navigate to the edit profile screen
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EditProfileScreen(userProfile: profile),
       ),
-    );
+    ).then((updated) {
+      if (updated == true) {
+        // Reload user profile data
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile updated successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        
+        // Refresh profile data
+        if (context.mounted) {
+          // Refresh user data from Firestore
+          // This depends on how you're managing your user data
+          // Example: context.read<UserProvider>().refreshUserData();
+        }
+      }
+    });
   }
 }
