@@ -4,6 +4,9 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
+import '/providers/user_registration_provider.dart';
+import 'register_info_screen.dart';
 import 'home_screen.dart';
 
 class VerifyEmailScreen extends StatefulWidget {
@@ -21,23 +24,33 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
   int _resendCooldown = 0;
   Timer? _verificationTimer;
   Timer? _cooldownTimer;
+  Timer? _timer;
+  bool _isVerifying = false;
 
   @override
   void initState() {
     super.initState();
     _startAutoVerificationCheck();
+    _startEmailVerificationTimer();
   }
 
   @override
   void dispose() {
     _verificationTimer?.cancel();
     _cooldownTimer?.cancel();
+    _timer?.cancel();
     super.dispose();
   }
 
   void _startAutoVerificationCheck() {
     _verificationTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       if (mounted) _checkEmailVerified();
+    });
+  }
+
+  void _startEmailVerificationTimer() {
+    _timer = Timer.periodic(const Duration(seconds: 3), (_) {
+      _checkIfEmailIsVerified();
     });
   }
 
@@ -86,6 +99,34 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
     }
   }
 
+  Future<void> _checkIfEmailIsVerified() async {
+    if (_isVerifying) return;
+    
+    setState(() {
+      _isVerifying = true;
+    });
+    
+    try {
+      final verified = await context.read<UserRegistrationProvider>().checkEmailVerification();
+      
+      if (verified) {
+        _timer?.cancel();
+        
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => RegisterInfoScreen(
+              userData: {'email': widget.email},
+            ),
+          ),
+        );
+      }
+    } finally {
+      setState(() {
+        _isVerifying = false;
+      });
+    }
+  }
+
   Future<void> _updateFirestoreVerification(String uid) async {
     await FirebaseFirestore.instance
         .collection('users')
@@ -131,6 +172,39 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
         backgroundColor: Colors.black,
       ),
     );
+  }
+
+  Future<void> _verifyEmailManually() async {
+    setState(() {
+      _isVerifying = true;
+    });
+    
+    try {
+      final verified = await context.read<UserRegistrationProvider>().checkEmailVerification();
+      
+      if (verified) {
+        _timer?.cancel();
+        
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => RegisterInfoScreen(
+              userData: {'email': widget.email},
+            ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Email not verified yet. Please check your inbox.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } finally {
+      setState(() {
+        _isVerifying = false;
+      });
+    }
   }
 
   @override
@@ -259,7 +333,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                   width: double.infinity,
                   height: 50,
                   child: ElevatedButton(
-                    onPressed: _isLoading ? null : _checkEmailVerified,
+                    onPressed: _isLoading ? null : _verifyEmailManually,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.black,
                       foregroundColor: Colors.white,
