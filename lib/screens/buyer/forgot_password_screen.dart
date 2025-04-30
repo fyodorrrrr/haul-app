@@ -14,6 +14,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _emailController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
+  bool _isValidEmail = false;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -83,6 +90,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
+                    autofillHints: const [AutofillHints.email],
+                    onChanged: (value) {
+                      final regex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
+                      setState(() {
+                        _isValidEmail = regex.hasMatch(value);
+                      });
+                    },
                     decoration: InputDecoration(
                       hintText: 'Email',
                       hintStyle: GoogleFonts.poppins(
@@ -93,6 +107,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         Icons.email_outlined,
                         color: Colors.grey.shade700,
                       ),
+                      suffixIcon: _emailController.text.isNotEmpty
+                        ? Icon(
+                            _isValidEmail ? Icons.check_circle : Icons.error,
+                            color: _isValidEmail ? Colors.green : Colors.red.shade300,
+                          )
+                        : null,
                       filled: true,
                       fillColor: Colors.grey.shade200,
                       contentPadding: const EdgeInsets.symmetric(
@@ -143,19 +163,76 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                                       .sendPasswordResetEmail(_emailController.text.trim());
                                   
                                   if (success) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          'Password reset email sent!',
-                                          style: GoogleFonts.poppins(),
+                                    setState(() => _isLoading = false);
+                                    
+                                    // Show success animation dialog
+                                    showDialog(
+                                      context: context,
+                                      builder: (context) => Dialog(
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(16)
                                         ),
-                                        backgroundColor: Colors.green,
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(24.0),
+                                          child: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Icon(
+                                                Icons.check_circle, 
+                                                color: Colors.green, 
+                                                size: 70
+                                              ),
+                                              const SizedBox(height: 16),
+                                              Text(
+                                                'Email Sent!',
+                                                style: GoogleFonts.poppins(
+                                                  fontSize: 22,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Text(
+                                                'Check your inbox for password reset instructions',
+                                                textAlign: TextAlign.center,
+                                                style: GoogleFonts.poppins(
+                                                  fontSize: 14,
+                                                  color: Colors.grey.shade600,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 24),
+                                              ElevatedButton(
+                                                onPressed: () {
+                                                  Navigator.pop(context); // Close dialog
+                                                  Navigator.pop(context); // Return to login
+                                                },
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: Colors.black,
+                                                  minimumSize: const Size(double.infinity, 50),
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius: BorderRadius.circular(8),
+                                                  ),
+                                                ),
+                                                child: Text(
+                                                  'Back to Login',
+                                                  style: GoogleFonts.poppins(
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
                                       ),
                                     );
-                                    Navigator.pop(context);
                                   } else {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
+                                        behavior: SnackBarBehavior.floating,
+                                        margin: const EdgeInsets.all(16),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(8)
+                                        ),
                                         content: Text(
                                           'Failed to send password reset email',
                                           style: GoogleFonts.poppins(),
@@ -163,18 +240,32 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                                         backgroundColor: Colors.red,
                                       ),
                                     );
+                                    setState(() => _isLoading = false);
                                   }
                                 } catch (e) {
+                                  String errorMessage = 'An error occurred';
+                                  
+                                  // More specific error messages
+                                  if (e.toString().contains('user-not-found')) {
+                                    errorMessage = 'No account found with this email';
+                                  } else if (e.toString().contains('invalid-email')) {
+                                    errorMessage = 'Invalid email format';
+                                  }
+                                  
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
+                                      behavior: SnackBarBehavior.floating,
+                                      margin: const EdgeInsets.all(16),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8)
+                                      ),
                                       content: Text(
-                                        'An error occurred: $e',
+                                        errorMessage,
                                         style: GoogleFonts.poppins(),
                                       ),
                                       backgroundColor: Colors.red,
                                     ),
                                   );
-                                } finally {
                                   setState(() => _isLoading = false);
                                 }
                               }
@@ -189,12 +280,28 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         elevation: 0,
                       ),
                       child: _isLoading
-                          ? SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
+                          ? FadeTransition(
+                              opacity: const AlwaysStoppedAnimation(0.8),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    'Sending...',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
                               ),
                             )
                           : Text(
