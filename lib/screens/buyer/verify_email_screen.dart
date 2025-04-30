@@ -102,28 +102,39 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
   Future<void> _checkIfEmailIsVerified() async {
     if (_isVerifying) return;
     
-    setState(() {
-      _isVerifying = true;
-    });
+    setState(() => _isVerifying = true);
     
     try {
-      final verified = await context.read<UserRegistrationProvider>().checkEmailVerification();
+      final provider = context.read<UserRegistrationProvider>();
+      final verified = await provider.checkEmailVerification();
       
       if (verified) {
         _timer?.cancel();
         
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) => RegisterInfoScreen(
-              userData: {'email': widget.email},
+        // Check if profile is already complete
+        final profileComplete = await provider.isProfileComplete();
+        
+        if (profileComplete) {
+          // If profile is complete, go to home screen
+          final userData = await provider.getUserData();
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => HomeScreen(userData: userData ?? {}),
             ),
-          ),
-        );
+          );
+        } else {
+          // If profile is not complete, go to the info screen
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => RegisterInfoScreen(
+                userData: {'email': widget.email},
+              ),
+            ),
+          );
+        }
       }
     } finally {
-      setState(() {
-        _isVerifying = false;
-      });
+      setState(() => _isVerifying = false);
     }
   }
 

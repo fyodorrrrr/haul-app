@@ -117,6 +117,21 @@ class UserRegistrationProvider extends ChangeNotifier {
     }
   }
   
+  // Check if user profile is complete
+  Future<bool> isProfileComplete() async {
+    try {
+      final userData = await getUserData();
+      if (userData == null) return false;
+      
+      // Check if required fields are filled
+      return userData['fullName'] != null && 
+             userData['gender'] != null && 
+             userData['phone'] != null;
+    } catch (e) {
+      return false;
+    }
+  }
+  
   // Helper to convert Firebase errors to user-friendly messages
   String _getFirebaseErrorMessage(dynamic e) {
     if (e is FirebaseAuthException) {
