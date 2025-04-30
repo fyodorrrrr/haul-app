@@ -7,7 +7,8 @@ import '/providers/wishlist_providers.dart';
 import 'package:provider/provider.dart';
 import '/models/wishlist_model.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
+import 'product_details_screen.dart';
+import '/utils/snackbar_helper.dart';
 
 class MainHomeScreen extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -270,177 +271,170 @@ Future<void> addDummyProducts() async {
         final product = products[index];
         final isInWishlist = wishlistProvider.isInWishlist(product.id);
 
-        return Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withOpacity(0.1),
-                spreadRadius: 1,
-                blurRadius: 2,
-                offset: const Offset(0, 1),
-              ),
-            ],
-          ),
-          child: Stack(
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Product Image
-                  ClipRRect(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-                    child: SizedBox(
-                      height: itemHeight * 0.6, // Image takes 60% of card height
-                      width: double.infinity,
-                      child: product.imageUrl.isNotEmpty
-                          ? Image.network(
-                              product.imageUrl,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
-                                  color: Colors.grey.shade200,
-                                  child: Icon(
-                                    Icons.error_outline,
-                                    color: Colors.grey.shade400,
-                                    size: isSmallScreen ? 24 : 32,
-                                  ),
-                                );
-                              },
-                            )
-                          : Container(
-                              color: Colors.grey.shade200,
-                              child: Icon(
-                                Icons.image,
-                                color: Colors.grey.shade400,
-                                size: isSmallScreen ? 24 : 32,
-                              ),
-                            ),
-                    ),
-                  ),
-
-                  // Product Details
-                  Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.all(isSmallScreen ? 6.0 : 8.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            product.name,
-                            style: GoogleFonts.poppins(
-                              fontSize: isSmallScreen ? 12 : 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          Text(
-                            '\$${product.price.toStringAsFixed(2)}',
-                            style: GoogleFonts.poppins(
-                              fontSize: isSmallScreen ? 14 : 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-              // Wishlist Button
-              Positioned(
-                top: 8,
-                right: 8,
-                child: Container(
-                  width: isSmallScreen ? 32 : 36,
-                  height: isSmallScreen ? 32 : 36,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        spreadRadius: 1,
-                        blurRadius: 1,
-                        offset: const Offset(0, 1),
-                      ),
-                    ],
-                  ),
-                  child: IconButton(
-                    icon: Icon(
-                      isInWishlist ? Icons.favorite : Icons.favorite_border,
-                      size: isSmallScreen ? 16 : 20,
-                      color: isInWishlist ? Colors.red : Colors.grey,
-                    ),
-                    padding: EdgeInsets.zero,
-                    onPressed: () async {
-                      if (userId == null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Please log in to add items to your wishlist.',
-                              style: GoogleFonts.poppins(),
-                            ),
-                            duration: const Duration(seconds: 2),
-                          ),
-                        );
-                        return;
-                      }
-
-                      try {
-                        if (isInWishlist) {
-                          await wishlistProvider.removeFromWishlist(product.id);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'Removed from wishlist',
-                                style: GoogleFonts.poppins(),
-                              ),
-                              duration: const Duration(seconds: 1),
-                            ),
-                          );
-                        } else {
-                          await wishlistProvider.addToWishlist(
-                            WishlistModel(
-                              productId: product.id,
-                              userId: userId!,
-                              productName: product.name,
-                              productImage: product.imageUrl,
-                              productPrice: product.price,
-                              addedAt: DateTime.now(),
-                            ),
-                          );
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'Added to wishlist',
-                                style: GoogleFonts.poppins(),
-                              ),
-                              duration: const Duration(seconds: 1),
-                            ),
-                          );
-                        }
-                      } catch (e) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'An error occurred. Please try again.',
-                              style: GoogleFonts.poppins(),
-                            ),
-                            backgroundColor: Colors.red,
-                            duration: const Duration(seconds: 2),
-                          ),
-                        );
-                      }
-                    },
-                  ),
+        return GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ProductDetailsScreen(
+                  product: product,
+                  userId: userId,
                 ),
               ),
-            ],
+            );
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  spreadRadius: 1,
+                  blurRadius: 2,
+                  offset: const Offset(0, 1),
+                ),
+              ],
+            ),
+            child: Stack(
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Product Image
+                    ClipRRect(
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                      child: SizedBox(
+                        height: itemHeight * 0.6, // Image takes 60% of card height
+                        width: double.infinity,
+                        child: product.imageUrl.isNotEmpty
+                            ? Image.network(
+                                product.imageUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
+                                    color: Colors.grey.shade200,
+                                    child: Icon(
+                                      Icons.error_outline,
+                                      color: Colors.grey.shade400,
+                                      size: isSmallScreen ? 24 : 32,
+                                    ),
+                                  );
+                                },
+                              )
+                            : Container(
+                                color: Colors.grey.shade200,
+                                child: Icon(
+                                  Icons.image,
+                                  color: Colors.grey.shade400,
+                                  size: isSmallScreen ? 24 : 32,
+                                ),
+                              ),
+                      ),
+                    ),
+
+                    // Product Details
+                    Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.all(isSmallScreen ? 6.0 : 8.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              product.name,
+                              style: GoogleFonts.poppins(
+                                fontSize: isSmallScreen ? 12 : 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              '\$${product.price.toStringAsFixed(2)}',
+                              style: GoogleFonts.poppins(
+                                fontSize: isSmallScreen ? 14 : 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                // Wishlist Button
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    width: isSmallScreen ? 32 : 36,
+                    height: isSmallScreen ? 32 : 36,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          spreadRadius: 1,
+                          blurRadius: 1,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                    child: IconButton(
+                      icon: Icon(
+                        isInWishlist ? Icons.favorite : Icons.favorite_border,
+                        size: isSmallScreen ? 16 : 20,
+                        color: isInWishlist ? Colors.red : Colors.grey,
+                      ),
+                      padding: EdgeInsets.zero,
+                      onPressed: () async {
+                        if (userId == null) {
+                          SnackBarHelper.showSnackBar(
+                            context,
+                            'Please log in to add items to your wishlist.',
+                          );
+                          return;
+                        }
+
+                        try {
+                          if (isInWishlist) {
+                            await wishlistProvider.removeFromWishlist(product.id);
+                            SnackBarHelper.showSnackBar(
+                              context,
+                              'Removed from wishlist',
+                            );
+                          } else {
+                            await wishlistProvider.addToWishlist(
+                              WishlistModel(
+                                productId: product.id,
+                                userId: userId!,
+                                productName: product.name,
+                                productImage: product.imageUrl,
+                                productPrice: product.price,
+                                addedAt: DateTime.now(),
+                              ),
+                            );
+                            SnackBarHelper.showSnackBar(
+                              context,
+                              'Added to wishlist',
+                            );
+                          }
+                        } catch (e) {
+                          SnackBarHelper.showSnackBar(
+                            context,
+                            'An error occurred. Please try again.',
+                            isError: true,
+                          );
+                        }
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
