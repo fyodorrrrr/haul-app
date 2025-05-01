@@ -77,11 +77,19 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       LoadingScreen.show(context);
       
-      // 1. Google Sign-In
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn().catchError((error) {
+      // Sign out first to clear any cached credentials
+      await _googleSignIn.signOut();
+      
+      // Configure Google Sign In to force account selection
+      // Set forceCodeForRefreshToken to true
+      final GoogleSignInAccount? googleUser = await GoogleSignIn(
+        scopes: ['email', 'profile'],
+        forceCodeForRefreshToken: true,
+      ).signIn().catchError((error) {
         print("Error in GoogleSignIn.signIn(): $error");
         throw error;
       });
+      
       if (googleUser == null) {
         LoadingScreen.hide(context);
           ScaffoldMessenger.of(context).showSnackBar(
