@@ -13,6 +13,7 @@ import 'providers/user_registration_provider.dart'; // Import your provider
 import '/screens/buyer/forgot_password_screen.dart';
 import '/providers/edit_profile_provider.dart'; // Import your provider
 import 'providers/user_profile_provider.dart'; // Add the new provider import
+//import 'providers/product_provider.dart'; 
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized(); // Ensure that Flutter bindings are initialized
@@ -42,6 +43,7 @@ class MainApp extends StatelessWidget {
         Provider<AuthProvider>(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => EditProfileProvider()),
         ChangeNotifierProvider(create: (_) => UserProfileProvider()), // Add the new provider
+        //ChangeNotifierProvider(create: (_) => ProductProvider()),
       ],
       child: 
       MaterialApp(

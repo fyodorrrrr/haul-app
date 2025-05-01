@@ -9,10 +9,11 @@ import '/models/wishlist_model.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'product_details_screen.dart';
 import '/utils/snackbar_helper.dart';
+//import '/providers/product_provider.dart';
 
 class MainHomeScreen extends StatefulWidget {
   final Map<String, dynamic> userData;
-
+  
   const MainHomeScreen({
     Key? key,
     this.userData = const {},
@@ -26,7 +27,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
   List<Product> products = [];
   final String imageUrl = 'https://firebasestorage.googleapis.com/v0/b/haul-thrift-shop.firebasestorage.app/o/product.png?alt=media&token=8a229200-6b08-44c6-95ae-cf0efa4b1b5a'; 
   String? userId; // User ID to be used for wishlist
-
+  Set<String> uniqueBrands = {};
 
   @override
   void initState() {
@@ -49,17 +50,27 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
 
   Future<void> fetchProducts() async {
     try {
-      // Fetch products from Firestore
+      print('Fetching products from Firestore...');
       final snapshot = await FirebaseFirestore.instance.collection('products').get();
 
-      // Convert Firestore data to Product objects and update the state
+      final fetchedProducts = snapshot.docs.map((doc) {
+        return Product.fromMap(doc.data() as Map<String, dynamic>);
+      }).toList();
+
       setState(() {
-        products = snapshot.docs.map((doc) {
-          return Product.fromMap(doc.data() as Map<String, dynamic>);
-        }).toList();
+        products = fetchedProducts;
+        uniqueBrands = extractUniqueBrands(fetchedProducts);
       });
+
+      print('Fetched ${products.length} products.');
+      print('Extracted brands: $uniqueBrands');
     } catch (e) {
       print('Error fetching products: $e');
+      SnackBarHelper.showSnackBar(
+        context,
+        'Failed to fetch products. Please try again later.',
+        isError: true,
+      );
     }
   }
 
@@ -143,7 +154,13 @@ Future<void> addDummyProducts() async {
   print("Dummy products added.");
 }
 
-
+  
+  Set<String> extractUniqueBrands(List<Product> products) {
+    if (products.isEmpty) {
+      return {};
+    }
+    return products.map((product) => product.brand).toSet();
+  }
 
 
   @override
@@ -229,19 +246,39 @@ Future<void> addDummyProducts() async {
   }
 
   Widget _buildBrandsRow() {
+    if (uniqueBrands.isEmpty) {
+      return const Center(
+        child: CircularProgressIndicator(), // Show a loader if no brands are available
+      );
+    }
+
+    final brandsList = uniqueBrands.toList(); // Convert Set to List
+
     return SizedBox(
       height: 80,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        itemCount: 5,
+        itemCount: brandsList.length,
         itemBuilder: (context, index) {
+          final brand = brandsList[index];
           return Container(
             width: 80,
             height: 80,
             margin: const EdgeInsets.only(right: 12),
             decoration: BoxDecoration(
               color: Colors.grey.shade300,
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Center(
+              child: Text(
+                brand,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black87,
+                ),
+              ),
             ),
           );
         },
@@ -256,6 +293,12 @@ Future<void> addDummyProducts() async {
     final itemHeight = itemWidth * 1.35; // Maintain aspect ratio
 
     final wishlistProvider = Provider.of<WishlistProvider>(context);
+
+    if (products.isEmpty) {
+    return const Center(
+      child: CircularProgressIndicator(), // Show a loader if no products are available
+    );
+  }
 
     return GridView.builder(
       shrinkWrap: true,
@@ -394,7 +437,7 @@ Future<void> addDummyProducts() async {
                         if (userId == null) {
                           SnackBarHelper.showSnackBar(
                             context,
-                            'Please log in to add items to your wishlist.',
+                            'Please log in to add items to your wishlist.', isError: true,
                           );
                           return;
                         }
@@ -419,7 +462,7 @@ Future<void> addDummyProducts() async {
                             );
                             SnackBarHelper.showSnackBar(
                               context,
-                              'Added to wishlist',
+                              'Added to wishlist', isSuccess: true,
                             );
                           }
                         } catch (e) {

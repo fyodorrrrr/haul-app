@@ -81,12 +81,14 @@ class CartProvider with ChangeNotifier {
         SnackBarHelper.showSnackBar(
           context,
           'Removed from cart',
+          isError: true,
         );
       } else {
         await addToCart(cartItem);
         SnackBarHelper.showSnackBar(
           context,
           'Added to cart',
+          isSuccess: true,
         );
       }
     } catch (e) {

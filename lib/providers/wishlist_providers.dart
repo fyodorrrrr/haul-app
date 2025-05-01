@@ -82,6 +82,7 @@ class WishlistProvider with ChangeNotifier {
         SnackBarHelper.showSnackBar(
           context,
           'Added to wishlist',
+          isSuccess: true,
         );
       }
     } catch (e) {
