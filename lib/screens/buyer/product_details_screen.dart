@@ -301,7 +301,7 @@ class ProductDetailsScreen extends StatelessWidget {
                 if (userId == null) {
                   SnackBarHelper.showSnackBar(
                     context,
-                    'Please log in to add items to your wishlist.',
+                    'Please log in to add items to your wishlist.', isError: true,
                   );
                   return;
                 }
@@ -340,7 +340,7 @@ class ProductDetailsScreen extends StatelessWidget {
                 if (userId == null) {
                   SnackBarHelper.showSnackBar(
                     context,
-                    'Please log in to manage your cart.',
+                    'Please log in to manage your cart.', isError: true,
                   );
                   return;
                 }

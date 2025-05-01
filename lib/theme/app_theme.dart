@@ -8,6 +8,7 @@ class AppTheme {
   static const Color accentColor = Color(0xFFE0E0E0);
   static const Color backgroundColor = Colors.white;
   static const Color errorColor = Color(0xFFB00020);
+  static const Color successColor = Color(0xFF4CAF50); // Added success color
   
   // Light Theme
   static ThemeData lightTheme() {
@@ -90,7 +91,14 @@ class AppTheme {
         error: errorColor,
         background: backgroundColor,
         surface: backgroundColor,
+        onPrimary: Colors.white,
+        onSecondary: Colors.white,
+        onError: Colors.white,
+        onBackground: Colors.black,
+        onSurface: Colors.black,
+        // Add success color to the color scheme
+        tertiary: successColor, // Use tertiary for success
       ),
     );
   }
-} 
+}
