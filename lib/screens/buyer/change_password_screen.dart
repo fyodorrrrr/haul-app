@@ -344,8 +344,21 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           ),
           const SizedBox(height: 32),
           ElevatedButton.icon(
-            onPressed: () {
-              launchUrl(Uri.parse('https://myaccount.google.com/signinoptions/password'));
+            onPressed: () async {
+              final url = Uri.parse('https://myaccount.google.com/signinoptions/password');
+              
+              if (!await launchUrl(
+                url,
+                mode: LaunchMode.externalApplication,
+              )) {
+                // Show error message if URL cannot be launched
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Could not open URL: $url'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
             },
             icon: const Icon(Icons.open_in_new),
             label: Text(
