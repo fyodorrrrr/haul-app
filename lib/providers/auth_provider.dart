@@ -61,4 +61,19 @@ class AuthProvider {
       }
     }
   }
+
+  /// Check if user signed in with a specific provider
+  bool isSignedInWithProvider(String providerName) {
+    final user = _auth.currentUser;
+    if (user == null) return false;
+    
+    // Check provider IDs in the user's providerData
+    return user.providerData.any((userInfo) => 
+      userInfo.providerId == providerName);
+  }
+
+  /// Check if user can change password (has email/password auth)
+  bool canChangePassword() {
+    return isSignedInWithProvider('password');
+  }
 }
