@@ -59,6 +59,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               'Personal Information',
               onTap: () => _showPersonalInfo(context, widget.userProfile),
             ),
+            _buildMenuItem(Icons.lock_outline, 'Change Password'),
             _buildMenuItem(Icons.location_on_outlined, 'Saved Addresses'),
             _buildMenuItem(Icons.payment, 'Payment Methods'),
             
