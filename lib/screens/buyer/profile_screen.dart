@@ -8,6 +8,7 @@ import 'welcome_screen.dart';
 import '/widgets/loading_screen.dart';
 import '/models/user_profile_model.dart';
 import '/screens/buyer/edit_profile_screen.dart';
+import '/screens/buyer/change_password_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final UserProfile userProfile;
@@ -59,7 +60,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
               'Personal Information',
               onTap: () => _showPersonalInfo(context, widget.userProfile),
             ),
-            _buildMenuItem(Icons.lock_outline, 'Change Password'),
+            _buildMenuItem(
+              Icons.lock_outline, 
+              'Change Password',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ChangePasswordScreen()),
+              ),
+            ),
             _buildMenuItem(Icons.location_on_outlined, 'Saved Addresses'),
             _buildMenuItem(Icons.payment, 'Payment Methods'),
             
