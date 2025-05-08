@@ -7,14 +7,13 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:provider/provider.dart'; // Import the generated file for Firebase options
 import 'providers/wishlist_providers.dart'; // Import your provider
-import 'package:haul/screens/seller/seller_registration.dart';
 import 'providers/cart_providers.dart';  // Import your provider
 import 'providers/auth_provider.dart'; // Import your provider
 import 'providers/user_registration_provider.dart'; // Import your provider
 import '/screens/buyer/forgot_password_screen.dart';
 import '/providers/edit_profile_provider.dart'; // Import your provider
 import 'providers/user_profile_provider.dart'; // Add the new provider import
-import 'package:haul/screens/seller/seller_registration.dart';
+import 'package:haul/screens/seller/seller_registration_screen.dart';
 //import 'providers/product_provider.dart'; 
 
 Future<void> main() async {

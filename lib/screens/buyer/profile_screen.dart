@@ -9,6 +9,7 @@ import '/widgets/loading_screen.dart';
 import '/models/user_profile_model.dart';
 import '/screens/buyer/edit_profile_screen.dart';
 import '/screens/buyer/change_password_screen.dart';
+import '/screens/seller/seller_registration_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final UserProfile userProfile;
@@ -86,6 +87,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _buildMenuItem(Icons.notifications_outlined, 'Notification Preferences'),
             _buildMenuItem(Icons.lock_outline, 'Privacy Settings'),
             _buildMenuItem(Icons.help_outline, 'Help Center'),
+            
+            const SizedBox(height: 16),
+            
+            // Seller Section
+            _buildSectionHeader('Seller'),
+            _buildMenuItem(
+              Icons.store,
+              'Become a Seller',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => seller_registration_page(),
+                  ),
+                );
+              },
+            ),
             
             const SizedBox(height: 24),
             
