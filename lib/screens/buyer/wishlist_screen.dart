@@ -3,104 +3,143 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '/providers/wishlist_providers.dart';
 import '/providers/cart_providers.dart'; // Import CartProvider
+import '/providers/user_profile_provider.dart'; // Import UserProfileProvider
 import '/models/wishlist_model.dart';
 import '/models/cart_model.dart';
+import '/widgets/not_logged_in.dart'; // Import NotLoggedInScreen
 
 class WishlistScreen extends StatelessWidget {
   const WishlistScreen({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    final wishlistProvider = Provider.of<WishlistProvider>(context);
-    final cartProvider = Provider.of<CartProvider>(context); // Access CartProvider
+    return Consumer<UserProfileProvider>(
+      builder: (context, userProfileProvider, child) {
+        // Show NotLoggedInScreen if user is not logged in
+        if (!userProfileProvider.isProfileLoaded) {
+          return const NotLoggedInScreen(
+            message: 'Please log in to view your wishlist',
+            icon: Icons.favorite_border,
+          );
+        }
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 16.0, bottom: 16.0),
-            child: Text(
-              'Your Wishlist',
-              style: GoogleFonts.poppins(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
+        // Show wishlist content if user is logged in
+        return Consumer<WishlistProvider>(
+          builder: (context, wishlistProvider, child) {
+            final cartProvider = Provider.of<CartProvider>(context); // Access CartProvider
 
-          // Stats bar
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(12.0),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _buildStat(wishlistProvider.wishlist.length.toString(), 'Items'),
-                _buildDivider(),
-                _buildStat('2', 'On sale'),
-                _buildDivider(),
-                _buildStat('3', 'Recently added'),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 24),
-
-          // Sorting options
-          Row(
-            children: [
-              Text(
-                'Sort by:',
-                style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade200,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
+            if (wishlistProvider.wishlist.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
+                    Icon(
+                      Icons.favorite_border,
+                      size: 64,
+                      color: Colors.grey.shade400,
+                    ),
+                    const SizedBox(height: 16),
                     Text(
-                      'Recently Added',
+                      'Your wishlist is empty',
                       style: GoogleFonts.poppins(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
+                        fontSize: 16,
+                        color: Colors.grey.shade700,
                       ),
                     ),
-                    const SizedBox(width: 4),
-                    const Icon(Icons.arrow_drop_down, size: 18),
                   ],
                 ),
-              ),
-            ],
-          ),
+              );
+            }
 
-          const SizedBox(height: 16),
-
-          // Wishlist Items
-          Expanded(
-            child: wishlistProvider.wishlist.isEmpty
-                ? Center(child: Text('No items in your wishlist'))
-                : ListView.builder(
-                    itemCount: wishlistProvider.wishlist.length,
-                    itemBuilder: (context, index) {
-                      final wishlistItem = wishlistProvider.wishlist[index];
-                      return _buildWishlistItem(context, wishlistItem, wishlistProvider, cartProvider);
-                    },
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16.0, bottom: 16.0),
+                    child: Text(
+                      'Your Wishlist',
+                      style: GoogleFonts.poppins(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-          ),
-        ],
-      ),
+
+                  // Stats bar
+                  Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(12.0),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _buildStat(wishlistProvider.wishlist.length.toString(), 'Items'),
+                        _buildDivider(),
+                        _buildStat('2', 'On sale'),
+                        _buildDivider(),
+                        _buildStat('3', 'Recently added'),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Sorting options
+                  Row(
+                    children: [
+                      Text(
+                        'Sort by:',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade200,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          children: [
+                            Text(
+                              'Recently Added',
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            const Icon(Icons.arrow_drop_down, size: 18),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Wishlist Items
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: wishlistProvider.wishlist.length,
+                      itemBuilder: (context, index) {
+                        final wishlistItem = wishlistProvider.wishlist[index];
+                        return _buildWishlistItem(context, wishlistItem, wishlistProvider, cartProvider);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
