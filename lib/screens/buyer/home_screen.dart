@@ -8,6 +8,8 @@ import 'profile_screen.dart';
 import 'main_home_screen.dart'; // Import the new main home screen
 import 'package:provider/provider.dart'; // Import provider for UserProfileProvider
 import '/providers/user_profile_provider.dart';
+import '/widgets/not_logged_in.dart';
+
 
 class HomeScreen extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -51,9 +53,9 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (context, provider, child) {
           return provider.userProfile != null
               ? ProfileScreen(userProfile: provider.userProfile!)
-              : const Center(child: CircularProgressIndicator());
+              : NotLoggedInScreen(message: 'Please log in to continue', icon: Icons.lock_outline);
         },
-      ), // Profile (index 4)
+      ),  // Profile (index 4)
     ];
     
     // Get titles for app bar based on selected tab

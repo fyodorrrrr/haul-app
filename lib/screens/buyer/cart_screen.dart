@@ -2,118 +2,148 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '/providers/cart_providers.dart';
+import '/providers/user_profile_provider.dart';
 import '/models/cart_model.dart';
+import '/widgets/not_logged_in.dart';
 
 class CartScreen extends StatelessWidget {
   const CartScreen({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    final cartProvider = Provider.of<CartProvider>(context);
-    final cart = cartProvider.cart;
+    return Consumer<UserProfileProvider>(
+      builder: (context, userProfileProvider, child) {
+        // Show NotLoggedInScreen if user is not logged in
+        if (!userProfileProvider.isProfileLoaded) {
+          return const NotLoggedInScreen(
+            message: 'Please log in to view your shopping cart',
+            icon: Icons.shopping_cart_outlined,
+          );
+        }
 
-    // Calculate totals
-    final subtotal = cart.fold(0.0, (sum, item) => sum + item.productPrice);
-    final shipping = cart.isNotEmpty ? 5.99 : 0.0;
-    final tax = subtotal * 0.1; // 10% tax
-    final total = subtotal + shipping + tax;
+        // Show cart content if user is logged in
+        return Consumer<CartProvider>(
+          builder: (context, cartProvider, child) {
+            final cart = cartProvider.cart;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Padding(
-            padding: const EdgeInsets.only(top: 16.0, bottom: 16.0),
-            child: Text(
-              'Your Cart',
-              style: GoogleFonts.poppins(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
+            // Calculate totals
+            final subtotal = cart.fold(0.0, (sum, item) => sum + item.productPrice);
+            final shipping = cart.isNotEmpty ? 5.99 : 0.0;
+            final tax = subtotal * 0.1; // 10% tax
+            final total = subtotal + shipping + tax;
 
-          // Cart Items
-          Expanded(
-            child: cart.isEmpty
-                ? Center(
-                    child: Text(
+            if (cart.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.shopping_cart_outlined,
+                      size: 64,
+                      color: Colors.grey.shade400,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
                       'Your cart is empty',
                       style: GoogleFonts.poppins(
                         fontSize: 16,
-                        color: Colors.grey,
+                        color: Colors.grey.shade700,
                       ),
                     ),
-                  )
-                : ListView.builder(
-                    itemCount: cart.length,
-                    itemBuilder: (context, index) {
-                      final cartItem = cart[index];
-                      return _buildCartItem(context, cartItem, cartProvider);
-                    },
-                  ),
-          ),
+                  ],
+                ),
+              );
+            }
 
-          // Order Summary
-          if (cart.isNotEmpty)
-            Container(
-              padding: const EdgeInsets.all(16.0),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(12.0),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.1),
-                    spreadRadius: 1,
-                    blurRadius: 4,
-                    offset: const Offset(0, -2),
-                  ),
-                ],
-              ),
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildSummaryRow('Subtotal', '\$${subtotal.toStringAsFixed(2)}'),
-                  const SizedBox(height: 8),
-                  _buildSummaryRow('Shipping', '\$${shipping.toStringAsFixed(2)}'),
-                  const SizedBox(height: 8),
-                  _buildSummaryRow('Tax', '\$${tax.toStringAsFixed(2)}'),
-                  const Divider(height: 24),
-                  _buildSummaryRow(
-                    'Total',
-                    '\$${total.toStringAsFixed(2)}',
-                    isTotal: true,
+                  // Header
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16.0, bottom: 16.0),
+                    child: Text(
+                      'Your Cart',
+                      style: GoogleFonts.poppins(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        // TODO: Implement checkout logic
+
+                  // Cart Items
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: cart.length,
+                      itemBuilder: (context, index) {
+                        final cartItem = cart[index];
+                        return _buildCartItem(context, cartItem, cartProvider);
                       },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.black,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+
+                  // Order Summary
+                  Container(
+                    padding: const EdgeInsets.all(16.0),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(12.0),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.1),
+                          spreadRadius: 1,
+                          blurRadius: 4,
+                          offset: const Offset(0, -2),
                         ),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child: Text(
-                        'Proceed to Checkout',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        _buildSummaryRow('Subtotal', '\$${subtotal.toStringAsFixed(2)}'),
+                        const SizedBox(height: 8),
+                        _buildSummaryRow('Shipping', '\$${shipping.toStringAsFixed(2)}'),
+                        const SizedBox(height: 8),
+                        _buildSummaryRow('Tax', '\$${tax.toStringAsFixed(2)}'),
+                        const Divider(height: 24),
+                        _buildSummaryRow(
+                          'Total',
+                          '\$${total.toStringAsFixed(2)}',
+                          isTotal: true,
                         ),
-                      ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              // TODO: Implement checkout logic
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.black,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                            ),
+                            child: Text(
+                              'Proceed to Checkout',
+                              style: GoogleFonts.poppins(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
-            ),
-        ],
-      ),
+            );
+          },
+        );
+      },
     );
   }
 
