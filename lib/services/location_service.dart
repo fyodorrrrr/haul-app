@@ -34,11 +34,16 @@ class LocationService {
   }
 
   Future<List<City>> getCities(String countryIso2, String stateIso2) async {
+    print('Fetching cities for countryIso2: $countryIso2, stateIso2: $stateIso2'); // Debug print
     final res = await http.get(Uri.parse('$_baseUrl/countries/$countryIso2/states/$stateIso2/cities'), headers: _headers);
+    print('API response status: ${res.statusCode}'); // Debug print
+    print('URL: $_baseUrl/countries/$countryIso2/states/$stateIso2/cities');
     if (res.statusCode == 200) {
       final List data = jsonDecode(res.body);
+      print('Fetched cities: ${data.map((e) => e['name']).toList()}'); // Debug print
       return data.map((e) => City.fromJson(e)).toList();
     } else {
+      print('Failed to load cities: ${res.body}'); // Debug print
       throw Exception('Failed to load cities');
     }
   }
