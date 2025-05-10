@@ -15,10 +15,12 @@ import '/providers/edit_profile_provider.dart'; // Import your provider
 import 'providers/user_profile_provider.dart'; // Add the new provider import
 import 'package:haul/screens/seller/seller_registration_screen.dart';
 //import 'providers/product_provider.dart'; 
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized(); // Ensure that Flutter bindings are initialized
   await Firebase.initializeApp(); // Initialize Firebase
+  await dotenv.load();
   
   // Initialize App Check and register a provider
   await FirebaseAppCheck.instance.activate(

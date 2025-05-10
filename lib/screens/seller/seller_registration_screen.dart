@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:haul/models/country.dart';
+import '/models/state.dart';
+import 'package:haul/models/city.dart';
+import 'package:haul/services/location_service.dart';
 import 'package:provider/provider.dart';
 import '/providers/user_profile_provider.dart';
-// Import the next page in registration flow
 import 'seller_verification_screen.dart';
 
 class seller_registration_page extends StatefulWidget {
@@ -14,27 +17,35 @@ class seller_registration_page extends StatefulWidget {
 }
 
 class _SellerRegState extends State<seller_registration_page> {
-  // Add form key for validation
   final _formKey = GlobalKey<FormState>();
 
-  // Add controllers for text fields
   final TextEditingController _businessNameController = TextEditingController();
   final TextEditingController _address1Controller = TextEditingController();
   final TextEditingController _address2Controller = TextEditingController();
   final TextEditingController _cityController = TextEditingController();
   final TextEditingController _zipCodeController = TextEditingController();
 
-  List<String> countries = ['Philippines', 'Japan', 'America'];
-  List<String> regions = ['Calabarzon', 'Mimaropa'];
+  Future<List<Country>> _countries = LocationService().getCountries();
+  Future<List<StateModel>>? _states;
+  Future<List<City>>? _cities;
+
+  String? _selectedCountryIso;
   String? selectedRegion;
   String? selectedCountry;
+  String? selectedCity;
 
   bool _isLoading = false;
   String? _errorMessage;
 
   @override
+  void initState() {
+    super.initState();
+    _states = Future.value([]);
+    _cities = Future.value([]);
+  }
+
+  @override
   void dispose() {
-    // Clean up controllers
     _businessNameController.dispose();
     _address1Controller.dispose();
     _address2Controller.dispose();
@@ -50,33 +61,29 @@ class _SellerRegState extends State<seller_registration_page> {
     });
 
     try {
-      // Get current user
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
         throw Exception('User not authenticated');
       }
 
-      // Create seller data map
       final sellerData = {
         'businessName': _businessNameController.text,
         'addressLine1': _address1Controller.text,
         'addressLine2': _address2Controller.text,
-        'city': _cityController.text,
+        'city': selectedCity,
         'region': selectedRegion,
         'zipCode': _zipCodeController.text,
         'country': selectedCountry,
         'userId': user.uid,
-        'status': 'pending', // pending verification
+        'status': 'pending',
         'createdAt': FieldValue.serverTimestamp(),
       };
 
-      // Save to Firestore
       await FirebaseFirestore.instance
           .collection('sellers')
           .doc(user.uid)
           .set(sellerData);
 
-      // Update user record to indicate seller registration
       await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
@@ -85,7 +92,6 @@ class _SellerRegState extends State<seller_registration_page> {
         'sellerStatus': 'pending',
       });
 
-      // Navigate to next screen
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -205,7 +211,6 @@ class _SellerRegState extends State<seller_registration_page> {
                           key: _formKey,
                           child: Column(
                             children: [
-                              // Add this above your form to display errors
                               if (_errorMessage != null)
                                 Padding(
                                   padding: EdgeInsets.symmetric(
@@ -279,22 +284,68 @@ class _SellerRegState extends State<seller_registration_page> {
                                     padding: EdgeInsets.only(top: 25, right: 10),
                                     child: SizedBox(
                                       width: 125,
-                                      child: TextFormField(
-                                        controller: _cityController,
-                                        style: GoogleFonts.poppins(fontSize: 11),
-                                        decoration: InputDecoration(
-                                          filled: true,
-                                          fillColor: const Color.fromARGB(
-                                              255, 220, 219, 219),
-                                          hintText: "City",
-                                          hintStyle:
-                                              TextStyle(color: Colors.black),
-                                        ),
-                                        validator: (value) {
-                                          if (value == null || value.isEmpty) {
-                                            return 'Please enter your city';
+                                      child: FutureBuilder<List<Country>>(
+                                        future: _countries,
+                                        builder: (context, snapshot) {
+                                          if (snapshot.connectionState == ConnectionState.waiting) {
+                                            return Center(child: CircularProgressIndicator());
+                                          } else if (snapshot.hasError) {
+                                            return Text('Error: ${snapshot.error}');
+                                          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                                            return DropdownButtonFormField<String>(
+                                              items: [],
+                                              onChanged: null,
+                                              decoration: InputDecoration(
+                                                filled: true,
+                                                fillColor: const Color.fromARGB(255, 220, 219, 219),
+                                                hintText: "Select Country",
+                                              ),
+                                            );
                                           }
-                                          return null;
+                                          List<Country> countries = snapshot.data!;
+                                          return DropdownButtonFormField<String>(
+                                            value: selectedCountry,
+                                            isExpanded: true,
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 13,
+                                              color: Colors.black,
+                                            ),
+                                            decoration: InputDecoration(
+                                              filled: true,
+                                              fillColor: const Color.fromARGB(255, 220, 219, 219),
+                                              hintText: "Country",
+                                            ),
+                                            icon: Icon(Icons.arrow_drop_down),
+                                            onChanged: (String? newValue) {
+                                              setState(() {
+                                                selectedCountry = newValue;
+                                                selectedRegion = null;
+                                                selectedCity = null;
+                                                if (newValue != null) {
+                                                  final countryIso2 = countries.firstWhere((c) => c.name == newValue).iso2;
+                                                  _selectedCountryIso = countryIso2;
+                                                  _states = LocationService().getStates(countryIso2);
+                                                  _cities = Future.value([]);
+                                                } else {
+                                                  _selectedCountryIso = null;
+                                                  _states = Future.value([]);
+                                                  _cities = Future.value([]);
+                                                }
+                                              });
+                                            },
+                                            items: countries.map((country) {
+                                              return DropdownMenuItem<String>(
+                                                value: country.name,
+                                                child: Text(country.name),
+                                              );
+                                            }).toList(),
+                                            validator: (value) {
+                                              if (value == null || value.isEmpty) {
+                                                return 'Please select a country';
+                                              }
+                                              return null;
+                                            },
+                                          );
                                         },
                                       ),
                                     ),
@@ -303,36 +354,78 @@ class _SellerRegState extends State<seller_registration_page> {
                                     padding: EdgeInsets.only(top: 25),
                                     child: SizedBox(
                                       width: 125,
-                                      child: DropdownButtonFormField<String>(
-                                        isExpanded: true,
-                                        value: selectedRegion,
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 13,
-                                          color: Colors.black,
-                                        ),
-                                        decoration: InputDecoration(
-                                          filled: true,
-                                          fillColor: const Color.fromARGB(
-                                              255, 220, 219, 219),
-                                          hintText: "Region",
-                                        ),
-                                        icon: Icon(Icons.arrow_drop_down),
-                                        onChanged: (String? newRegion) {
-                                          setState(() {
-                                            selectedRegion = newRegion;
-                                          });
-                                        },
-                                        items: regions.map((String value) {
-                                          return DropdownMenuItem<String>(
-                                            value: value,
-                                            child: Text(value),
-                                          );
-                                        }).toList(),
-                                        validator: (value) {
-                                          if (value == null || value.isEmpty) {
-                                            return 'Please select a region';
+                                      child: FutureBuilder<List<StateModel>>(
+                                        future: _states,
+                                        builder: (context, snapshot) {
+                                          if (_selectedCountryIso == null) {
+                                            return TextFormField(
+                                              enabled: false,
+                                              decoration: InputDecoration(
+                                                filled: true,
+                                                fillColor: const Color.fromARGB(255, 220, 219, 219),
+                                                hintText: "Region",
+                                              ),
+                                            );
                                           }
-                                          return null;
+                                          if (snapshot.connectionState == ConnectionState.waiting) {
+                                            return Center(child: CircularProgressIndicator());
+                                          } else if (snapshot.hasError) {
+                                            return Text('Error: ${snapshot.error}');
+                                          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                                            return DropdownButtonFormField<String>(
+                                              items: [],
+                                              onChanged: null,
+                                              decoration: InputDecoration(
+                                                filled: true,
+                                                fillColor: const Color.fromARGB(255, 220, 219, 219),
+                                                hintText: "No regions found",
+                                              ),
+                                            );
+                                          }
+                                          List<StateModel> states = snapshot.data!;
+                                          return DropdownButtonFormField<String>(
+                                            isExpanded: true,
+                                            value: selectedRegion,
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 13,
+                                              color: Colors.black,
+                                            ),
+                                            decoration: InputDecoration(
+                                              filled: true,
+                                              fillColor: const Color.fromARGB(255, 220, 219, 219),
+                                              hintText: "Region",
+                                            ),
+                                            icon: Icon(Icons.arrow_drop_down),
+                                            onChanged: (String? newRegion) {
+                                              setState(() {
+                                                selectedRegion = newRegion;
+                                                selectedCity = null;
+                                                if (newRegion != null) {
+                                                  final stateIso2 = states.firstWhere((s) => s.name == newRegion).iso2;
+                                                  print('Fetching cities for country: $_selectedCountryIso, state: $stateIso2');
+                                                  _cities = LocationService().getCities(_selectedCountryIso!, stateIso2)
+                                                    ..then((cities) {
+                                                      print('Fetched cities: ${cities.map((c) => c.name).toList()}');
+                                                    });
+                                                } else {
+                                                  _cities = Future.value([]);
+                                                  print('No region selected, setting cities to empty.');
+                                                }
+                                              });
+                                            },
+                                            items: states.map((state) {
+                                              return DropdownMenuItem<String>(
+                                                value: state.name,
+                                                child: Text(state.name),
+                                              );
+                                            }).toList(),
+                                            validator: (value) {
+                                              if (value == null || value.isEmpty) {
+                                                return 'Please select a region';
+                                              }
+                                              return null;
+                                            },
+                                          );
                                         },
                                       ),
                                     ),
@@ -343,6 +436,87 @@ class _SellerRegState extends State<seller_registration_page> {
                                 children: [
                                   Padding(
                                     padding: EdgeInsets.only(top: 15, right: 10),
+                                    child: SizedBox(
+                                      width: 125,
+                                      child: FutureBuilder<List<City>>(
+                                        future: _cities,
+                                        builder: (context, snapshot) {
+                                          if (selectedRegion == null) {
+                                            return TextFormField(
+                                              enabled: false,
+                                              decoration: InputDecoration(
+                                                filled: true,
+                                                fillColor: const Color.fromARGB(255, 220, 219, 219),
+                                                hintText: "City",
+                                              ),
+                                            );
+                                          }
+                                          if (snapshot.connectionState == ConnectionState.waiting) {
+                                            return Center(child: CircularProgressIndicator());
+                                          } else if (snapshot.hasError) {
+                                            return Text('Error: ${snapshot.error}');
+                                          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                                            return TextFormField(
+                                              controller: _cityController,
+                                              style: GoogleFonts.poppins(fontSize: 11),
+                                              decoration: InputDecoration(
+                                                filled: true,
+                                                fillColor: const Color.fromARGB(255, 220, 219, 219),
+                                                hintText: "Enter City",
+                                                hintStyle: TextStyle(color: Colors.black),
+                                              ),
+                                              onChanged: (value) {
+                                                setState(() {
+                                                  selectedCity = value;
+                                                });
+                                              },
+                                              validator: (value) {
+                                                if (value == null || value.isEmpty) {
+                                                  return 'Please enter your city';
+                                                }
+                                                return null;
+                                              },
+                                            );
+                                          }
+                                          List<City> cities = snapshot.data!;
+                                          return DropdownButtonFormField<String>(
+                                            isExpanded: true,
+                                            value: selectedCity,
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 13,
+                                              color: Colors.black,
+                                            ),
+                                            decoration: InputDecoration(
+                                              filled: true,
+                                              fillColor: const Color.fromARGB(255, 220, 219, 219),
+                                              hintText: "City",
+                                            ),
+                                            icon: Icon(Icons.arrow_drop_down),
+                                            onChanged: (String? newCity) {
+                                              setState(() {
+                                                selectedCity = newCity;
+                                                _cityController.text = newCity ?? '';
+                                              });
+                                            },
+                                            items: cities.map((city) {
+                                              return DropdownMenuItem<String>(
+                                                value: city.name,
+                                                child: Text(city.name),
+                                              );
+                                            }).toList(),
+                                            validator: (value) {
+                                              if (value == null || value.isEmpty) {
+                                                return 'Please select a city';
+                                              }
+                                              return null;
+                                            },
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                  Padding(
+                                    padding: EdgeInsets.only(top: 15),
                                     child: SizedBox(
                                       width: 125,
                                       child: TextFormField(
@@ -363,44 +537,6 @@ class _SellerRegState extends State<seller_registration_page> {
                                         validator: (value) {
                                           if (value == null || value.isEmpty) {
                                             return 'Please enter your zip code';
-                                          }
-                                          return null;
-                                        },
-                                      ),
-                                    ),
-                                  ),
-                                  Padding(
-                                    padding: EdgeInsets.only(top: 15),
-                                    child: SizedBox(
-                                      width: 125,
-                                      child: DropdownButtonFormField<String?>(
-                                        value: selectedCountry,
-                                        isExpanded: true,
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 13,
-                                          color: Colors.black,
-                                        ),
-                                        decoration: InputDecoration(
-                                          filled: true,
-                                          fillColor: const Color.fromARGB(
-                                              255, 220, 219, 219),
-                                          hintText: "Country",
-                                        ),
-                                        icon: Icon(Icons.arrow_drop_down),
-                                        onChanged: (String? newValue) {
-                                          setState(() {
-                                            selectedCountry = newValue;
-                                          });
-                                        },
-                                        items: countries.map((String value) {
-                                          return DropdownMenuItem<String>(
-                                            value: value,
-                                            child: Text(value),
-                                          );
-                                        }).toList(),
-                                        validator: (value) {
-                                          if (value == null || value.isEmpty) {
-                                            return 'Please select a country';
                                           }
                                           return null;
                                         },
