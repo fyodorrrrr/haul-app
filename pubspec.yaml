@@ -22,6 +22,7 @@ dependencies:
   url_launcher: ^6.1.10
   http: ^1.4.0
   flutter_dotenv: ^5.2.1
+  lottie: ^3.3.1
   
 
 dev_dependencies:
@@ -33,6 +34,7 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    - assets/animations/
     - assets/haul_logo.png
     - assets/images/onboarding1.jpg
     - assets/images/welcome_screen.jpg
