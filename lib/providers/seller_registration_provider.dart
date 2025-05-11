@@ -13,6 +13,13 @@ class SellerRegistrationProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
   
+  // Helper method to update loading state and error messages
+  void _setLoadingState(bool isLoading, [String? errorMessage]) {
+    _isLoading = isLoading;
+    _errorMessage = errorMessage;
+    notifyListeners(); // Call notifyListeners only once
+  }
+  
   // Location data
   Future<List<Country>> _countries;
   Future<List<StateModel>>? _states;
@@ -118,14 +125,18 @@ class SellerRegistrationProvider extends ChangeNotifier {
     required String addressLine1,
     required String zipCode,
   }) async {
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
+    _setLoadingState(true);
     
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
         throw Exception('User not authenticated');
+      }
+      
+      // Check if there's already a verification in progress
+      final verificationStatus = await getVerificationStatus();
+      if (verificationStatus['hasActiveVerification'] == true) {
+        throw Exception('A verification request is already pending.');
       }
       
       final sellerData = {
@@ -154,13 +165,10 @@ class SellerRegistrationProvider extends ChangeNotifier {
         'sellerStatus': 'pending',
       });
       
-      _isLoading = false;
-      notifyListeners();
+      _setLoadingState(false);
       return true;
     } catch (e) {
-      _errorMessage = e.toString();
-      _isLoading = false;
-      notifyListeners();
+      _setLoadingState(false, e.toString());
       return false;
     }
   }
@@ -174,14 +182,18 @@ class SellerRegistrationProvider extends ChangeNotifier {
     required File frontIdImage,
     required File backIdImage,
   }) async {
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
+    _setLoadingState(true);
     
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
         throw Exception('User not authenticated');
+      }
+      
+      // Check if there's already a verification in progress
+      final verificationStatus = await getVerificationStatus();
+      if (verificationStatus['hasActiveVerification'] == true) {
+        throw Exception('A verification request is already pending.');
       }
       
       // Upload ID images to Firebase Storage
@@ -221,21 +233,16 @@ class SellerRegistrationProvider extends ChangeNotifier {
         'verificationSubmittedAt': FieldValue.serverTimestamp(),
       });
       
-      _isLoading = false;
-      notifyListeners();
+      _setLoadingState(false);
       return true;
     } catch (e) {
-      _errorMessage = e.toString();
-      _isLoading = false;
-      notifyListeners();
+      _setLoadingState(false, e.toString());
       return false;
     }
   }
 
   Future<Map<String, dynamic>> getVerificationStatus() async {
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
+    _setLoadingState(true);
     
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -247,43 +254,36 @@ class SellerRegistrationProvider extends ChangeNotifier {
           .collection('sellers')
           .doc(user.uid)
           .get();
+          
+      if (!sellerDoc.exists) {
+        return {
+          'hasActiveVerification': false,
+          'status': null,
+          'submittedDate': null,
+          'businessName': null
+        };
+      }
       
-      final result = <String, dynamic>{
+      final data = sellerDoc.data();
+      
+      return {
+        'hasActiveVerification': data?['verificationStatus'] != null,
+        'status': data?['verificationStatus'] ?? 'unknown',
+        'submittedDate': data?['verificationSubmittedAt'] != null 
+            ? (data?['verificationSubmittedAt'] as Timestamp).toDate()
+            : null,
+        'businessName': data?['businessName'] ?? 'Your Business',
+      };
+    } catch (e) {
+      _setLoadingState(false, e.toString());
+      return {
         'hasActiveVerification': false,
         'status': null,
         'submittedDate': null,
+        'businessName': null
       };
-      
-      if (sellerDoc.exists) {
-        final sellerData = sellerDoc.data();
-        
-        // Check if there's verification data
-        if (sellerData != null && 
-            sellerData.containsKey('verificationStatus') && 
-            sellerData.containsKey('verificationSubmittedAt')) {
-          
-          final status = sellerData['verificationStatus'];
-          
-          // Consider any status except "declined" as an active verification
-          final isActive = status != null && status != 'declined';
-          
-          result['hasActiveVerification'] = isActive;
-          result['status'] = status;
-          
-          if (sellerData['verificationSubmittedAt'] != null) {
-            result['submittedDate'] = (sellerData['verificationSubmittedAt'] as Timestamp).toDate();
-          }
-        }
-      }
-      
-      _isLoading = false;
-      notifyListeners();
-      return result;
-    } catch (e) {
-      _errorMessage = e.toString();
-      _isLoading = false;
-      notifyListeners();
-      throw e;
+    } finally {
+      _setLoadingState(false);
     }
   }
 }

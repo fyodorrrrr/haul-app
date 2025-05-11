@@ -5,7 +5,8 @@ import 'package:provider/provider.dart';
 import 'package:haul/providers/seller_registration_provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
-import 'seller_verification_screen.dart';
+import 'package:haul/screens/seller/seller_verification_screen.dart';
+import 'package:haul/utils/safe_state.dart';
 
 class SellerProcessingScreen extends StatefulWidget {
   final String businessName;
@@ -45,22 +46,21 @@ class _SellerProcessingScreenState extends State<SellerProcessingScreen> {
       if (mounted) _checkVerificationStatus();
     });
   }
-
   Future<void> _checkVerificationStatus() async {
     if (!mounted) return;
-    setState(() {
+    safeSetState(() {
       _isLoading = true;
     });
 
     try {
       // Store context reference
       final currentContext = context;
-      
+
       final provider = Provider.of<SellerRegistrationProvider>(currentContext, listen: false);
       final verificationDetails = await provider.getVerificationStatus();
 
       if (!mounted) return;
-      setState(() {
+      safeSetState(() {
         _hasActiveVerification = verificationDetails['hasActiveVerification'] ?? false;
         _verificationStatus = verificationDetails['status'];
         _verificationDate = verificationDetails['submittedDate'];
@@ -68,7 +68,7 @@ class _SellerProcessingScreenState extends State<SellerProcessingScreen> {
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() {
+      safeSetState(() {
         _isLoading = false;
       });
 
@@ -94,7 +94,6 @@ class _SellerProcessingScreenState extends State<SellerProcessingScreen> {
     _ssnController.dispose();
     super.dispose();
   }
-
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -115,13 +114,12 @@ class _SellerProcessingScreenState extends State<SellerProcessingScreen> {
 
     if (picked != null && picked != _selectedDate) {
       if (!mounted) return;
-      setState(() {
+      safeSetState(() {
         _selectedDate = picked;
         _dobController.text = DateFormat('MM/dd/yyyy').format(picked);
       });
     }
   }
-
   Future<void> _pickImage(bool isFrontId) async {
     try {
       final XFile? image = await _picker.pickImage(
@@ -132,7 +130,7 @@ class _SellerProcessingScreenState extends State<SellerProcessingScreen> {
 
       if (image != null) {
         if (!mounted) return;
-        setState(() {
+        safeSetState(() {
           if (isFrontId) {
             _frontIdImage = File(image.path);
           } else {
@@ -166,10 +164,8 @@ class _SellerProcessingScreenState extends State<SellerProcessingScreen> {
           const SnackBar(content: Text('Please upload images of both sides of your ID')),
         );
         return;
-      }
-
-      if (!mounted) return;
-      setState(() {
+      }      if (!mounted) return;
+      safeSetState(() {
         _isUploading = true;
       });
 
@@ -215,9 +211,8 @@ class _SellerProcessingScreenState extends State<SellerProcessingScreen> {
             backgroundColor: Colors.red,
           ),
         );
-      } finally {
-        if (mounted) {
-          setState(() {
+      } finally {        if (mounted) {
+          safeSetState(() {
             _isUploading = false;
           });
         }

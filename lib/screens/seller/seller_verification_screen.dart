@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:haul/screens/buyer/home_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:haul/providers/seller_registration_provider.dart';
 import 'package:lottie/lottie.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:haul/screens/buyer/home_screen.dart';
 
 class SellerVerificationScreen extends StatefulWidget {
   final String businessName;
@@ -136,7 +139,20 @@ class _SellerVerificationScreenState extends State<SellerVerificationScreen> wit
                     Expanded(
                       child: ElevatedButton(
                         onPressed: () {
-                          Navigator.of(context).popUntil((route) => route.isFirst);
+                          // Get current user data (we need to keep user logged in)
+                          final user = FirebaseAuth.instance.currentUser;
+                          
+                          // Navigate to home screen and clear the stack
+                          Navigator.of(context).pushAndRemoveUntil(
+                            MaterialPageRoute(builder: (context) => HomeScreen(
+                              userData: {
+                                'uid': user?.uid,
+                                'email': user?.email,
+                                // Add any other user data needed by HomeScreen
+                              },
+                            )),
+                            (route) => false,
+                          );
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: theme.primaryColor,
