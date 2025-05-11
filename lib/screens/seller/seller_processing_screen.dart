@@ -30,9 +30,51 @@ class _SellerProcessingScreenState extends State<SellerProcessingScreen> {
   File? _frontIdImage;
   File? _backIdImage;
   bool _isUploading = false;
-  
+  bool _isLoading = true;
+  bool _hasActiveVerification = false;
+  String? _verificationStatus;
+  DateTime? _verificationDate;
+
   final ImagePicker _picker = ImagePicker();
   DateTime? _selectedDate;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkVerificationStatus();
+  }
+
+  Future<void> _checkVerificationStatus() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final provider = Provider.of<SellerRegistrationProvider>(context, listen: false);
+      final verificationDetails = await provider.getVerificationStatus();
+
+      if (!mounted) return;
+      setState(() {
+        _hasActiveVerification = verificationDetails['hasActiveVerification'] ?? false;
+        _verificationStatus = verificationDetails['status'];
+        _verificationDate = verificationDetails['submittedDate'];
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error checking verification status: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
 
   @override
   void dispose() {
@@ -61,8 +103,9 @@ class _SellerProcessingScreenState extends State<SellerProcessingScreen> {
         );
       },
     );
-    
+
     if (picked != null && picked != _selectedDate) {
+      if (!mounted) return;
       setState(() {
         _selectedDate = picked;
         _dobController.text = DateFormat('MM/dd/yyyy').format(picked);
@@ -77,8 +120,9 @@ class _SellerProcessingScreenState extends State<SellerProcessingScreen> {
         imageQuality: 80,
         preferredCameraDevice: CameraDevice.rear,
       );
-      
+
       if (image != null) {
+        if (!mounted) return;
         setState(() {
           if (isFrontId) {
             _frontIdImage = File(image.path);
@@ -96,6 +140,13 @@ class _SellerProcessingScreenState extends State<SellerProcessingScreen> {
 
   void _handleSubmit() async {
     if (_formKey.currentState!.validate()) {
+      if (_selectedDate == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select your date of birth')),
+        );
+        return;
+      }
+
       if (_frontIdImage == null || _backIdImage == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Please upload images of both sides of your ID')),
@@ -103,13 +154,14 @@ class _SellerProcessingScreenState extends State<SellerProcessingScreen> {
         return;
       }
 
+      if (!mounted) return;
       setState(() {
         _isUploading = true;
       });
 
       try {
         final provider = Provider.of<SellerRegistrationProvider>(context, listen: false);
-        
+
         final success = await provider.saveSellerPersonalInfo(
           firstName: _firstNameController.text,
           lastName: _lastNameController.text,
@@ -120,17 +172,23 @@ class _SellerProcessingScreenState extends State<SellerProcessingScreen> {
           backIdImage: _backIdImage!,
         );
 
-        if (success && mounted) {
-          Navigator.push(
-            context,
+        final navigatorContext = context;
+
+        if (success) {
+          if (!mounted) return;
+
+          Navigator.pushReplacement(
+            navigatorContext,
             MaterialPageRoute(
               builder: (context) => SellerVerificationScreen(
                 businessName: widget.businessName,
               ),
             ),
           );
-        } else if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
+        } else {
+          if (!mounted) return;
+
+          ScaffoldMessenger.of(navigatorContext).showSnackBar(
             SnackBar(
               content: Text(provider.errorMessage ?? 'An unknown error occurred'),
               backgroundColor: Colors.red,
@@ -138,14 +196,15 @@ class _SellerProcessingScreenState extends State<SellerProcessingScreen> {
           );
         }
       } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+        if (!mounted) return;
+
+        final scaffoldContext = context;
+        ScaffoldMessenger.of(scaffoldContext).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       } finally {
         if (mounted) {
           setState(() {
@@ -159,7 +218,7 @@ class _SellerProcessingScreenState extends State<SellerProcessingScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -179,219 +238,415 @@ class _SellerProcessingScreenState extends State<SellerProcessingScreen> {
         centerTitle: true,
       ),
       body: SafeArea(
-        child: _isUploading
-          ? const Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Uploading your information...\nPlease wait'),
-                ],
-              ),
-            )
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Personal Information',
-                    style: GoogleFonts.poppins(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'To ensure a secure selling environment, please provide your personal details and ID verification.',
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  
-                  Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: theme.cardColor,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 10,
-                          offset: const Offset(0, 2),
-                        ),
+        child: _isLoading
+            ? const Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('Checking verification status...'),
+                  ],
+                ),
+              )
+            : _isUploading
+                ? const Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 16),
+                        Text('Uploading your information...\nPlease wait'),
                       ],
                     ),
-                    child: Form(
-                      key: _formKey,
+                  )
+                : _hasActiveVerification
+                    ? _buildActiveVerificationView(theme)
+                    : _buildVerificationForm(theme),
+      ),
+    );
+  }
+
+  Widget _buildActiveVerificationView(ThemeData theme) {
+    String statusMessage;
+    Color statusColor;
+    IconData statusIcon;
+
+    switch (_verificationStatus?.toLowerCase()) {
+      case 'pending':
+        statusMessage = 'Your verification is pending review.';
+        statusColor = Colors.amber;
+        statusIcon = Icons.pending_actions;
+        break;
+      case 'approved':
+        statusMessage = 'Your verification has been approved!';
+        statusColor = Colors.green;
+        statusIcon = Icons.verified_user;
+        break;
+      case 'processing':
+        statusMessage = 'Your verification is being processed.';
+        statusColor = Colors.blue;
+        statusIcon = Icons.hourglass_top;
+        break;
+      default:
+        statusMessage = 'Verification status: $_verificationStatus';
+        statusColor = Colors.grey;
+        statusIcon = Icons.info;
+    }
+
+    String formattedDate = _verificationDate != null
+        ? DateFormat('MMM dd, yyyy').format(_verificationDate!)
+        : 'Unknown date';
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Icon(
+            statusIcon,
+            size: 80,
+            color: statusColor,
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Verification In Progress',
+            style: GoogleFonts.poppins(
+              fontSize: 24,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: theme.cardColor,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: statusColor.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        statusIcon,
+                        color: statusColor,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Personal Details',
-                            style: GoogleFonts.poppins(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildTextField(
-                                  label: 'First Name',
-                                  controller: _firstNameController,
-                                  validator: (value) => value == null || value.isEmpty 
-                                      ? 'Please enter your first name' 
-                                      : null,
-                                  icon: Icons.person_outline,
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: _buildTextField(
-                                  label: 'Last Name',
-                                  controller: _lastNameController,
-                                  validator: (value) => value == null || value.isEmpty 
-                                      ? 'Please enter your last name' 
-                                      : null,
-                                  icon: Icons.person_outline,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 20),
-                          
-                          _buildTextField(
-                            label: 'Phone Number',
-                            controller: _phoneController,
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter your phone number';
-                              }
-                              if (!RegExp(r'^\(\d{3}\) \d{3}-\d{4}$').hasMatch(value) &&
-                                  !RegExp(r'^\d{10}$').hasMatch(value)) {
-                                return 'Please enter a valid phone number';
-                              }
-                              return null;
-                            },
-                            keyboardType: TextInputType.phone,
-                            icon: Icons.phone,
-                          ),
-                          const SizedBox(height: 20),
-                          
-                          GestureDetector(
-                            onTap: () => _selectDate(context),
-                            child: AbsorbPointer(
-                              child: _buildTextField(
-                                label: 'Date of Birth',
-                                controller: _dobController,
-                                validator: (value) => value == null || value.isEmpty 
-                                    ? 'Please enter your date of birth' 
-                                    : null,
-                                keyboardType: TextInputType.datetime,
-                                icon: Icons.calendar_today,
-                                hintText: 'MM/DD/YYYY',
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          
-                          _buildTextField(
-                            label: 'Last 4 digits of SSN',
-                            controller: _ssnController,
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter last 4 digits of SSN';
-                              }
-                              if (value.length != 4 || !RegExp(r'^\d{4}$').hasMatch(value)) {
-                                return 'Enter valid last 4 digits of SSN';
-                              }
-                              return null;
-                            },
-                            keyboardType: TextInputType.number,
-                            icon: Icons.security,
-                            obscureText: true,
-                            maxLength: 4,
-                          ),
-                          const SizedBox(height: 32),
-                          
-                          Text(
-                            'ID Verification',
-                            style: GoogleFonts.poppins(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          
-                          Text(
-                            'Please provide clear images of the front and back of your government-issued ID',
+                            'Status',
                             style: GoogleFonts.poppins(
                               fontSize: 14,
                               color: Colors.grey[600],
                             ),
                           ),
-                          const SizedBox(height: 20),
-                          
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildImageUploader(
-                                  label: 'Front of ID',
-                                  image: _frontIdImage,
-                                  onTap: () => _pickImage(true),
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: _buildImageUploader(
-                                  label: 'Back of ID',
-                                  image: _backIdImage,
-                                  onTap: () => _pickImage(false),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 32),
-                          
-                          SizedBox(
-                            width: double.infinity,
-                            height: 50,
-                            child: ElevatedButton(
-                              onPressed: _handleSubmit,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: theme.primaryColor,
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
-                              child: Text(
-                                'SUBMIT FOR VERIFICATION',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 1,
-                                ),
-                              ),
+                          Text(
+                            _verificationStatus?.toUpperCase() ?? 'UNKNOWN',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: statusColor,
                             ),
                           ),
                         ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    const Icon(Icons.calendar_today, color: Colors.grey),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Submitted on',
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          Text(
+                            formattedDate,
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              statusMessage,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              'You cannot submit a new verification request until this one is processed.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: Colors.grey[600],
+              ),
+            ),
+          ),
+          const SizedBox(height: 32),
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: ElevatedButton.icon(
+              onPressed: () => Navigator.of(context).pop(),
+              icon: const Icon(Icons.arrow_back),
+              label: Text(
+                'GO BACK',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.primaryColor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVerificationForm(ThemeData theme) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Personal Information',
+            style: GoogleFonts.poppins(
+              fontSize: 24,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'To ensure a secure selling environment, please provide your personal details and ID verification.',
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              color: Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: theme.cardColor,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Personal Details',
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildTextField(
+                          label: 'First Name',
+                          controller: _firstNameController,
+                          validator: (value) => value == null || value.isEmpty
+                              ? 'Please enter your first name'
+                              : null,
+                          icon: Icons.person_outline,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _buildTextField(
+                          label: 'Last Name',
+                          controller: _lastNameController,
+                          validator: (value) => value == null || value.isEmpty
+                              ? 'Please enter your last name'
+                              : null,
+                          icon: Icons.person_outline,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  _buildTextField(
+                    label: 'Phone Number',
+                    controller: _phoneController,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter your phone number';
+                      }
+                      if (!RegExp(r'^\(\d{3}\) \d{3}-\d{4}$').hasMatch(value) &&
+                          !RegExp(r'^\d{10}$').hasMatch(value)) {
+                        return 'Please enter a valid phone number';
+                      }
+                      return null;
+                    },
+                    keyboardType: TextInputType.phone,
+                    icon: Icons.phone,
+                  ),
+                  const SizedBox(height: 20),
+                  GestureDetector(
+                    onTap: () => _selectDate(context),
+                    child: AbsorbPointer(
+                      child: _buildTextField(
+                        label: 'Date of Birth',
+                        controller: _dobController,
+                        validator: (value) => value == null || value.isEmpty
+                            ? 'Please enter your date of birth'
+                            : null,
+                        keyboardType: TextInputType.datetime,
+                        icon: Icons.calendar_today,
+                        hintText: 'MM/DD/YYYY',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  _buildTextField(
+                    label: 'Last 4 digits of SSS',
+                    controller: _ssnController,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter last 4 digits of SSS';
+                      }
+                      if (value.length != 4 || !RegExp(r'^\d{4}$').hasMatch(value)) {
+                        return 'Enter valid last 4 digits of SSs';
+                      }
+                      return null;
+                    },
+                    keyboardType: TextInputType.number,
+                    icon: Icons.security,
+                    obscureText: true,
+                    maxLength: 4,
+                  ),
+                  const SizedBox(height: 32),
+                  Text(
+                    'ID Verification',
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Please provide clear images of the front and back of your government-issued ID',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildImageUploader(
+                          label: 'Front of ID',
+                          image: _frontIdImage,
+                          onTap: () => _pickImage(true),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _buildImageUploader(
+                          label: 'Back of ID',
+                          image: _backIdImage,
+                          onTap: () => _pickImage(false),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: _handleSubmit,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: theme.primaryColor,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: Text(
+                        'SUBMIT FOR VERIFICATION',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1,
+                        ),
                       ),
                     ),
                   ),
                 ],
               ),
             ),
+          ),
+        ],
       ),
     );
   }
-  
+
   Widget _buildTextField({
     required String label,
     required TextEditingController controller,
@@ -443,7 +698,7 @@ class _SellerProcessingScreenState extends State<SellerProcessingScreen> {
       ],
     );
   }
-  
+
   Widget _buildImageUploader({
     required String label,
     required File? image,

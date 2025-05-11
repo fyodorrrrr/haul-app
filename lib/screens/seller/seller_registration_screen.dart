@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '/providers/user_profile_provider.dart';
 import '/providers/seller_registration_provider.dart';
 import 'seller_verification_screen.dart';
+import 'seller_processing_screen.dart';
 
 class SellerRegistrationPage extends StatefulWidget {
   const SellerRegistrationPage({super.key});
@@ -30,6 +31,7 @@ class _SellerRegistrationState extends State<SellerRegistrationPage> {
     super.dispose();
   }
 
+  // Updated navigation flow to ensure proper sequence
   void _handleSubmit(SellerRegistrationProvider provider) async {
     if (_formKey.currentState!.validate()) {
       final success = await provider.saveSellerData(
@@ -37,13 +39,16 @@ class _SellerRegistrationState extends State<SellerRegistrationPage> {
         addressLine1: _address1Controller.text,
         zipCode: _zipCodeController.text,
       );
-      
+
       if (success && mounted) {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => SellerVerificationScreen(
-              businessName: _businessNameController.text,
+            builder: (context) => ChangeNotifierProvider<SellerRegistrationProvider>.value(
+              value: provider,
+              child: SellerProcessingScreen(
+                businessName: _businessNameController.text,
+              ),
             ),
           ),
         );
@@ -191,11 +196,11 @@ class _SellerRegistrationState extends State<SellerRegistrationPage> {
                                   Row(
                                     children: [
                                       Expanded(
-                                        child: _buildCountryDropdown(provider),
+                                        child: _buildRegionDropdown(provider),
                                       ),
                                       const SizedBox(width: 12),
                                       Expanded(
-                                        child: _buildRegionDropdown(provider),
+                                        child: _buildProvinceDropdown(provider),
                                       ),
                                     ],
                                   ),
@@ -307,6 +312,13 @@ class _SellerRegistrationState extends State<SellerRegistrationPage> {
   }
 
   Widget _buildCountryDropdown(SellerRegistrationProvider provider) {
+    // Set Philippines as default country when widget builds
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (provider.selectedCountry == null) {
+        provider.setCountry("Philippines", "PH");
+      }
+    });
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -319,50 +331,33 @@ class _SellerRegistrationState extends State<SellerRegistrationPage> {
           ),
         ),
         const SizedBox(height: 8),
-        FutureBuilder<List<Country>>(
-          future: provider.countries,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const SizedBox(
-                height: 56,
-                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-              );
-            }
-            return DropdownButtonFormField<String>(
-              value: provider.selectedCountry,
-              isExpanded: true,
-              decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.public),
-                filled: true,
-                fillColor: Colors.grey.shade100,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        TextFormField(
+          enabled: false,
+          initialValue: "Philippines",
+          style: const TextStyle(fontSize: 16),
+          decoration: InputDecoration(
+            prefixIcon: const Icon(Icons.public),
+            filled: true,
+            fillColor: Colors.grey.shade100,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            disabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            suffixIcon: Container(
+              padding: const EdgeInsets.all(12.0),
+              child: Image.asset(
+                'assets/images/philippines_flag.png',
+                width: 24,
+                height: 24,
+                errorBuilder: (context, error, stackTrace) => const Icon(Icons.flag),
               ),
-              icon: const Icon(Icons.keyboard_arrow_down),
-              items: snapshot.hasData
-                  ? snapshot.data!.map((country) => DropdownMenuItem<String>(
-                        value: country.name,
-                        child: Text(country.name, overflow: TextOverflow.ellipsis),
-                      )).toList()
-                  : [],
-              onChanged: (String? newValue) {
-                if (newValue != null && snapshot.hasData) {
-                  final countryIso2 = snapshot.data!.firstWhere((c) => c.name == newValue).iso2;
-                  provider.setCountry(newValue, countryIso2);
-                } else {
-                  provider.setCountry(null, null);
-                }
-              },
-              validator: (value) => value == null ? 'Please select a country' : null,
-            );
-          },
+            ),
+          ),
         ),
       ],
     );
@@ -372,8 +367,108 @@ class _SellerRegistrationState extends State<SellerRegistrationPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const Text("Region", style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+        )),
+        const SizedBox(height: 8),
+        GestureDetector(
+          onTap: () async {
+            // Show modal bottom sheet with scrollable list
+            final selectedRegion = await showModalBottomSheet<Map<String, dynamic>>(
+              context: context,
+              isScrollControlled: true,
+              shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+              ),
+              builder: (context) {
+                return FractionallySizedBox(
+                  heightFactor: 0.7,
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text(
+                          'Select Region',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      Divider(),
+                      Expanded(
+                        child: FutureBuilder<List<dynamic>>(
+                          future: provider.regions,
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              return Center(child: CircularProgressIndicator());
+                            }
+                            
+                            return ListView.builder(
+                              itemCount: snapshot.data?.length ?? 0,
+                              itemBuilder: (context, index) {
+                                final region = snapshot.data![index];
+                                return ListTile(
+                                  title: Text(region['name']),
+                                  onTap: () {
+                                    Navigator.pop(context, region);
+                                  },
+                                );
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+            
+            if (selectedRegion != null) {
+              provider.setPhilippinesRegion(
+                selectedRegion['name'],
+                selectedRegion['code'],
+              );
+            }
+          },
+          child: Container(
+            height: 56,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(10),
+              color: Colors.grey.shade100,
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.map, color: Colors.grey),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    provider.selectedRegion ?? 'Select Region',
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: provider.selectedRegion != null ? Colors.black : Colors.grey,
+                    ),
+                  ),
+                ),
+                const Icon(Icons.arrow_drop_down, color: Colors.grey),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildProvinceDropdown(SellerRegistrationProvider provider) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
         const Text(
-          "Region/State",
+          "Province",
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w500,
@@ -381,11 +476,11 @@ class _SellerRegistrationState extends State<SellerRegistrationPage> {
           ),
         ),
         const SizedBox(height: 8),
-        FutureBuilder<List<StateModel>>(
-          future: provider.states,
+        FutureBuilder<List<dynamic>>(
+          future: provider.provinces,
           builder: (context, snapshot) {
-            if (provider.selectedCountryIso == null) {
-              return _buildDisabledField("Select Country First");
+            if (provider.selectedRegion == null) {
+              return _buildDisabledField("Select Region First");
             }
 
             if (snapshot.connectionState == ConnectionState.waiting) {
@@ -396,10 +491,10 @@ class _SellerRegistrationState extends State<SellerRegistrationPage> {
             }
 
             return DropdownButtonFormField<String>(
-              value: provider.selectedRegion,
+              value: provider.selectedProvince,
               isExpanded: true,
               decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.map),
+                prefixIcon: const Icon(Icons.location_on_outlined),
                 filled: true,
                 fillColor: Colors.grey.shade100,
                 border: OutlineInputBorder(
@@ -412,25 +507,20 @@ class _SellerRegistrationState extends State<SellerRegistrationPage> {
                 ),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               ),
-              icon: const Icon(Icons.keyboard_arrow_down),
-              items: snapshot.hasData && snapshot.data!.isNotEmpty
-                  ? snapshot.data!.map((state) => DropdownMenuItem<String>(
-                        value: state.name,
-                        child: Text(state.name, overflow: TextOverflow.ellipsis),
-                      )).toList()
-                  : [],
+              hint: const Text("Select Province"),
+              items: snapshot.data?.map((province) => DropdownMenuItem<String>(
+                    value: province['name'],
+                    child: Text(province['name'], overflow: TextOverflow.ellipsis),
+                  )).toList() ?? [],
               onChanged: snapshot.hasData && snapshot.data!.isNotEmpty
                   ? (String? newValue) {
                       if (newValue != null) {
-                        final stateIso2 = snapshot.data!.firstWhere((s) => s.name == newValue).iso2;
-                        provider.setRegion(newValue, stateIso2);
-                      } else {
-                        provider.setRegion(null, null);
+                        final provinceCode = snapshot.data!.firstWhere((p) => p['name'] == newValue)['code'];
+                        provider.setPhilippinesProvince(newValue, provinceCode);
                       }
                     }
                   : null,
-              validator: (value) => value == null ? 'Please select a region' : null,
-              hint: const Text("Select Region"),
+              validator: (value) => value == null ? 'Please select a province' : null,
             );
           },
         ),
