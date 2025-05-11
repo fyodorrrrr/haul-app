@@ -5,6 +5,8 @@ import 'package:haul/models/country.dart';
 import '/models/state.dart';
 import 'package:haul/models/city.dart';
 import 'package:haul/services/location_service.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'dart:io';
 
 class SellerRegistrationProvider extends ChangeNotifier {
   final LocationService _locationService = LocationService();
@@ -104,6 +106,73 @@ class SellerRegistrationProvider extends ChangeNotifier {
           .update({
         'isSeller': true,
         'sellerStatus': 'pending',
+      });
+      
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString();
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> saveSellerPersonalInfo({
+    required String firstName,
+    required String lastName,
+    required String phoneNumber,
+    required DateTime dateOfBirth,
+    required String ssn,
+    required File frontIdImage,
+    required File backIdImage,
+  }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+    
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw Exception('User not authenticated');
+      }
+      
+      // Upload ID images to Firebase Storage
+      final frontIdRef = FirebaseStorage.instance
+          .ref()
+          .child('seller_verification')
+          .child(user.uid)
+          .child('id_front.jpg');
+          
+      final backIdRef = FirebaseStorage.instance
+          .ref()
+          .child('seller_verification')
+          .child(user.uid)
+          .child('id_back.jpg');
+      
+      // Upload front ID
+      await frontIdRef.putFile(frontIdImage);
+      final frontIdUrl = await frontIdRef.getDownloadURL();
+      
+      // Upload back ID
+      await backIdRef.putFile(backIdImage);
+      final backIdUrl = await backIdRef.getDownloadURL();
+      
+      // Save personal info to Firestore
+      await FirebaseFirestore.instance
+          .collection('sellers')
+          .doc(user.uid)
+          .update({
+        'firstName': firstName,
+        'lastName': lastName,
+        'phoneNumber': phoneNumber,
+        'dateOfBirth': Timestamp.fromDate(dateOfBirth),
+        'ssnLast4': ssn,
+        'idFrontUrl': frontIdUrl,
+        'idBackUrl': backIdUrl,
+        'verificationStatus': 'pending',
+        'verificationSubmittedAt': FieldValue.serverTimestamp(),
       });
       
       _isLoading = false;
