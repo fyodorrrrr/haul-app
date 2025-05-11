@@ -41,7 +41,9 @@ class _SellerProcessingScreenState extends State<SellerProcessingScreen> {
   @override
   void initState() {
     super.initState();
-    _checkVerificationStatus();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _checkVerificationStatus();
+    });
   }
 
   Future<void> _checkVerificationStatus() async {
@@ -51,7 +53,10 @@ class _SellerProcessingScreenState extends State<SellerProcessingScreen> {
     });
 
     try {
-      final provider = Provider.of<SellerRegistrationProvider>(context, listen: false);
+      // Store context reference
+      final currentContext = context;
+      
+      final provider = Provider.of<SellerRegistrationProvider>(currentContext, listen: false);
       final verificationDetails = await provider.getVerificationStatus();
 
       if (!mounted) return;
@@ -67,12 +72,16 @@ class _SellerProcessingScreenState extends State<SellerProcessingScreen> {
         _isLoading = false;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error checking verification status: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      // Store context reference
+      final currentContext = context;
+      if (mounted) {
+        ScaffoldMessenger.of(currentContext).showSnackBar(
+          SnackBar(
+            content: Text('Error checking verification status: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -132,6 +141,7 @@ class _SellerProcessingScreenState extends State<SellerProcessingScreen> {
         });
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error picking image: $e')),
       );
@@ -139,16 +149,20 @@ class _SellerProcessingScreenState extends State<SellerProcessingScreen> {
   }
 
   void _handleSubmit() async {
+    final BuildContext currentContext = context;
+
     if (_formKey.currentState!.validate()) {
       if (_selectedDate == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        if (!mounted) return;
+        ScaffoldMessenger.of(currentContext).showSnackBar(
           const SnackBar(content: Text('Please select your date of birth')),
         );
         return;
       }
 
       if (_frontIdImage == null || _backIdImage == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        if (!mounted) return;
+        ScaffoldMessenger.of(currentContext).showSnackBar(
           const SnackBar(content: Text('Please upload images of both sides of your ID')),
         );
         return;
@@ -160,7 +174,7 @@ class _SellerProcessingScreenState extends State<SellerProcessingScreen> {
       });
 
       try {
-        final provider = Provider.of<SellerRegistrationProvider>(context, listen: false);
+        final provider = Provider.of<SellerRegistrationProvider>(currentContext, listen: false);
 
         final success = await provider.saveSellerPersonalInfo(
           firstName: _firstNameController.text,
@@ -172,23 +186,20 @@ class _SellerProcessingScreenState extends State<SellerProcessingScreen> {
           backIdImage: _backIdImage!,
         );
 
-        final navigatorContext = context;
+        if (!mounted) return;
 
         if (success) {
-          if (!mounted) return;
-
-          Navigator.pushReplacement(
-            navigatorContext,
+          Navigator.pushAndRemoveUntil(
+            currentContext,
             MaterialPageRoute(
               builder: (context) => SellerVerificationScreen(
                 businessName: widget.businessName,
               ),
             ),
+            (route) => false,
           );
         } else {
-          if (!mounted) return;
-
-          ScaffoldMessenger.of(navigatorContext).showSnackBar(
+          ScaffoldMessenger.of(currentContext).showSnackBar(
             SnackBar(
               content: Text(provider.errorMessage ?? 'An unknown error occurred'),
               backgroundColor: Colors.red,
@@ -198,8 +209,7 @@ class _SellerProcessingScreenState extends State<SellerProcessingScreen> {
       } catch (e) {
         if (!mounted) return;
 
-        final scaffoldContext = context;
-        ScaffoldMessenger.of(scaffoldContext).showSnackBar(
+        ScaffoldMessenger.of(currentContext).showSnackBar(
           SnackBar(
             content: Text('Error: $e'),
             backgroundColor: Colors.red,
