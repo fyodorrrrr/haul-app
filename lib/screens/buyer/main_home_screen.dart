@@ -54,7 +54,8 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
       final snapshot = await FirebaseFirestore.instance.collection('products').get();
 
       final fetchedProducts = snapshot.docs.map((doc) {
-        return Product.fromMap(doc.data() as Map<String, dynamic>);
+        // Pass both the document ID and the data map
+        return Product.fromMap(doc.id, doc.data());
       }).toList();
 
       setState(() {
