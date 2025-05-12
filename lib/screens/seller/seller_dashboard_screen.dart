@@ -3,11 +3,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import '../../providers/seller_registration_provider.dart';
+import '../../models/product_model.dart';
 import '../../providers/product_provider.dart';
+import '../../providers/seller_registration_provider.dart';
 import 'product_listing_screen.dart';
 import 'product_form_screen.dart';
-import '../../models/product_model.dart'; // Adjust the path based on your project structure
 
 class SellerDashboardScreen extends StatefulWidget {
   const SellerDashboardScreen({Key? key}) : super(key: key);

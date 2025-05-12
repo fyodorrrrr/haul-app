@@ -23,7 +23,61 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   final _priceController = TextEditingController();
   final _stockController = TextEditingController();
   
-  final List<String> _categories = ['Clothing', 'Electronics', 'Books', 'Home', 'Beauty', 'Sports', 'Toys', 'Other'];
+  final List<String> _categories = [
+    // Clothing Types
+    'T-Shirts',
+    'Shirts',
+    'Blouses',
+    'Sweaters',
+    'Jackets',
+    'Coats',
+    'Dresses',
+    'Skirts',
+    'Jeans',
+    'Pants',
+    'Shorts',
+    
+    // Styles
+    'Vintage',
+    'Retro',
+    'Y2K',
+    'Streetwear',
+    'Casual',
+    'Formal',
+    'Bohemian',
+    'Athletic',
+    
+    // Eras
+    '90s',
+    '80s',
+    '70s',
+    '60s',
+    'Y2K',
+    
+    // Accessories
+    'Bags',
+    'Jewelry',
+    'Hats',
+    'Belts',
+    'Scarves',
+    
+    // Footwear
+    'Sneakers',
+    'Boots',
+    'Heels',
+    'Sandals',
+    
+    // Condition types
+    'Like New',
+    'Gently Used',
+    'Vintage Condition',
+    
+    // Other
+    'Designer',
+    'Sustainable',
+    'Unisex',
+    'Other',
+  ];
   List<String> _selectedCategories = [];
   
   List<File> _newImageFiles = [];
