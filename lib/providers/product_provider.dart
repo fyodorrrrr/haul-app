@@ -29,21 +29,38 @@ class ProductProvider extends ChangeNotifier {
   Future<void> loadProducts() async {
     _setLoadingState(true);
     try {
-      final user = _auth.currentUser;
+      final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception("User not authenticated");
       
-      final querySnapshot = await _firestore
+      print("Loading products for seller: ${user.uid}"); // Debug log
+      
+      final querySnapshot = await FirebaseFirestore.instance
           .collection('products')
           .where('sellerId', isEqualTo: user.uid)
-          .orderBy('createdAt', descending: true)
+          // Remove any other filters that might exclude products
           .get();
       
+      print("Found ${querySnapshot.docs.length} products"); // Debug log
+      
       _products = querySnapshot.docs
-          .map((doc) => Product.fromMap(doc.id, doc.data()))
+          .map((doc) {
+            try {
+              print("Processing product: ${doc.id}"); // Debug log
+              return Product.fromMap(doc.id, doc.data());
+            } catch (e) {
+              print("Error processing product ${doc.id}: $e"); // Debug log
+              // Return null for products that can't be parsed
+              return null;
+            }
+          })
+          .where((product) => product != null) // Filter out null products
+          .cast<Product>() // Cast to Product type
           .toList();
       
+      print("Successfully loaded ${_products.length} products"); // Debug log
       _setLoadingState(false);
     } catch (e) {
+      print("Error loading products: $e"); // Debug log
       _setLoadingState(false, e.toString());
     }
   }

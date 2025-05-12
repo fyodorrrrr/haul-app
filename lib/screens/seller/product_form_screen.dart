@@ -23,62 +23,75 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   final _priceController = TextEditingController();
   final _stockController = TextEditingController();
   
-  final List<String> _categories = [
-    // Clothing Types
-    'T-Shirts',
-    'Shirts',
-    'Blouses',
-    'Sweaters',
-    'Jackets',
-    'Coats',
-    'Dresses',
-    'Skirts',
-    'Jeans',
-    'Pants',
-    'Shorts',
-    
-    // Styles
-    'Vintage',
-    'Retro',
-    'Y2K',
-    'Streetwear',
-    'Casual',
-    'Formal',
-    'Bohemian',
-    'Athletic',
-    
-    // Eras
-    '90s',
-    '80s',
-    '70s',
-    '60s',
-    'Y2K',
-    
-    // Accessories
-    'Bags',
-    'Jewelry',
-    'Hats',
-    'Belts',
-    'Scarves',
-    
-    // Footwear
-    'Sneakers',
-    'Boots',
-    'Heels',
-    'Sandals',
-    
-    // Condition types
-    'Like New',
-    'Gently Used',
-    'Vintage Condition',
-    
-    // Other
-    'Designer',
-    'Sustainable',
-    'Unisex',
-    'Other',
-  ];
-  List<String> _selectedCategories = [];
+  final Map<String, List<String>> _categoryMap = {
+    'Tops': [
+      'T-Shirts',
+      'Blouses',
+      'Sweaters',
+      'Tank Tops',
+      'Shirts',
+      'Crop Tops'
+    ],
+    'Bottoms': [
+      'Jeans',
+      'Pants',
+      'Shorts',
+      'Skirts',
+      'Leggings'
+    ],
+    'Dresses': [
+      'Mini',
+      'Midi',
+      'Maxi',
+      'Casual',
+      'Formal'
+    ],
+    'Outerwear': [
+      'Jackets',
+      'Coats',
+      'Blazers',
+      'Cardigans',
+      'Hoodies'
+    ],
+    'Activewear': [
+      'Sports Tops',
+      'Leggings',
+      'Shorts',
+      'Sweatpants',
+      'Sweatshirts'
+    ],
+    'Footwear': [
+      'Sneakers',
+      'Boots',
+      'Heels',
+      'Sandals',
+      'Flats'
+    ],
+    'Accessories': [
+      'Bags',
+      'Jewelry',
+      'Hats',
+      'Belts',
+      'Scarves'
+    ],
+    'Styles': [
+      'Vintage',
+      'Streetwear',
+      'Casual',
+      'Formal',
+      'Y2K',
+      'Retro'
+    ],
+    'Condition': [
+      'Like New',
+      'Gently Used',
+      'Vintage Condition',
+      'Well Loved'
+    ],
+  };
+
+  String _selectedMainCategory = '';
+  List<String> _selectedSubcategories = [];
   
   List<File> _newImageFiles = [];
   List<String> _existingImageUrls = [];
@@ -97,7 +110,21 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       _descriptionController.text = widget.product!.description;
       _priceController.text = widget.product!.price.toString();
       _stockController.text = widget.product!.stock.toString();
-      _selectedCategories = List.from(widget.product!.categories);
+      
+      // Initialize subcategories from product
+      _selectedSubcategories = List.from(widget.product!.categories);
+      
+      // Try to determine main category from subcategories
+      for (final entry in _categoryMap.entries) {
+        for (final subcat in _selectedSubcategories) {
+          if (entry.value.contains(subcat)) {
+            _selectedMainCategory = entry.key;
+            break;
+          }
+        }
+        if (_selectedMainCategory.isNotEmpty) break;
+      }
+      
       _existingImageUrls = List.from(widget.product!.images);
       _isActive = widget.product!.isActive;
     }
@@ -154,9 +181,9 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       return;
     }
     
-    if (_selectedCategories.isEmpty) {
+    if (_selectedSubcategories.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select at least one category')),
+        const SnackBar(content: Text('Please select at least one subcategory')),
       );
       return;
     }
@@ -178,7 +205,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
           price: price,
           stock: stock,
           images: _newImageFiles,
-          categories: _selectedCategories,
+          categories: _selectedSubcategories, // Use subcategories here
         );
       } else {
         // Update existing product
@@ -190,7 +217,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
           stock: stock,
           newImages: _newImageFiles,
           existingImageUrls: _existingImageUrls,
-          categories: _selectedCategories,
+          categories: _selectedSubcategories, // Use subcategories here
           isActive: _isActive,
         );
       }
@@ -407,28 +434,74 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    
+
+                    // Main categories
+                    Text(
+                      'Main Category',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: _categories.map((category) {
-                        final isSelected = _selectedCategories.contains(category);
+                      children: _categoryMap.keys.map((category) {
+                        final isSelected = _selectedMainCategory == category;
                         return FilterChip(
                           label: Text(category),
                           selected: isSelected,
                           onSelected: (selected) {
                             safeSetState(() {
                               if (selected) {
-                                _selectedCategories.add(category);
+                                _selectedMainCategory = category;
                               } else {
-                                _selectedCategories.remove(category);
+                                _selectedMainCategory = '';
+                                // Clear subcategories if main category is deselected
+                                _selectedSubcategories.removeWhere((subcat) {
+                                  return _categoryMap[category]?.contains(subcat) ?? false;
+                                });
                               }
                             });
                           },
                         );
                       }).toList(),
                     ),
-                    
+
+                    // Subcategories - only show if a main category is selected
+                    if (_selectedMainCategory.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        'Subcategories',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: (_categoryMap[_selectedMainCategory] ?? []).map((subcategory) {
+                          final isSelected = _selectedSubcategories.contains(subcategory);
+                          return FilterChip(
+                            label: Text(subcategory),
+                            selected: isSelected,
+                            onSelected: (selected) {
+                              safeSetState(() {
+                                if (selected) {
+                                  _selectedSubcategories.add(subcategory);
+                                } else {
+                                  _selectedSubcategories.remove(subcategory);
+                                }
+                              });
+                            },
+                          );
+                        }).toList(),
+                      ),
+                    ],
+
                     if (isEditing) ...[
                       const SizedBox(height: 24),
                       

@@ -29,6 +29,15 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
   @override
   void initState() {
     super.initState();
+    
+    // Load products after a short delay to ensure context is ready
+    Future.delayed(Duration.zero, () {
+      if (mounted) {
+        Provider.of<ProductProvider>(context, listen: false).loadProducts();
+      }
+    });
+    
+    // Rest of your initState
     _loadDashboardData();
   }
 

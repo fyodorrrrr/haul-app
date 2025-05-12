@@ -72,17 +72,8 @@ class Product {
     };
   }
 
+  // Update the fromMap method in your Product model to handle legacy data
   factory Product.fromMap(String id, Map<String, dynamic> map) {
-    // Handle both single category and categories list
-    final cat = map['category'] ?? '';
-    List<String> cats = [];
-    
-    if (map['categories'] != null) {
-      cats = List<String>.from(map['categories']);
-    } else if (cat.isNotEmpty) {
-      cats = [cat];
-    }
-    
     return Product(
       id: id,
       sellerId: map['sellerId'] ?? '',
@@ -90,20 +81,32 @@ class Product {
       description: map['description'] ?? '',
       price: (map['price'] ?? 0).toDouble(),
       stock: map['stock']?.toInt() ?? 0,
-      images: List<String>.from(map['images'] ?? []),
       
-      // Set both single category and categories list
-      category: cat,
-      categories: cats,
-      
-      size: map['size'] ?? '',
-      condition: map['condition'] ?? '',
-      brand: map['brand'] ?? '',
+      // Handle potential legacy data structures
+      images: map['images'] != null 
+        ? List<String>.from(map['images']) 
+        : map['imageUrl'] != null 
+          ? [map['imageUrl']] 
+          : [],
+          
+      // Handle categories field that might be missing
+      categories: map['categories'] != null 
+        ? List<String>.from(map['categories']) 
+        : map['category'] != null && map['category'].toString().isNotEmpty
+          ? [map['category']]
+          : [],
+          
+      // Handle other new fields with default values
       isActive: map['isActive'] ?? true,
       createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (map['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       viewCount: map['viewCount']?.toInt() ?? 0,
       orderCount: map['orderCount']?.toInt() ?? 0,
+      
+      // Add default values for new fields
+      condition: map['condition'] ?? '',
+      size: map['size'] ?? '',
+      brand: map['brand'] ?? '',
     );
   }
 }
