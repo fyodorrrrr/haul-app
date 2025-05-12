@@ -4,12 +4,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '/providers/user_profile_provider.dart';
+import '/providers/seller_registration_provider.dart';
 import 'welcome_screen.dart';
 import '/widgets/loading_screen.dart';
 import '/models/user_profile_model.dart';
 import '/screens/buyer/edit_profile_screen.dart';
 import '/screens/buyer/change_password_screen.dart';
 import '/screens/seller/seller_registration_screen.dart';
+import '/screens/seller/seller_verification_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final UserProfile userProfile;
@@ -95,13 +97,56 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _buildMenuItem(
               Icons.store,
               'Become a Seller',
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => seller_registration_page(),
-                  ),
+              onTap: () async {
+                // Show loading indicator
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (BuildContext context) {
+                    return const Center(child: CircularProgressIndicator());
+                  },
                 );
+                
+                try {
+                  // Get the provider and check verification status
+                  final provider = Provider.of<SellerRegistrationProvider>(context, listen: false);
+                  final verificationDetails = await provider.getVerificationStatus();
+                  
+                  // Close loading dialog
+                  Navigator.pop(context);
+                  
+                  if (verificationDetails['hasActiveVerification'] == true) {
+                    // Verification already exists - go directly to verification screen
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => SellerVerificationScreen(
+                          // Use stored business name or default
+                          businessName: verificationDetails['businessName'] ?? "Your Business",
+                        ),
+                      ),
+                    );
+                  } else {
+                    // No active verification - proceed to registration form
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => SellerRegistrationPage(),
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  // Close loading dialog
+                  Navigator.pop(context);
+                  
+                  // Show error
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error checking seller status: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
               },
             ),
             

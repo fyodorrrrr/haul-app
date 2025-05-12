@@ -22,6 +22,8 @@ dependencies:
   url_launcher: ^6.1.10
   http: ^1.4.0
   flutter_dotenv: ^5.2.1
+  lottie: ^3.3.1
+  shared_preferences: ^2.5.3
   
 
 dev_dependencies:
@@ -33,12 +35,17 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    - assets/animations/
+    - assets/images/philippines_flag.png
     - assets/haul_logo.png
     - assets/images/onboarding1.jpg
     - assets/images/welcome_screen.jpg
     - assets/haul_logo_.png
     - assets/google_logo.png
     - assets/images/vendor.png
+    - assets/data/gadm41_PHL_1.json
+    - assets/data/gadm41_PHL_2.json
+    - assets/data/philippine_provinces_cities_municipalities_and_barangays_2019v2.json
     - .env
 
 flutter_native_splash:

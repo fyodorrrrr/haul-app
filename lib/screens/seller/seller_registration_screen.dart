@@ -1,585 +1,642 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:haul/models/country.dart';
 import '/models/state.dart';
 import 'package:haul/models/city.dart';
-import 'package:haul/services/location_service.dart';
 import 'package:provider/provider.dart';
 import '/providers/user_profile_provider.dart';
+import '/providers/seller_registration_provider.dart';
 import 'seller_verification_screen.dart';
+import 'seller_processing_screen.dart';
 
-class seller_registration_page extends StatefulWidget {
-  const seller_registration_page({super.key});
+class SellerRegistrationPage extends StatefulWidget {
+  const SellerRegistrationPage({super.key});
   @override
-  _SellerRegState createState() => _SellerRegState();
+  _SellerRegistrationState createState() => _SellerRegistrationState();
 }
 
-class _SellerRegState extends State<seller_registration_page> {
+class _SellerRegistrationState extends State<SellerRegistrationPage> {
   final _formKey = GlobalKey<FormState>();
-
   final TextEditingController _businessNameController = TextEditingController();
   final TextEditingController _address1Controller = TextEditingController();
-  final TextEditingController _address2Controller = TextEditingController();
   final TextEditingController _cityController = TextEditingController();
   final TextEditingController _zipCodeController = TextEditingController();
-
-  Future<List<Country>> _countries = LocationService().getCountries();
-  Future<List<StateModel>>? _states;
-  Future<List<City>>? _cities;
-
-  String? _selectedCountryIso;
-  String? selectedRegion;
-  String? selectedCountry;
-  String? selectedCity;
-
-  bool _isLoading = false;
-  String? _errorMessage;
-
-  @override
-  void initState() {
-    super.initState();
-    _states = Future.value([]);
-    _cities = Future.value([]);
-  }
 
   @override
   void dispose() {
     _businessNameController.dispose();
     _address1Controller.dispose();
-    _address2Controller.dispose();
     _cityController.dispose();
     _zipCodeController.dispose();
     super.dispose();
   }
 
-  Future<void> _saveSellerData() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+  // Updated navigation flow to ensure proper sequence
+  void _handleSubmit(SellerRegistrationProvider provider) async {
+    if (_formKey.currentState!.validate()) {
+      final success = await provider.saveSellerData(
+        businessName: _businessNameController.text,
+        addressLine1: _address1Controller.text,
+        zipCode: _zipCodeController.text,
+      );
 
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        throw Exception('User not authenticated');
-      }
-
-      final sellerData = {
-        'businessName': _businessNameController.text,
-        'addressLine1': _address1Controller.text,
-        'addressLine2': _address2Controller.text,
-        'city': selectedCity,
-        'region': selectedRegion,
-        'zipCode': _zipCodeController.text,
-        'country': selectedCountry,
-        'userId': user.uid,
-        'status': 'pending',
-        'createdAt': FieldValue.serverTimestamp(),
-      };
-
-      await FirebaseFirestore.instance
-          .collection('sellers')
-          .doc(user.uid)
-          .set(sellerData);
-
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .update({
-        'isSeller': true,
-        'sellerStatus': 'pending',
-      });
-
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => SellerVerificationScreen(
-            businessName: _businessNameController.text,
+      if (success && mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ChangeNotifierProvider<SellerRegistrationProvider>.value(
+              value: provider,
+              child: SellerProcessingScreen(
+                businessName: _businessNameController.text,
+              ),
+            ),
           ),
-        ),
-      );
-    } catch (e) {
-      setState(() {
-        _errorMessage = e.toString();
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: $_errorMessage'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
+        );
+      } else if (mounted && provider.errorMessage != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${provider.errorMessage}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    double screenWidth = MediaQuery.of(context).size.width;
-    double screenHeight = MediaQuery.of(context).size.width;
-
-    return Scaffold(
-      resizeToAvoidBottomInset: true,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Stack(
-            children: <Widget>[
-              Padding(
-                padding: EdgeInsets.only(top: 10, left: 10),
-                child: Align(
-                  alignment: Alignment.topLeft,
-                  child: FloatingActionButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                    },
-                    backgroundColor: Colors.transparent,
-                    elevation: 0,
-                    child: Icon(Icons.arrow_back, color: Colors.black),
-                  ),
-                ),
+    final theme = Theme.of(context);
+    final primaryColor = theme.primaryColor;
+    
+    return ChangeNotifierProvider(
+      create: (_) => SellerRegistrationProvider(),
+      child: Consumer<SellerRegistrationProvider>(
+        builder: (context, provider, _) {
+          return Scaffold(
+            backgroundColor: theme.scaffoldBackgroundColor,
+            appBar: AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              leading: IconButton(
+                icon: Icon(Icons.arrow_back, color: theme.iconTheme.color),
+                onPressed: () => Navigator.pop(context),
               ),
-              Align(
-                alignment: Alignment.topCenter,
-                child: Image.asset(
-                  "assets/images/vendor.png",
-                  height: 180,
-                  width: 200,
-                ),
-              ),
-              Center(
-                child: Container(
-                  margin: EdgeInsets.fromLTRB(0, screenHeight * .45, 0, 0),
-                  width: 300,
-                  height: 550,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.all(Radius.circular(20)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey,
-                        blurRadius: 5,
-                        spreadRadius: 2,
-                        offset: Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Stack(
-                    children: <Widget>[
-                      Positioned(
-                        top: 10,
-                        left: 45,
-                        child: Text(
-                          style: GoogleFonts.poppins(
-                            fontSize: 30,
-                            fontWeight: FontWeight.w600,
+            ),
+            body: SafeArea(
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Image.asset(
+                            "assets/images/vendor.png",
+                            height: 150,
+                            width: 150,
                           ),
-                          "Start Selling",
-                        ),
-                      ),
-                      Positioned(
-                        top: 50,
-                        left: 60,
-                        child: Text(
-                          "Be part of the seller community",
-                          style: GoogleFonts.poppins(fontSize: 9.5),
-                        ),
-                      ),
-                      Padding(
-                        padding: EdgeInsets.only(top: 100),
-                        child: Center(
-                          child: Column(
-                            children: [
-                              Text(
-                                "Business Information",
-                                style: GoogleFonts.poppins(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 18,
-                                ),
-                              ),
-                            ],
+                          const SizedBox(height: 20),
+                          Text(
+                            "Start Selling",
+                            style: theme.textTheme.headlineMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
+                          const SizedBox(height: 8),
+                          Text(
+                            "Be part of the seller community",
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                        ],
                       ),
-                      Padding(
-                        padding: EdgeInsets.fromLTRB(20, 140, 20, 0),
-                        child: Form(
-                          key: _formKey,
-                          child: Column(
-                            children: [
-                              if (_errorMessage != null)
-                                Padding(
-                                  padding: EdgeInsets.symmetric(
-                                      horizontal: 20, vertical: 10),
-                                  child: Container(
-                                    padding: EdgeInsets.all(10),
-                                    decoration: BoxDecoration(
-                                      color: Colors.red.shade100,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      _errorMessage!,
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 12,
-                                        color: Colors.red.shade900,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              TextFormField(
-                                controller: _businessNameController,
-                                style: GoogleFonts.poppins(fontSize: 11),
-                                decoration: InputDecoration(
-                                  filled: true,
-                                  fillColor:
-                                      const Color.fromARGB(255, 220, 219, 219),
-                                  hintText: "Business Name",
-                                  hintStyle: TextStyle(color: Colors.black),
-                                ),
-                                validator: (value) {
-                                  if (value == null || value.isEmpty) {
-                                    return 'Please enter your business name';
-                                  }
-                                  return null;
-                                },
+                    ),
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 20),
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: theme.cardColor,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.withOpacity(0.1),
+                            spreadRadius: 1,
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Business Information",
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          if (provider.isLoading)
+                            const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(16.0),
+                                child: CircularProgressIndicator(),
                               ),
-                              Padding(
-                                padding: EdgeInsets.symmetric(vertical: 25),
-                                child: TextFormField(
-                                  controller: _address1Controller,
-                                  style: GoogleFonts.poppins(fontSize: 11),
-                                  decoration: InputDecoration(
-                                    filled: true,
-                                    fillColor: const Color.fromARGB(
-                                        255, 220, 219, 219),
-                                    hintText: "Address Line 1",
-                                    hintStyle: TextStyle(color: Colors.black),
-                                  ),
-                                  validator: (value) {
-                                    if (value == null || value.isEmpty) {
-                                      return 'Please enter your address';
-                                    }
-                                    return null;
-                                  },
-                                ),
-                              ),
-                              TextFormField(
-                                controller: _address2Controller,
-                                style: GoogleFonts.poppins(fontSize: 11),
-                                decoration: InputDecoration(
-                                  filled: true,
-                                  fillColor:
-                                      const Color.fromARGB(255, 220, 219, 219),
-                                  hintText: "Address Line 2",
-                                  hintStyle: TextStyle(color: Colors.black),
-                                ),
-                              ),
-                              Row(
+                            )
+                          else
+                            Form(
+                              key: _formKey,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Padding(
-                                    padding: EdgeInsets.only(top: 25, right: 10),
-                                    child: SizedBox(
-                                      width: 125,
-                                      child: FutureBuilder<List<Country>>(
-                                        future: _countries,
-                                        builder: (context, snapshot) {
-                                          if (snapshot.connectionState == ConnectionState.waiting) {
-                                            return Center(child: CircularProgressIndicator());
-                                          } else if (snapshot.hasError) {
-                                            return Text('Error: ${snapshot.error}');
-                                          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                                            return DropdownButtonFormField<String>(
-                                              items: [],
-                                              onChanged: null,
-                                              decoration: InputDecoration(
-                                                filled: true,
-                                                fillColor: const Color.fromARGB(255, 220, 219, 219),
-                                                hintText: "Select Country",
-                                              ),
-                                            );
-                                          }
-                                          List<Country> countries = snapshot.data!;
-                                          return DropdownButtonFormField<String>(
-                                            value: selectedCountry,
-                                            isExpanded: true,
-                                            style: GoogleFonts.poppins(
-                                              fontSize: 13,
-                                              color: Colors.black,
-                                            ),
-                                            decoration: InputDecoration(
-                                              filled: true,
-                                              fillColor: const Color.fromARGB(255, 220, 219, 219),
-                                              hintText: "Country",
-                                            ),
-                                            icon: Icon(Icons.arrow_drop_down),
-                                            onChanged: (String? newValue) {
-                                              setState(() {
-                                                selectedCountry = newValue;
-                                                selectedRegion = null;
-                                                selectedCity = null;
-                                                if (newValue != null) {
-                                                  final countryIso2 = countries.firstWhere((c) => c.name == newValue).iso2;
-                                                  _selectedCountryIso = countryIso2;
-                                                  _states = LocationService().getStates(countryIso2);
-                                                  _cities = Future.value([]);
-                                                } else {
-                                                  _selectedCountryIso = null;
-                                                  _states = Future.value([]);
-                                                  _cities = Future.value([]);
-                                                }
-                                              });
-                                            },
-                                            items: countries.map((country) {
-                                              return DropdownMenuItem<String>(
-                                                value: country.name,
-                                                child: Text(country.name),
-                                              );
-                                            }).toList(),
-                                            validator: (value) {
-                                              if (value == null || value.isEmpty) {
-                                                return 'Please select a country';
-                                              }
-                                              return null;
-                                            },
-                                          );
-                                        },
+                                  if (provider.errorMessage != null)
+                                    Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.all(12),
+                                      margin: const EdgeInsets.only(bottom: 20),
+                                      decoration: BoxDecoration(
+                                        color: Colors.red.shade50,
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: Colors.red.shade200),
                                       ),
-                                    ),
-                                  ),
-                                  Padding(
-                                    padding: EdgeInsets.only(top: 25),
-                                    child: SizedBox(
-                                      width: 125,
-                                      child: FutureBuilder<List<StateModel>>(
-                                        future: _states,
-                                        builder: (context, snapshot) {
-                                          if (_selectedCountryIso == null) {
-                                            return TextFormField(
-                                              enabled: false,
-                                              decoration: InputDecoration(
-                                                filled: true,
-                                                fillColor: const Color.fromARGB(255, 220, 219, 219),
-                                                hintText: "Region",
-                                              ),
-                                            );
-                                          }
-                                          if (snapshot.connectionState == ConnectionState.waiting) {
-                                            return Center(child: CircularProgressIndicator());
-                                          } else if (snapshot.hasError) {
-                                            return Text('Error: ${snapshot.error}');
-                                          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                                            return DropdownButtonFormField<String>(
-                                              items: [],
-                                              onChanged: null,
-                                              decoration: InputDecoration(
-                                                filled: true,
-                                                fillColor: const Color.fromARGB(255, 220, 219, 219),
-                                                hintText: "No regions found",
-                                              ),
-                                            );
-                                          }
-                                          List<StateModel> states = snapshot.data!;
-                                          return DropdownButtonFormField<String>(
-                                            isExpanded: true,
-                                            value: selectedRegion,
-                                            style: GoogleFonts.poppins(
-                                              fontSize: 13,
-                                              color: Colors.black,
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.error_outline, color: Colors.red.shade700),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              provider.errorMessage!,
+                                              style: TextStyle(color: Colors.red.shade700),
                                             ),
-                                            decoration: InputDecoration(
-                                              filled: true,
-                                              fillColor: const Color.fromARGB(255, 220, 219, 219),
-                                              hintText: "Region",
-                                            ),
-                                            icon: Icon(Icons.arrow_drop_down),
-                                            onChanged: (String? newRegion) {
-                                              setState(() {
-                                                selectedRegion = newRegion;
-                                                selectedCity = null;
-                                                if (newRegion != null) {
-                                                  final stateIso2 = states.firstWhere((s) => s.name == newRegion).iso2;
-                                                  print('Fetching cities for country: $_selectedCountryIso, state: $stateIso2');
-                                                  _cities = LocationService().getCities(_selectedCountryIso!, stateIso2)
-                                                    ..then((cities) {
-                                                      print('Fetched cities: ${cities.map((c) => c.name).toList()}');
-                                                    });
-                                                } else {
-                                                  _cities = Future.value([]);
-                                                  print('No region selected, setting cities to empty.');
-                                                }
-                                              });
-                                            },
-                                            items: states.map((state) {
-                                              return DropdownMenuItem<String>(
-                                                value: state.name,
-                                                child: Text(state.name),
-                                              );
-                                            }).toList(),
-                                            validator: (value) {
-                                              if (value == null || value.isEmpty) {
-                                                return 'Please select a region';
-                                              }
-                                              return null;
-                                            },
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Row(
-                                children: [
-                                  Padding(
-                                    padding: EdgeInsets.only(top: 15, right: 10),
-                                    child: SizedBox(
-                                      width: 125,
-                                      child: FutureBuilder<List<City>>(
-                                        future: _cities,
-                                        builder: (context, snapshot) {
-                                          if (selectedRegion == null) {
-                                            return TextFormField(
-                                              enabled: false,
-                                              decoration: InputDecoration(
-                                                filled: true,
-                                                fillColor: const Color.fromARGB(255, 220, 219, 219),
-                                                hintText: "City",
-                                              ),
-                                            );
-                                          }
-                                          if (snapshot.connectionState == ConnectionState.waiting) {
-                                            return Center(child: CircularProgressIndicator());
-                                          } else if (snapshot.hasError) {
-                                            return Text('Error: ${snapshot.error}');
-                                          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                                            return TextFormField(
-                                              controller: _cityController,
-                                              style: GoogleFonts.poppins(fontSize: 11),
-                                              decoration: InputDecoration(
-                                                filled: true,
-                                                fillColor: const Color.fromARGB(255, 220, 219, 219),
-                                                hintText: "Enter City",
-                                                hintStyle: TextStyle(color: Colors.black),
-                                              ),
-                                              onChanged: (value) {
-                                                setState(() {
-                                                  selectedCity = value;
-                                                });
-                                              },
-                                              validator: (value) {
-                                                if (value == null || value.isEmpty) {
-                                                  return 'Please enter your city';
-                                                }
-                                                return null;
-                                              },
-                                            );
-                                          }
-                                          List<City> cities = snapshot.data!;
-                                          return DropdownButtonFormField<String>(
-                                            isExpanded: true,
-                                            value: selectedCity,
-                                            style: GoogleFonts.poppins(
-                                              fontSize: 13,
-                                              color: Colors.black,
-                                            ),
-                                            decoration: InputDecoration(
-                                              filled: true,
-                                              fillColor: const Color.fromARGB(255, 220, 219, 219),
-                                              hintText: "City",
-                                            ),
-                                            icon: Icon(Icons.arrow_drop_down),
-                                            onChanged: (String? newCity) {
-                                              setState(() {
-                                                selectedCity = newCity;
-                                                _cityController.text = newCity ?? '';
-                                              });
-                                            },
-                                            items: cities.map((city) {
-                                              return DropdownMenuItem<String>(
-                                                value: city.name,
-                                                child: Text(city.name),
-                                              );
-                                            }).toList(),
-                                            validator: (value) {
-                                              if (value == null || value.isEmpty) {
-                                                return 'Please select a city';
-                                              }
-                                              return null;
-                                            },
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                  ),
-                                  Padding(
-                                    padding: EdgeInsets.only(top: 15),
-                                    child: SizedBox(
-                                      width: 125,
-                                      child: TextFormField(
-                                        controller: _zipCodeController,
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 11,
-                                          color: Colors.black,
-                                        ),
-                                        decoration: InputDecoration(
-                                          filled: true,
-                                          fillColor: const Color.fromARGB(
-                                              255, 220, 219, 219),
-                                          hintText: "Zip Code",
-                                          hintStyle: GoogleFonts.poppins(
-                                            fontSize: 11,
                                           ),
+                                        ],
+                                      ),
+                                    ),
+                                  _buildFormField(
+                                    label: "Business Name",
+                                    controller: _businessNameController,
+                                    validator: (value) => value?.isEmpty ?? true ? 'Please enter your business name' : null,
+                                    prefixIcon: Icons.business,
+                                  ),
+                                  const SizedBox(height: 20),
+                                  _buildFormField(
+                                    label: "Business Address",
+                                    controller: _address1Controller,
+                                    validator: (value) => value?.isEmpty ?? true ? 'Please enter your address' : null,
+                                    prefixIcon: Icons.location_on,
+                                  ),
+                                  const SizedBox(height: 24),
+                                  Text(
+                                    "Location",
+                                    style: theme.textTheme.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: _buildRegionDropdown(provider),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: _buildProvinceDropdown(provider),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 20),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: _buildCityField(provider),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: _buildFormField(
+                                          label: "Zip Code",
+                                          controller: _zipCodeController,
+                                          validator: (value) => value?.isEmpty ?? true ? 'Please enter your zip code' : null,
+                                          keyboardType: TextInputType.number,
+                                          prefixIcon: Icons.pin,
                                         ),
-                                        validator: (value) {
-                                          if (value == null || value.isEmpty) {
-                                            return 'Please enter your zip code';
-                                          }
-                                          return null;
-                                        },
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 32),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    height: 50,
+                                    child: ElevatedButton(
+                                      onPressed: () => _handleSubmit(provider),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: primaryColor,
+                                        foregroundColor: Colors.white,
+                                        elevation: 2,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                      ),
+                                      child: const Text(
+                                        "CONTINUE",
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 1.2,
+                                        ),
                                       ),
                                     ),
                                   ),
                                 ],
                               ),
-                              Padding(
-                                padding: EdgeInsets.only(top: 15),
-                                child: Align(
-                                  alignment: Alignment.bottomRight,
-                                  child: SizedBox(
-                                    width: 100,
-                                    height: 45,
-                                    child: FloatingActionButton(
-                                      onPressed: () {
-                                        if (_formKey.currentState!.validate()) {
-                                          _saveSellerData();
-                                        }
-                                      },
-                                      child: Text(
-                                        "NEXT",
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                            ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 30),
+                  ],
                 ),
               ),
-            ],
+            ),
+          );
+        }
+      ),
+    );
+  }
+
+  // UI Helper methods that use the provider
+  Widget _buildFormField({
+    required String label,
+    required TextEditingController controller,
+    required FormFieldValidator<String> validator,
+    IconData? prefixIcon,
+    TextInputType keyboardType = TextInputType.text,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: Colors.black87,
           ),
         ),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: controller,
+          validator: validator,
+          keyboardType: keyboardType,
+          style: const TextStyle(fontSize: 16),
+          decoration: InputDecoration(
+            prefixIcon: prefixIcon != null ? Icon(prefixIcon) : null,
+            filled: true,
+            fillColor: Colors.grey.shade100,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Theme.of(context).primaryColor, width: 2),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCountryDropdown(SellerRegistrationProvider provider) {
+    // Set Philippines as default country when widget builds
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (provider.selectedCountry == null) {
+        provider.setCountry("Philippines", "PH");
+      }
+    });
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Country",
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          enabled: false,
+          initialValue: "Philippines",
+          style: const TextStyle(fontSize: 16),
+          decoration: InputDecoration(
+            prefixIcon: const Icon(Icons.public),
+            filled: true,
+            fillColor: Colors.grey.shade100,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            disabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            suffixIcon: Container(
+              padding: const EdgeInsets.all(12.0),
+              child: Image.asset(
+                'assets/images/philippines_flag.png',
+                width: 24,
+                height: 24,
+                errorBuilder: (context, error, stackTrace) => const Icon(Icons.flag),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRegionDropdown(SellerRegistrationProvider provider) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text("Region", style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+        )),
+        const SizedBox(height: 8),
+        GestureDetector(
+          onTap: () async {
+            // Show modal bottom sheet with scrollable list
+            final selectedRegion = await showModalBottomSheet<Map<String, dynamic>>(
+              context: context,
+              isScrollControlled: true,
+              shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+              ),
+              builder: (context) {
+                return FractionallySizedBox(
+                  heightFactor: 0.7,
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text(
+                          'Select Region',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      Divider(),
+                      Expanded(
+                        child: FutureBuilder<List<dynamic>>(
+                          future: provider.regions,
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              return Center(child: CircularProgressIndicator());
+                            }
+                            
+                            return ListView.builder(
+                              itemCount: snapshot.data?.length ?? 0,
+                              itemBuilder: (context, index) {
+                                final region = snapshot.data![index];
+                                return ListTile(
+                                  title: Text(region['name']),
+                                  onTap: () {
+                                    Navigator.pop(context, region);
+                                  },
+                                );
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+            
+            if (selectedRegion != null) {
+              provider.setPhilippinesRegion(
+                selectedRegion['name'],
+                selectedRegion['code'],
+              );
+            }
+          },
+          child: Container(
+            height: 56,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(10),
+              color: Colors.grey.shade100,
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.map, color: Colors.grey),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    provider.selectedRegion ?? 'Select Region',
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: provider.selectedRegion != null ? Colors.black : Colors.grey,
+                    ),
+                  ),
+                ),
+                const Icon(Icons.arrow_drop_down, color: Colors.grey),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildProvinceDropdown(SellerRegistrationProvider provider) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Province",
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 8),
+        FutureBuilder<List<dynamic>>(
+          future: provider.provinces,
+          builder: (context, snapshot) {
+            if (provider.selectedRegion == null) {
+              return _buildDisabledField("Select Region First");
+            }
+
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const SizedBox(
+                height: 56,
+                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+              );
+            }
+
+            return DropdownButtonFormField<String>(
+              value: provider.selectedProvince,
+              isExpanded: true,
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.location_on_outlined),
+                filled: true,
+                fillColor: Colors.grey.shade100,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              ),
+              hint: const Text("Select Province"),
+              items: snapshot.data?.map((province) => DropdownMenuItem<String>(
+                    value: province['name'],
+                    child: Text(province['name'], overflow: TextOverflow.ellipsis),
+                  )).toList() ?? [],
+              onChanged: snapshot.hasData && snapshot.data!.isNotEmpty
+                  ? (String? newValue) {
+                      if (newValue != null) {
+                        final provinceCode = snapshot.data!.firstWhere((p) => p['name'] == newValue)['code'];
+                        provider.setPhilippinesProvince(newValue, provinceCode);
+                      }
+                    }
+                  : null,
+              validator: (value) => value == null ? 'Please select a province' : null,
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCityField(SellerRegistrationProvider provider) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "City",
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 8),
+        FutureBuilder<List<City>>(
+          future: provider.cities,
+          builder: (context, snapshot) {
+            if (provider.selectedRegion == null) {
+              return _buildDisabledField("Select Region First");
+            }
+
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const SizedBox(
+                height: 56,
+                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+              );
+            }
+
+            if (!snapshot.hasData || snapshot.data!.isEmpty) {
+              return TextFormField(
+                controller: _cityController,
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.location_city),
+                  filled: true,
+                  fillColor: Colors.grey.shade100,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: Theme.of(context).primaryColor, width: 2),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  hintText: "Enter City Name",
+                ),
+                onChanged: (value) {
+                  provider.setCity(value);
+                },
+                validator: (value) => value?.isEmpty ?? true ? 'Please enter your city' : null,
+              );
+            }
+
+            return DropdownButtonFormField<String>(
+              value: provider.selectedCity,
+              isExpanded: true,
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.location_city),
+                filled: true,
+                fillColor: Colors.grey.shade100,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              ),
+              icon: const Icon(Icons.keyboard_arrow_down),
+              items: snapshot.data!.map((city) => DropdownMenuItem<String>(
+                    value: city.name,
+                    child: Text(city.name, overflow: TextOverflow.ellipsis),
+                  )).toList(),
+              onChanged: (String? newValue) {
+                provider.setCity(newValue);
+                _cityController.text = newValue ?? '';
+              },
+              validator: (value) => value == null ? 'Please select a city' : null,
+              hint: const Text("Select City"),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDisabledField(String hintText) {
+    return TextFormField(
+      enabled: false,
+      decoration: InputDecoration(
+        prefixIcon: const Icon(Icons.not_interested, color: Colors.grey),
+        filled: true,
+        fillColor: Colors.grey.shade200,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        disabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        hintText: hintText,
+        hintStyle: TextStyle(color: Colors.grey.shade600),
       ),
     );
   }
