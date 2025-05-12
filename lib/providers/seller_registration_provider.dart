@@ -286,4 +286,31 @@ class SellerRegistrationProvider extends ChangeNotifier {
       _setLoadingState(false);
     }
   }
+
+  Future<bool> isSellerApproved() async {
+    _setLoadingState(true);
+    
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw Exception('User not authenticated');
+      }
+      
+      final sellerDoc = await FirebaseFirestore.instance
+          .collection('sellers')
+          .doc(user.uid)
+          .get();
+          
+      if (!sellerDoc.exists) {
+        return false;
+      }
+      
+      return sellerDoc.data()?['status'] == 'approved';
+    } catch (e) {
+      _setLoadingState(false, e.toString());
+      return false;
+    } finally {
+      _setLoadingState(false);
+    }
+  }
 }

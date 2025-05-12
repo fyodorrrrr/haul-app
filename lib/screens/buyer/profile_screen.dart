@@ -12,6 +12,7 @@ import '/screens/buyer/edit_profile_screen.dart';
 import '/screens/buyer/change_password_screen.dart';
 import '/screens/seller/seller_registration_screen.dart';
 import '/screens/seller/seller_verification_screen.dart';
+import '/screens/seller/seller_dashboard_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final UserProfile userProfile;
@@ -23,13 +24,31 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  bool isSellerApproved = false;
+  
   @override
   void initState() {
     super.initState();
+    _checkSellerStatus();
     // Fetch user profile when screen loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<UserProfileProvider>().fetchUserProfile();
     });
+  }
+  
+  Future<void> _checkSellerStatus() async {
+    try {
+      final provider = Provider.of<SellerRegistrationProvider>(context, listen: false);
+      final isApproved = await provider.isSellerApproved();
+      
+      if (mounted) {
+        setState(() {
+          isSellerApproved = isApproved;
+        });
+      }
+    } catch (e) {
+      print('Error checking seller status: $e');
+    }
   }
   
   @override
@@ -59,44 +78,79 @@ class _ProfileScreenState extends State<ProfileScreen> {
             // Account Section
             _buildSectionHeader('Account'),
             _buildMenuItem(
-              Icons.person, 
-              'Personal Information',
+              icon: Icons.person, 
+              title: 'Personal Information',
               onTap: () => _showPersonalInfo(context, widget.userProfile),
             ),
             _buildMenuItem(
-              Icons.lock_outline, 
-              'Change Password',
+              icon: Icons.lock_outline, 
+              title: 'Change Password',
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const ChangePasswordScreen()),
               ),
             ),
-            _buildMenuItem(Icons.location_on_outlined, 'Saved Addresses'),
-            _buildMenuItem(Icons.payment, 'Payment Methods'),
+            _buildMenuItem(
+              icon: Icons.location_on_outlined, 
+              title: 'Saved Addresses',
+              onTap: () {},
+            ),
+            _buildMenuItem(
+              icon: Icons.payment, 
+              title: 'Payment Methods',
+              onTap: () {},
+            ),
             
             const SizedBox(height: 16),
             
             // Orders Section
             _buildSectionHeader('Orders'),
-            _buildMenuItem(Icons.shopping_bag_outlined, 'Order History'),
-            _buildMenuItem(Icons.local_shipping_outlined, 'Track Package'),
-            _buildMenuItem(Icons.undo, 'Returns'),
+            _buildMenuItem(
+              icon: Icons.shopping_bag_outlined, 
+              title: 'Order History',
+              onTap: () {},
+            ),
+            _buildMenuItem(
+              icon: Icons.local_shipping_outlined, 
+              title: 'Track Package',
+              onTap: () {},
+            ),
+            _buildMenuItem(
+              icon: Icons.undo, 
+              title: 'Returns',
+              onTap: () {},
+            ),
             
             const SizedBox(height: 16),
             
             // Settings Section
             _buildSectionHeader('Settings'),
-            _buildMenuItem(Icons.notifications_outlined, 'Notification Preferences'),
-            _buildMenuItem(Icons.lock_outline, 'Privacy Settings'),
-            _buildMenuItem(Icons.help_outline, 'Help Center'),
+            _buildMenuItem(
+              icon: Icons.notifications_outlined, 
+              title: 'Notification Preferences',
+              onTap: () {},
+            ),
+            _buildMenuItem(
+              icon: Icons.lock_outline, 
+              title: 'Privacy Settings',
+              onTap: () {},
+            ),
+            _buildMenuItem(
+              icon: Icons.help_outline, 
+              title: 'Help Center',
+              onTap: () {},
+            ),
             
             const SizedBox(height: 16),
             
             // Seller Section
             _buildSectionHeader('Seller'),
             _buildMenuItem(
-              Icons.store,
-              'Become a Seller',
+              icon: Icons.store,
+              title: isSellerApproved ? 'Seller Dashboard' : 'Become a Seller',
+              subtitle: isSellerApproved 
+                ? 'Manage your products and orders'
+                : 'Start selling on Haul today',
               onTap: () async {
                 // Show loading indicator
                 showDialog(
@@ -108,26 +162,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 );
                 
                 try {
-                  // Get the provider and check verification status
+                  // Get the provider and check seller status
                   final provider = Provider.of<SellerRegistrationProvider>(context, listen: false);
+                  final isApproved = await provider.isSellerApproved();
                   final verificationDetails = await provider.getVerificationStatus();
                   
                   // Close loading dialog
                   Navigator.pop(context);
                   
-                  if (verificationDetails['hasActiveVerification'] == true) {
-                    // Verification already exists - go directly to verification screen
+                  if (isApproved) {
+                    // Seller is approved - go to seller dashboard
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => SellerDashboardScreen(),
+                      ),
+                    );
+                  } else if (verificationDetails['hasActiveVerification'] == true) {
+                    // Verification pending - go to verification status screen
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => SellerVerificationScreen(
-                          // Use stored business name or default
                           businessName: verificationDetails['businessName'] ?? "Your Business",
                         ),
                       ),
                     );
                   } else {
-                    // No active verification - proceed to registration form
+                    // No active verification - go to seller registration
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -286,7 +348,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
   
-  Widget _buildMenuItem(IconData icon, String title, {VoidCallback? onTap}) {
+  Widget _buildMenuItem({required IconData icon, required String title, String? subtitle, VoidCallback? onTap}) {
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
       child: ListTile(
@@ -307,6 +369,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
             fontWeight: FontWeight.w500,
           ),
         ),
+        subtitle: subtitle != null
+            ? Text(
+                subtitle,
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                ),
+              )
+            : null,
         trailing: const Icon(
           Icons.arrow_forward_ios,
           size: 16,
