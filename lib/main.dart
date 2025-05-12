@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:haul/providers/product_provider.dart';
 import 'package:haul/screens/buyer/welcome_screen.dart';
 // import 'screens/buyer/onboarding_screen.dart';     //TEMPORARY CHANGE
 import 'theme/app_theme.dart';
@@ -48,7 +49,7 @@ class MainApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => EditProfileProvider()),
         ChangeNotifierProvider(create: (_) => UserProfileProvider()), // Add the new provider
         ChangeNotifierProvider(create: (_) => SellerRegistrationProvider()), // Add the new provider
-        //ChangeNotifierProvider(create: (_) => ProductProvider()),
+        ChangeNotifierProvider(create: (_) => ProductProvider()),
       ],
       child: 
       MaterialApp(

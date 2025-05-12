@@ -3,7 +3,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import '../../models/product_model.dart';
+import '../../providers/product_provider.dart';
 import '../../providers/seller_registration_provider.dart';
+import 'product_listing_screen.dart';
+import 'product_form_screen.dart';
 
 class SellerDashboardScreen extends StatefulWidget {
   const SellerDashboardScreen({Key? key}) : super(key: key);
@@ -25,6 +29,15 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
   @override
   void initState() {
     super.initState();
+    
+    // Load products after a short delay to ensure context is ready
+    Future.delayed(Duration.zero, () {
+      if (mounted) {
+        Provider.of<ProductProvider>(context, listen: false).loadProducts();
+      }
+    });
+    
+    // Rest of your initState
     _loadDashboardData();
   }
 
@@ -159,7 +172,12 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                           context, 
                           Icons.add_box_outlined, 
                           'Add Product', 
-                          () {}
+                          () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => ProductFormScreen()),
+                            );
+                          }
                         ),
                         _buildActionButton(
                           context, 
@@ -197,17 +215,19 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                     // Recent Products
                     _buildSectionHeader('Products'),
                     SizedBox(height: 8),
-                    _buildEmptyState(
-                      'No products yet',
-                      'Add your first product to start selling'
-                    ),
+                    _buildRecentProducts(),
                   ],
                 ),
               ),
             ),
           ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {},
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => ProductFormScreen()),
+          );
+        },
         icon: Icon(Icons.add),
         label: Text('Add Product'),
       ),
@@ -232,7 +252,14 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
             label: 'Profile',
           ),
         ],
-        onTap: (index) {},
+        onTap: (index) {
+          if (index == 1) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => ProductListingScreen()),
+            );
+          }
+        },
       ),
     );
   }
@@ -368,6 +395,113 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildRecentProducts() {
+    return Consumer<ProductProvider>(
+      builder: (context, provider, child) {
+        if (provider.isLoading) {
+          return Center(child: CircularProgressIndicator());
+        }
+        
+        final products = provider.products;
+        
+        if (products.isEmpty) {
+          return _buildEmptyState(
+            'No products yet',
+            'Add your first product to start selling'
+          );
+        }
+        
+        return Column(
+          children: [
+            ListView.builder(
+              shrinkWrap: true,
+              physics: NeverScrollableScrollPhysics(),
+              itemCount: products.length > 3 ? 3 : products.length,
+              itemBuilder: (context, index) {
+                final product = products[index];
+                return _buildProductCard(product);
+              },
+            ),
+            if (products.length > 3)
+              TextButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => ProductListingScreen()),
+                  );
+                },
+                child: Text('View all ${products.length} products'),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildProductCard(Product product) {
+    return Card(
+      margin: EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ListTile(
+        leading: product.images.isNotEmpty
+            ? ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: Image.network(
+                  product.images.first,
+                  width: 60,
+                  height: 60,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    width: 60,
+                    height: 60,
+                    color: Colors.grey[300],
+                    child: Icon(Icons.image_not_supported, color: Colors.grey),
+                  ),
+                ),
+              )
+            : Container(
+                width: 60,
+                height: 60,
+                color: Colors.grey[300],
+                child: Icon(Icons.inventory_2_outlined, color: Colors.grey),
+              ),
+        title: Text(
+          product.name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Text(
+          '\$${product.price.toStringAsFixed(2)} • ${product.stock} in stock',
+        ),
+        trailing: Container(
+          padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          decoration: BoxDecoration(
+            color: product.isActive ? Colors.green.withOpacity(0.2) : Colors.red.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            product.isActive ? 'Active' : 'Inactive',
+            style: TextStyle(
+              fontSize: 12,
+              color: product.isActive ? Colors.green[700] : Colors.red[700],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ProductFormScreen(product: product),
+            ),
+          );
+        },
       ),
     );
   }
