@@ -19,6 +19,8 @@ import 'providers/seller_registration_provider.dart'; // Import the new provider
 //import 'providers/product_provider.dart'; 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized(); // Ensure that Flutter bindings are initialized
   await Firebase.initializeApp(); // Initialize Firebase
@@ -57,6 +59,7 @@ class MainApp extends StatelessWidget {
       theme: AppTheme.lightTheme(),
       home: const WelcomeScreen(), // Change to OnboardingScreen() for onboarding
       debugShowCheckedModeBanner: false,
+      navigatorObservers: [routeObserver],
        ),
     ); 
   }

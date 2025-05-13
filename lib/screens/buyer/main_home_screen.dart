@@ -10,6 +10,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'product_details_screen.dart';
 import '/utils/snackbar_helper.dart';
 //import '/providers/product_provider.dart';
+import '/main.dart';
 
 class MainHomeScreen extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -23,7 +24,7 @@ class MainHomeScreen extends StatefulWidget {
   _MainHomeScreenState createState() => _MainHomeScreenState();
 }
 
-class _MainHomeScreenState extends State<MainHomeScreen> {
+class _MainHomeScreenState extends State<MainHomeScreen> with RouteAware {
   List<Product> products = [];
   final String imageUrl = 'https://firebasestorage.googleapis.com/v0/b/haul-thrift-shop.firebasestorage.app/o/product.png?alt=media&token=8a229200-6b08-44c6-95ae-cf0efa4b1b5a'; 
   String? userId; // User ID to be used for wishlist
@@ -46,6 +47,25 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
         cartProvider.clearCart(); // Clear wishlist for guest users
       }
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    routeObserver.subscribe(this, ModalRoute.of(context)! as PageRoute);
+  }
+
+  @override
+  void dispose() {
+    routeObserver.unsubscribe(this);
+    super.dispose();
+  }
+
+  @override
+  void didPopNext() {
+    // Called when returning to this screen
+    fetchProducts(); 
+    print("Refreshing products on home screen");
   }
 
   Future<void> fetchProducts() async {

@@ -1,0 +1,173 @@
+import 'package:flutter/foundation.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '/models/cart_model.dart';
+import '/models/shipping_address.dart';
+import '/models/payment_method.dart';
+import '/models/order.dart' as my_order;
+
+class CheckoutProvider with ChangeNotifier {
+  // Current checkout step
+  int _currentStep = 0;
+  int get currentStep => _currentStep;
+
+  // Shipping address
+  ShippingAddress? _shippingAddress;
+  ShippingAddress? get shippingAddress => _shippingAddress;
+
+  // Payment method
+  PaymentMethod? _paymentMethod;
+  PaymentMethod? get paymentMethod => _paymentMethod;
+
+  // Order ID after successful checkout
+  String? _orderId;
+  String? get orderId => _orderId;
+
+  // Loading and error states
+  bool _isLoading = false;
+  bool get isLoading => _isLoading;
+
+  String? _errorMessage;
+  String? get errorMessage => _errorMessage;
+
+  // Flag to prevent duplicate order submission
+  bool _isProcessingOrder = false;
+
+  void setShippingAddress(ShippingAddress address) {
+    _shippingAddress = address;
+    notifyListeners();
+  }
+
+  void setPaymentMethod(PaymentMethod method) {
+    _paymentMethod = method;
+    notifyListeners();
+  }
+
+  void goToNextStep() {
+    if (_currentStep < 3) { // Allow up to step 3
+      _currentStep++;
+      notifyListeners();
+    }
+  }
+
+  void goToPreviousStep() {
+    if (_currentStep > 0) {
+      _currentStep--;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> placeOrder({
+    required List<CartModel> cartItems,
+    required double subtotal,
+    required double shipping,
+    required double tax,
+    required double total,
+  }) async {
+    if (_isProcessingOrder) {
+      print('Order submission already in progress, ignoring duplicate request');
+      return false;
+    }
+
+    if (_shippingAddress == null) {
+      _errorMessage = "Shipping address is required";
+      notifyListeners();
+      return false;
+    }
+
+    if (_paymentMethod == null) {
+      _errorMessage = "Payment method is required";
+      notifyListeners();
+      return false;
+    }
+
+    _isLoading = true;
+    _errorMessage = null;
+    _isProcessingOrder = true;
+    notifyListeners();
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw Exception("User not authenticated");
+
+      // Generate the timestamp ONCE
+      final int nowMillis = DateTime.now().millisecondsSinceEpoch;
+      final String orderId = 'order_${nowMillis}_${user.uid.substring(0, 5)}';
+      final String orderNumber = 'ORD-$nowMillis';
+
+      // Use the generated ID instead of letting Firestore generate one
+      final orderRef = FirebaseFirestore.instance.collection('orders').doc(orderId);
+
+      // Check if order already exists (extra protection)
+      final existingOrder = await orderRef.get();
+      if (existingOrder.exists) {
+        _orderId = orderId;
+        _isLoading = false;
+        _isProcessingOrder = false;
+        notifyListeners();
+        return true;
+      }
+
+      // Create the main order (each item already has sellerId)
+      final orderData = {
+        'orderId': orderId,
+        'orderNumber': orderNumber,
+        'userId': user.uid,
+        'items': cartItems.map((item) => item.toMap()).toList(),
+        'shippingAddress': _shippingAddress!.toMap(),
+        'paymentMethod': _paymentMethod!.toMap(),
+        'subtotal': subtotal,
+        'shipping': shipping,
+        'tax': tax,
+        'total': total,
+        'status': 'pending',
+        'createdAt': FieldValue.serverTimestamp(),
+      };
+
+      await orderRef.set(orderData);
+
+      _orderId = orderId;
+      await _clearCart(user.uid);
+
+      _isLoading = false;
+      _isProcessingOrder = false;
+      notifyListeners();
+      return true;
+
+    } catch (e) {
+      print('Error placing order: $e');
+      _isLoading = false;
+      _isProcessingOrder = false;
+      _errorMessage = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Helper method to clear cart after successful order
+  Future<void> _clearCart(String userId) async {
+    try {
+      final cartRef = FirebaseFirestore.instance.collection('carts');
+      final cartSnapshot = await cartRef.where('userId', isEqualTo: userId).get();
+
+      if (cartSnapshot.docs.isNotEmpty) {
+        final batch = FirebaseFirestore.instance.batch();
+        for (var doc in cartSnapshot.docs) {
+          batch.delete(doc.reference);
+        }
+        await batch.commit();
+      }
+    } catch (e) {
+      print('Error clearing cart: $e');
+    }
+  }
+
+  void resetCheckout() {
+    _currentStep = 0;
+    _shippingAddress = null;
+    _paymentMethod = null;
+    _orderId = null;
+    _errorMessage = null;
+    notifyListeners();
+  }
+}

@@ -5,6 +5,8 @@ import '/providers/cart_providers.dart';
 import '/providers/user_profile_provider.dart';
 import '/models/cart_model.dart';
 import '/widgets/not_logged_in.dart';
+import '/providers/checkout_provider.dart';
+import '/screens/checkout/checkout_screen.dart';
 
 class CartScreen extends StatelessWidget {
   const CartScreen({Key? key}) : super(key: key);
@@ -115,8 +117,25 @@ class CartScreen extends StatelessWidget {
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
-                            onPressed: () {
-                              // TODO: Implement checkout logic
+                            onPressed: () async {
+                              final cartProvider = Provider.of<CartProvider>(context, listen: false);
+                              await cartProvider.updateCartItemsWithSellerId();
+
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ChangeNotifierProvider(
+                                    create: (_) => CheckoutProvider(),
+                                    child: CheckoutScreen(
+                                      cartItems: cart,
+                                      subtotal: subtotal,
+                                      shipping: shipping,
+                                      tax: tax,
+                                      total: total,
+                                    ),
+                                  ),
+                                ),
+                              );
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.black,
