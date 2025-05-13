@@ -84,7 +84,17 @@ class CartProvider with ChangeNotifier {
           isError: true,
         );
       } else {
-        await addToCart(cartItem);
+        await addToCart(
+          CartModel(
+            productId: cartItem.productId,
+            userId: cartItem.userId,
+            sellerId: cartItem.sellerId, // Add the seller ID here
+            productName: cartItem.productName,
+            imageURL: cartItem.imageURL,
+            productPrice: cartItem.productPrice,
+            addedAt: DateTime.now(),
+          ),
+        );
         SnackBarHelper.showSnackBar(
           context,
           'Added to cart',
