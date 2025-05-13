@@ -12,6 +12,7 @@ import '/screens/buyer/edit_profile_screen.dart';
 import '/screens/buyer/change_password_screen.dart';
 import '/screens/seller/seller_registration_screen.dart';
 import '/screens/seller/seller_verification_screen.dart';
+import '/screens/buyer/saved_addresses_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final UserProfile userProfile;
@@ -71,7 +72,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 MaterialPageRoute(builder: (_) => const ChangePasswordScreen()),
               ),
             ),
-            _buildMenuItem(Icons.location_on_outlined, 'Saved Addresses'),
+            _buildMenuItem(Icons.location_on_outlined, 'Saved Addresses',
+              onTap: () => Navigator.push(
+                context, 
+                MaterialPageRoute(builder: (_) => const saved_address_page())
+              ),
+            ),
             _buildMenuItem(Icons.payment, 'Payment Methods'),
             
             const SizedBox(height: 16),
