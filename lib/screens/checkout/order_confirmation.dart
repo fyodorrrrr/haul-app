@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lottie/lottie.dart';
+import '../buyer/home_screen.dart';
+
 
 class OrderConfirmation extends StatefulWidget {
   final String orderId;
@@ -129,7 +131,14 @@ class _OrderConfirmationState extends State<OrderConfirmation> with SingleTicker
               width: double.infinity,
               height: 50,
               child: ElevatedButton(
-                onPressed: widget.onContinueShopping,
+                onPressed: () {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(
+                      builder: (_) => HomeScreen(userData: const {}),
+                    ),
+                    (route) => false, // Remove all previous routes
+                  );
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.black,
                   foregroundColor: Colors.white,

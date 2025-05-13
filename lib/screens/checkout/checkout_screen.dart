@@ -68,6 +68,7 @@ class CheckoutScreen extends StatelessWidget {
   }
 
   Widget _buildCurrentStep(BuildContext context, CheckoutProvider provider) {
+    print('Current checkout step: ${provider.currentStep}');
     switch (provider.currentStep) {
       case 0:
         return ShippingAddressForm(
@@ -96,23 +97,36 @@ class CheckoutScreen extends StatelessWidget {
           tax: tax,
           total: total,
           onPlaceOrder: () async {
+            // Show loading indicator
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (context) => const Center(
+                child: CircularProgressIndicator(),
+              ),
+            );
+            
             final success = await provider.placeOrder(
-              items: cartItems,
+              cartItems: cartItems,
               subtotal: subtotal,
               shipping: shipping,
               tax: tax,
               total: total,
             );
             
+            // Close loading dialog
+            Navigator.pop(context);
+            
             if (success) {
+              print('Order placed successfully, advancing step');
               provider.goToNextStep();
-              
-              // Clear the cart in CartProvider
-              final cartProvider = Provider.of<CartProvider>(
-                context, 
-                listen: false
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(provider.errorMessage ?? 'Failed to place order'),
+                  backgroundColor: Colors.red,
+                ),
               );
-              cartProvider.clearCart();
             }
           },
           onBack: () => provider.goToPreviousStep(),

@@ -30,6 +30,9 @@ class CheckoutProvider with ChangeNotifier {
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
 
+  // Flag to prevent duplicate order submission
+  bool _isProcessingOrder = false;
+
   void setShippingAddress(ShippingAddress address) {
     _shippingAddress = address;
     notifyListeners();
@@ -41,7 +44,7 @@ class CheckoutProvider with ChangeNotifier {
   }
 
   void goToNextStep() {
-    if (_currentStep < 2) {
+    if (_currentStep < 3) { // Allow up to step 3
       _currentStep++;
       notifyListeners();
     }
@@ -55,12 +58,17 @@ class CheckoutProvider with ChangeNotifier {
   }
 
   Future<bool> placeOrder({
-    required List<CartModel> items,
+    required List<CartModel> cartItems,
     required double subtotal,
     required double shipping,
     required double tax,
     required double total,
   }) async {
+    if (_isProcessingOrder) {
+      print('Order submission already in progress, ignoring duplicate request');
+      return false;
+    }
+
     if (_shippingAddress == null) {
       _errorMessage = "Shipping address is required";
       notifyListeners();
@@ -75,113 +83,85 @@ class CheckoutProvider with ChangeNotifier {
 
     _isLoading = true;
     _errorMessage = null;
+    _isProcessingOrder = true;
     notifyListeners();
 
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception("User not authenticated");
 
-      // Create the order in Firestore
-      final orderRef = FirebaseFirestore.instance.collection('orders').doc();
-      
-      final order = my_order.Order(
-        id: orderRef.id,
-        userId: user.uid,
-        items: items,
-        shippingAddress: _shippingAddress!,
-        paymentMethod: _paymentMethod!,
-        subtotal: subtotal,
-        shipping: shipping,
-        tax: tax,
-        total: total,
-      );
-      
-      // Save the order
-      await orderRef.set(order.toMap());
+      // Generate the timestamp ONCE
+      final int nowMillis = DateTime.now().millisecondsSinceEpoch;
+      final String orderId = 'order_${nowMillis}_${user.uid.substring(0, 5)}';
+      final String orderNumber = 'ORD-$nowMillis';
 
-      // Store the order ID for confirmation
-      _orderId = orderRef.id;
-      
-      // Process seller notifications
-      await _notifySellers(items, orderRef.id);
-      
-      // Clear the cart
+      // Use the generated ID instead of letting Firestore generate one
+      final orderRef = FirebaseFirestore.instance.collection('orders').doc(orderId);
+
+      // Check if order already exists (extra protection)
+      final existingOrder = await orderRef.get();
+      if (existingOrder.exists) {
+        _orderId = orderId;
+        _isLoading = false;
+        _isProcessingOrder = false;
+        notifyListeners();
+        return true;
+      }
+
+      // Create the main order (each item already has sellerId)
+      final orderData = {
+        'orderId': orderId,
+        'orderNumber': orderNumber,
+        'userId': user.uid,
+        'items': cartItems.map((item) => item.toMap()).toList(),
+        'shippingAddress': _shippingAddress!.toMap(),
+        'paymentMethod': _paymentMethod!.toMap(),
+        'subtotal': subtotal,
+        'shipping': shipping,
+        'tax': tax,
+        'total': total,
+        'status': 'pending',
+        'createdAt': FieldValue.serverTimestamp(),
+      };
+
+      await orderRef.set(orderData);
+
+      _orderId = orderId;
       await _clearCart(user.uid);
-      
+
       _isLoading = false;
+      _isProcessingOrder = false;
       notifyListeners();
       return true;
-      
+
     } catch (e) {
+      print('Error placing order: $e');
       _isLoading = false;
+      _isProcessingOrder = false;
       _errorMessage = e.toString();
       notifyListeners();
       return false;
     }
   }
-  
-  // Helper method to notify sellers about the order
-  Future<void> _notifySellers(List<CartModel> items, String orderId) async {
-    // Group items by seller
-    final Map<String, List<CartModel>> itemsBySeller = {};
-    for (var item in items) {
-      if (item.sellerId != null) {
-        if (!itemsBySeller.containsKey(item.sellerId)) {
-          itemsBySeller[item.sellerId!] = [];
-        }
-        itemsBySeller[item.sellerId!]!.add(item);
-      }
-    }
-    
-    // Create seller-specific orders
-    final batch = FirebaseFirestore.instance.batch();
-    
-    itemsBySeller.forEach((sellerId, sellerItems) {
-      final sellerOrderRef = FirebaseFirestore.instance
-          .collection('seller_orders')
-          .doc();
-          
-      batch.set(sellerOrderRef, {
-        'orderId': orderId,
-        'sellerId': sellerId,
-        'items': sellerItems.map((item) => item.toMap()).toList(),
-        'status': 'new',
-        'isRead': false,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-      
-      // Also create notification for seller
-      final notificationRef = FirebaseFirestore.instance
-          .collection('seller_notifications')
-          .doc();
-          
-      batch.set(notificationRef, {
-        'sellerId': sellerId,
-        'type': 'new_order',
-        'title': 'New Order',
-        'message': 'You have received a new order!',
-        'orderId': orderId,
-        'isRead': false,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-    });
-    
-    await batch.commit();
-  }
-  
+
   // Helper method to clear cart after successful order
   Future<void> _clearCart(String userId) async {
-    final cartRef = FirebaseFirestore.instance.collection('carts');
-    final cartSnapshot = await cartRef.where('userId', isEqualTo: userId).get();
-    
-    final batch = FirebaseFirestore.instance.batch();
-    for (var doc in cartSnapshot.docs) {
-      batch.delete(doc.reference);
+    try {
+      final cartRef = FirebaseFirestore.instance.collection('carts');
+      final cartSnapshot = await cartRef.where('userId', isEqualTo: userId).get();
+
+      if (cartSnapshot.docs.isNotEmpty) {
+        final batch = FirebaseFirestore.instance.batch();
+        for (var doc in cartSnapshot.docs) {
+          batch.delete(doc.reference);
+        }
+        await batch.commit();
+      }
+    } catch (e) {
+      print('Error clearing cart: $e');
     }
-    
-    await batch.commit();
   }
-  
+
   void resetCheckout() {
     _currentStep = 0;
     _shippingAddress = null;

@@ -351,6 +351,7 @@ class ProductDetailsScreen extends StatelessWidget {
                   cartItem: CartModel(
                     productId: product.id,
                     userId: userId!,
+                    sellerId: product.sellerId,
                     productName: product.name,
                     imageURL: product.imageUrl,
                     productPrice: product.price,

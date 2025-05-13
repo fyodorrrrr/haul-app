@@ -117,7 +117,10 @@ class CartScreen extends StatelessWidget {
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
-                            onPressed: () {
+                            onPressed: () async {
+                              final cartProvider = Provider.of<CartProvider>(context, listen: false);
+                              await cartProvider.updateCartItemsWithSellerId();
+
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
