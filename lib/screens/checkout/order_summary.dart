@@ -5,6 +5,7 @@ import '/models/cart_model.dart';
 import '/models/shipping_address.dart';
 import '/models/payment_method.dart';
 import '/providers/checkout_provider.dart';
+import '/screens/checkout/order_confirmation.dart';
 
 class OrderSummary extends StatefulWidget {
   final List<CartModel> cartItems;
@@ -137,7 +138,18 @@ class _OrderSummaryState extends State<OrderSummary> {
                             );
                             Navigator.pop(context);
                             if (success) {
-                              widget.onPlaceOrder();
+                              Navigator.of(context).pushAndRemoveUntil(
+                                MaterialPageRoute(
+                                  builder: (_) => OrderConfirmation(
+                                    orderId: checkoutProvider.orderId!,
+                                    total: widget.total,
+                                    onContinueShopping: () {
+                                      // You can reset state or navigate home here if needed
+                                    },
+                                  ),
+                                ),
+                                (route) => false, // Remove all previous routes
+                              );
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
