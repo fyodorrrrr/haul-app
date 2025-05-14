@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../models/product_model.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/seller_registration_provider.dart';
+import 'order_listing_screen.dart' show SellerOrdersScreen;
 import 'product_listing_screen.dart';
 import 'product_form_screen.dart';
 
@@ -258,7 +259,13 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
               context,
               MaterialPageRoute(builder: (_) => ProductListingScreen()),
             );
+          } else if (index == 2) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => SellerOrdersScreen()),
+            );
           }
+          // Add navigation for other tabs if needed
         },
       ),
     );
