@@ -12,6 +12,7 @@ import '/screens/buyer/edit_profile_screen.dart';
 import '/screens/buyer/change_password_screen.dart';
 import '/screens/seller/seller_registration_screen.dart';
 import '/screens/seller/seller_verification_screen.dart';
+import '/screens/buyer/saved_addresses_screen.dart';
 import '/screens/seller/seller_dashboard_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -93,7 +94,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _buildMenuItem(
               icon: Icons.location_on_outlined, 
               title: 'Saved Addresses',
-              onTap: () {},
+              onTap: () => Navigator.push(
+                context, 
+                MaterialPageRoute(builder: (_) => const SavedAddressesScreen())
+              ),
             ),
             _buildMenuItem(
               icon: Icons.payment, 

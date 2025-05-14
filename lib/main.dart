@@ -14,11 +14,11 @@ import 'providers/user_registration_provider.dart'; // Import your provider
 import '/screens/buyer/forgot_password_screen.dart';
 import '/providers/edit_profile_provider.dart'; // Import your provider
 import 'providers/user_profile_provider.dart'; // Add the new provider import
-import 'package:haul/screens/seller/seller_registration_screen.dart';
 import 'providers/seller_registration_provider.dart'; // Import the new provider
 //import 'providers/product_provider.dart'; 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'providers/checkout_provider.dart'; // Import the new provider
+import 'providers/address_provider.dart'; // Import the new provider
 
 final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
 
@@ -58,6 +58,7 @@ class MainApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => UserProfileProvider()), // Add the new provider
         ChangeNotifierProvider(create: (_) => SellerRegistrationProvider()), // Add the new provider
         ChangeNotifierProvider(create: (_) => ProductProvider()),
+        ChangeNotifierProvider(create: (_) => AddressProvider()), // Add the new provider
       ],
       child: 
       MaterialApp(
