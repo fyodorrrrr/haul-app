@@ -83,14 +83,28 @@ class AddressProvider extends ChangeNotifier {
       }
       
       // Add to Firestore
+      final docData = {
+        'fullName': address.fullName,
+        'phoneNumber': address.phoneNumber,
+        'addressLine1': address.addressLine1,
+        'addressLine2': address.addressLine2,
+        'region': address.region,
+        'province': address.province,
+        'city': address.city,
+        'barangay': address.barangay,
+        'postalCode': address.postalCode,
+        'label': address.label,
+        'isDefault': address.isDefault,
+      };
+      
       final docRef = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
           .collection('addresses')
-          .add(address.toMap());
+          .add(docData);
           
       // Add to local list
-      final newAddress = Address.fromMap(docRef.id, address.toMap());
+      final newAddress = Address.fromMap(docRef.id, docData);
       _addresses.add(newAddress);
       
       _isLoading = false;
@@ -121,12 +135,26 @@ class AddressProvider extends ChangeNotifier {
       }
       
       // Update in Firestore
+      final docData = {
+        'fullName': address.fullName,
+        'phoneNumber': address.phoneNumber,
+        'addressLine1': address.addressLine1,
+        'addressLine2': address.addressLine2,
+        'region': address.region,
+        'province': address.province,
+        'city': address.city,
+        'barangay': address.barangay,
+        'postalCode': address.postalCode,
+        'label': address.label,
+        'isDefault': address.isDefault,
+      };
+      
       await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
           .collection('addresses')
           .doc(address.id)
-          .update(address.toMap());
+          .update(docData);
           
       // Update local list
       final index = _addresses.indexWhere((a) => a.id == address.id);
