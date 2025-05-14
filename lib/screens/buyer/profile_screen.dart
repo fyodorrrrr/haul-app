@@ -14,7 +14,6 @@ import '/screens/seller/seller_registration_screen.dart';
 import '/screens/seller/seller_verification_screen.dart';
 import '/screens/buyer/saved_addresses_screen.dart';
 import '/screens/seller/seller_dashboard_screen.dart';
-import '/screens/buyer/saved_addresses_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final UserProfile userProfile;
@@ -97,7 +96,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               title: 'Saved Addresses',
               onTap: () => Navigator.push(
                 context, 
-                MaterialPageRoute(builder: (_) => const saved_address_page())
+                MaterialPageRoute(builder: (_) => const SavedAddressesScreen())
               ),
             ),
             _buildMenuItem(
