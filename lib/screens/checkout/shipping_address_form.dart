@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import '/models/shipping_address.dart';
+import '/models/address_model.dart';
+import '/providers/address_provider.dart';
+import '/utils/address_mapper.dart';
+import '/screens/buyer/add_address_screen.dart';
 
 class ShippingAddressForm extends StatefulWidget {
   final Function(ShippingAddress) onContinue;
@@ -15,206 +20,320 @@ class ShippingAddressForm extends StatefulWidget {
 }
 
 class _ShippingAddressFormState extends State<ShippingAddressForm> {
-  final _formKey = GlobalKey<FormState>();
-  
-  final _fullNameController = TextEditingController();
-  final _addressLine1Controller = TextEditingController();
-  final _addressLine2Controller = TextEditingController();
-  final _cityController = TextEditingController();
-  final _stateController = TextEditingController();
-  final _zipCodeController = TextEditingController();
-  final _countryController = TextEditingController();
-  final _phoneController = TextEditingController();
+  // Saved address selection
+  Address? _selectedAddress;
+  bool _isLoadingAddresses = false;
 
   @override
-  void dispose() {
-    _fullNameController.dispose();
-    _addressLine1Controller.dispose();
-    _addressLine2Controller.dispose();
-    _cityController.dispose();
-    _stateController.dispose();
-    _zipCodeController.dispose();
-    _countryController.dispose();
-    _phoneController.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    _loadSavedAddresses();
+  }
+
+  Future<void> _loadSavedAddresses() async {
+    setState(() {
+      _isLoadingAddresses = true;
+    });
+
+    try {
+      await Provider.of<AddressProvider>(context, listen: false).loadAddresses();
+
+      // Select the default address automatically if available
+      final provider = Provider.of<AddressProvider>(context, listen: false);
+      if (provider.addresses.isNotEmpty) {
+        setState(() {
+          _selectedAddress = provider.defaultAddress ?? provider.addresses.first;
+        });
+      }
+    } catch (e) {
+      print('Error loading addresses: $e');
+    } finally {
+      setState(() {
+        _isLoadingAddresses = false;
+      });
+    }
   }
 
   void _submitForm() {
-    if (_formKey.currentState!.validate()) {
-      final address = ShippingAddress(
-        fullName: _fullNameController.text,
-        addressLine1: _addressLine1Controller.text,
-        addressLine2: _addressLine2Controller.text,
-        city: _cityController.text,
-        state: _stateController.text,
-        zipCode: _zipCodeController.text,
-        country: _countryController.text,
-        phoneNumber: _phoneController.text,
+    if (_selectedAddress != null) {
+      // Convert selected Address to ShippingAddress and submit
+      final shippingAddress = AddressMapper.toShippingAddress(_selectedAddress!);
+      widget.onContinue(shippingAddress);
+    } else {
+      // Show error message if no address is selected
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please select a shipping address or add a new one')),
       );
-      widget.onContinue(address);
+    }
+  }
+
+  void _navigateToAddAddress(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => AddAddressScreen()),
+    ).then((_) {
+      // Reload addresses when returning
+      _loadSavedAddresses();
+    });
+  }
+
+  Color _getLabelColor(String label) {
+    switch (label.toLowerCase()) {
+      case 'home':
+        return Colors.blue;
+      case 'work':
+        return Colors.orange;
+      default:
+        return Colors.grey;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Form(
-        key: _formKey,
+    final theme = Theme.of(context);
+
+    if (_isLoadingAddresses) {
+      return Center(
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Shipping Address',
-                      style: GoogleFonts.poppins(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    
-                    _buildTextField(
-                      controller: _fullNameController,
-                      label: 'Full Name',
-                      prefixIcon: Icons.person_outline,
-                      validator: (value) => value!.isEmpty ? 'Please enter your name' : null,
-                    ),
-                    
-                    _buildTextField(
-                      controller: _addressLine1Controller,
-                      label: 'Address Line 1',
-                      prefixIcon: Icons.home_outlined,
-                      validator: (value) => value!.isEmpty ? 'Please enter your address' : null,
-                    ),
-                    
-                    _buildTextField(
-                      controller: _addressLine2Controller,
-                      label: 'Address Line 2 (Optional)',
-                      prefixIcon: Icons.home_outlined,
-                    ),
-                    
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildTextField(
-                            controller: _cityController,
-                            label: 'City',
-                            prefixIcon: Icons.location_city_outlined,
-                            validator: (value) => value!.isEmpty ? 'Please enter your city' : null,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildTextField(
-                            controller: _stateController,
-                            label: 'State/Province',
-                            prefixIcon: Icons.map_outlined,
-                            validator: (value) => value!.isEmpty ? 'Please enter your state' : null,
-                          ),
-                        ),
-                      ],
-                    ),
-                    
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildTextField(
-                            controller: _zipCodeController,
-                            label: 'ZIP/Postal Code',
-                            prefixIcon: Icons.pin_outlined,
-                            validator: (value) => value!.isEmpty ? 'Please enter your ZIP code' : null,
-                            keyboardType: TextInputType.number,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildTextField(
-                            controller: _countryController,
-                            label: 'Country',
-                            prefixIcon: Icons.flag_outlined,
-                            validator: (value) => value!.isEmpty ? 'Please enter your country' : null,
-                          ),
-                        ),
-                      ],
-                    ),
-                    
-                    _buildTextField(
-                      controller: _phoneController,
-                      label: 'Phone Number',
-                      prefixIcon: Icons.phone_outlined,
-                      validator: (value) => value!.isEmpty ? 'Please enter your phone number' : null,
-                      keyboardType: TextInputType.phone,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            
-            const SizedBox(height: 16),
-            
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: _submitForm,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.black,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: Text(
-                  'Continue to Payment',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+            CircularProgressIndicator(color: theme.primaryColor),
+            SizedBox(height: 16),
+            Text(
+              'Loading saved addresses...',
+              style: GoogleFonts.poppins(
+                fontSize: 16,
               ),
             ),
           ],
         ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Shipping Address',
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: Provider.of<AddressProvider>(context).addresses.isEmpty
+                ? _buildNoAddressesView()
+                : _buildSavedAddressList(),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: ElevatedButton(
+              onPressed: _selectedAddress != null ? _submitForm : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.primaryColor,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: Colors.grey.shade300,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: Text(
+                'Continue to Payment',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
-  
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    IconData? prefixIcon,
-    String? Function(String?)? validator,
-    TextInputType keyboardType = TextInputType.text,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0),
-      child: TextFormField(
-        controller: controller,
-        decoration: InputDecoration(
-          labelText: label,
-          prefixIcon: prefixIcon != null ? Icon(prefixIcon) : null,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: Colors.grey.shade300),
+
+  Widget _buildNoAddressesView() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.location_off,
+            size: 64,
+            color: Colors.grey[400],
           ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: Colors.grey.shade300),
+          SizedBox(height: 16),
+          Text(
+            'No Saved Addresses',
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
+            ),
           ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: Colors.black, width: 2),
+          SizedBox(height: 8),
+          Text(
+            'Please add a shipping address',
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              color: Colors.grey[600],
+            ),
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          filled: true,
-          fillColor: Colors.grey.shade50,
+          SizedBox(height: 24),
+          ElevatedButton.icon(
+            icon: Icon(Icons.add),
+            label: Text('Add New Address'),
+            onPressed: () => _navigateToAddAddress(context),
+            style: ElevatedButton.styleFrom(
+              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSavedAddressList() {
+    final addresses = Provider.of<AddressProvider>(context).addresses;
+
+    return Column(
+      children: [
+        Expanded(
+          child: ListView.builder(
+            itemCount: addresses.length,
+            itemBuilder: (context, index) => _buildAddressCard(addresses[index]),
+          ),
         ),
-        validator: validator,
-        keyboardType: keyboardType,
+        // Add new address button
+        Padding(
+          padding: const EdgeInsets.only(top: 12.0),
+          child: OutlinedButton.icon(
+            onPressed: () => _navigateToAddAddress(context),
+            icon: Icon(Icons.add),
+            label: Text('Add New Address'),
+            style: OutlinedButton.styleFrom(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              minimumSize: Size(double.infinity, 0),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAddressCard(Address address) {
+    final isSelected = _selectedAddress?.id == address.id;
+    final theme = Theme.of(context);
+
+    return Card(
+      margin: EdgeInsets.symmetric(vertical: 8),
+      elevation: isSelected ? 2 : 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: isSelected ? theme.primaryColor : Colors.transparent,
+          width: 2,
+        ),
+      ),
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            _selectedAddress = address;
+          });
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Radio<String>(
+                value: address.id ?? '',
+                groupValue: _selectedAddress?.id ?? '',
+                onChanged: (value) {
+                  setState(() {
+                    _selectedAddress = address;
+                  });
+                },
+                activeColor: theme.primaryColor,
+              ),
+              SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            address.fullName,
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        if (address.isDefault)
+                          Container(
+                            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: theme.primaryColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              'DEFAULT',
+                              style: GoogleFonts.poppins(
+                                fontSize: 10,
+                                color: theme.primaryColor,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      address.phoneNumber,
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      AddressMapper.formatAddress(address),
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                      ),
+                    ),
+                    if (address.label.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Container(
+                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: _getLabelColor(address.label).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Text(
+                            address.label.toUpperCase(),
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: _getLabelColor(address.label),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
