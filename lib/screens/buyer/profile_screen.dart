@@ -12,6 +12,7 @@ import '/screens/buyer/edit_profile_screen.dart';
 import '/screens/buyer/change_password_screen.dart';
 import '/screens/seller/seller_registration_screen.dart';
 import '/screens/seller/seller_verification_screen.dart';
+import '/screens/buyer/saved_addresses_screen.dart';
 import '/screens/seller/seller_dashboard_screen.dart';
 import '/screens/buyer/saved_addresses_screen.dart';
 
