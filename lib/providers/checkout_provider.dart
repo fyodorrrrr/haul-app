@@ -64,6 +64,7 @@ class CheckoutProvider with ChangeNotifier {
     required double tax,
     required double total,
   }) async {
+    print('placeOrder called at ${DateTime.now()}');
     if (_isProcessingOrder) {
       print('Order submission already in progress, ignoring duplicate request');
       return false;
@@ -90,25 +91,11 @@ class CheckoutProvider with ChangeNotifier {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception("User not authenticated");
 
-      // Generate the timestamp ONCE
-      final int nowMillis = DateTime.now().millisecondsSinceEpoch;
-      final String orderId = 'order_${nowMillis}_${user.uid.substring(0, 5)}';
-      final String orderNumber = 'ORD-$nowMillis';
+      // Use Firestore auto-generated ID
+      final orderRef = FirebaseFirestore.instance.collection('orders').doc();
+      final String orderId = orderRef.id;
+      final String orderNumber = 'ORD-${DateTime.now().millisecondsSinceEpoch}';
 
-      // Use the generated ID instead of letting Firestore generate one
-      final orderRef = FirebaseFirestore.instance.collection('orders').doc(orderId);
-
-      // Check if order already exists (extra protection)
-      final existingOrder = await orderRef.get();
-      if (existingOrder.exists) {
-        _orderId = orderId;
-        _isLoading = false;
-        _isProcessingOrder = false;
-        notifyListeners();
-        return true;
-      }
-
-      // Create the main order (each item already has sellerId)
       final orderData = {
         'orderId': orderId,
         'orderNumber': orderNumber,
@@ -125,9 +112,10 @@ class CheckoutProvider with ChangeNotifier {
       };
 
       await orderRef.set(orderData);
+      
+      await _clearCart(user.uid);
 
       _orderId = orderId;
-      await _clearCart(user.uid);
 
       _isLoading = false;
       _isProcessingOrder = false;

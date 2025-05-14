@@ -18,6 +18,7 @@ import 'package:haul/screens/seller/seller_registration_screen.dart';
 import 'providers/seller_registration_provider.dart'; // Import the new provider
 //import 'providers/product_provider.dart'; 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'providers/checkout_provider.dart'; // Import the new provider
 
 final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
 
@@ -33,7 +34,12 @@ Future<void> main() async {
     appleProvider: AppleProvider.debug,
   );
   
-  runApp(const MainApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => CheckoutProvider(),
+      child: const MainApp(),
+    ),
+  );
 }
 
 class MainApp extends StatelessWidget {
