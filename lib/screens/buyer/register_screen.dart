@@ -24,7 +24,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _hasUppercase = false;
   bool _hasLowercase = false;
   bool _hasNumber = false;
-  bool _hasSpecialChar = false;
   bool _hasMinLength = false;
   bool _passwordFocused = false;
 
@@ -48,7 +47,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> registerUser() async {
     try {
       // Check if all password requirements are met
-      if (!(_hasUppercase && _hasLowercase && _hasNumber && _hasSpecialChar && _hasMinLength)) {
+      if (!(_hasUppercase && _hasLowercase && _hasNumber && _hasMinLength)) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Please ensure your password meets all the requirements'),
@@ -119,7 +118,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _hasUppercase = password.contains(RegExp(r'[A-Z]'));
       _hasLowercase = password.contains(RegExp(r'[a-z]'));
       _hasNumber = password.contains(RegExp(r'[0-9]'));
-      _hasSpecialChar = password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'));
       _hasMinLength = password.length >= 8;
     });
   }
@@ -280,7 +278,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           
                           // Check all requirements are met
                           bool allRequirementsMet = _hasUppercase && _hasLowercase && 
-                                                   _hasNumber && _hasSpecialChar && _hasMinLength;
+                                                   _hasNumber && _hasMinLength;
                           
                           if (!allRequirementsMet) {
                             return 'Password must meet all requirements';
@@ -312,7 +310,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               _buildPasswordRequirement('At least 1 uppercase letter (A-Z)', _hasUppercase),
                               _buildPasswordRequirement('At least 1 lowercase letter (a-z)', _hasLowercase),
                               _buildPasswordRequirement('At least 1 number (0-9)', _hasNumber),
-                              _buildPasswordRequirement('At least 1 special character (!@#\$%^&*)', _hasSpecialChar),
                             ],
                           ),
                         ),
