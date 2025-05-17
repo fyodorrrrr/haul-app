@@ -21,6 +21,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
+  bool _hasUppercase = false;
+  bool _hasLowercase = false;
+  bool _hasNumber = false;
+  bool _hasMinLength = false;
+  bool _passwordFocused = false;
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -40,6 +46,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> registerUser() async {
     try {
+      // Check if all password requirements are met
+      if (!(_hasUppercase && _hasLowercase && _hasNumber && _hasMinLength)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please ensure your password meets all the requirements'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
       bool emailExists = await isEmailAlreadyInUse(_emailController.text.trim());
       if (emailExists) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -94,36 +111,38 @@ class _RegisterScreenState extends State<RegisterScreen> {
         const SnackBar(content: Text('An unexpected error occurred')),
       );
     }
-  
-  
+  }
 
-    //   Navigator.pushReplacement(
-    //     context,  
-    //     MaterialPageRoute(
-    //       builder: (_) => HomeScreen(userData: {
-    //         'uid': FirebaseAuth.instance.currentUser!.uid,
-    //         'email': _emailController.text.trim(),
-    //       }),
-    //     ),
-    //   );
-    // } on FirebaseAuthException catch (e) {
-    //   String message = 'Something went wrong';
-    //   if (e.code == 'email-already-in-use') {
-    //     message = 'This email is already in use.';
-    //   } else if (e.code == 'invalid-email') {
-    //     message = 'The email address is invalid.';
-    //   } else if (e.code == 'weak-password') {
-    //     message = 'The password is too weak.';
-    //   }
+  void _validatePasswordRequirements(String password) {
+    setState(() {
+      _hasUppercase = password.contains(RegExp(r'[A-Z]'));
+      _hasLowercase = password.contains(RegExp(r'[a-z]'));
+      _hasNumber = password.contains(RegExp(r'[0-9]'));
+      _hasMinLength = password.length >= 8;
+    });
+  }
 
-    //   ScaffoldMessenger.of(context).showSnackBar(
-    //     SnackBar(content: Text(message)),
-    //   );
-    // } catch (e) {
-    //   ScaffoldMessenger.of(context).showSnackBar(
-    //     const SnackBar(content: Text('Unexpected error occurred')),
-    //   );
-    // }
+  Widget _buildPasswordRequirement(String requirement, bool isMet) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4.0),
+      child: Row(
+        children: [
+          Icon(
+            isMet ? Icons.check_circle : Icons.cancel,
+            color: isMet ? Colors.green : Colors.grey,
+            size: 16,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            requirement,
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              color: isMet ? Colors.green : Colors.grey.shade700,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -219,7 +238,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             fontSize: 14,
                             color: Colors.black,
                           ),
-                          contentPadding: EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
                           isDense: true,
                           suffixIcon: IconButton(
                             icon: Icon(
@@ -236,20 +255,64 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                         ),
                         onChanged: (value) {
+                          _validatePasswordRequirements(value.trim());
                           _passwordController.text = value.trim();
                           _passwordController.selection = TextSelection.fromPosition(
                             TextPosition(offset: _passwordController.text.length),
                           );
                         },
+                        onTap: () {
+                          setState(() {
+                            _passwordFocused = true;
+                          });
+                        },
+                        onFieldSubmitted: (_) {
+                          setState(() {
+                            _passwordFocused = false;
+                          });
+                        },
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
                             return 'Please enter a password';
-                          } else if (value.trim().length < 6) {
-                            return 'Password must be at least 6 characters';
+                          } 
+                          
+                          // Check all requirements are met
+                          bool allRequirementsMet = _hasUppercase && _hasLowercase && 
+                                                   _hasNumber && _hasMinLength;
+                          
+                          if (!allRequirementsMet) {
+                            return 'Password must meet all requirements';
                           }
+                          
                           return null;
                         },
                       ),
+                      
+                      if (_passwordFocused || _passwordController.text.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Password Requirements:',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 5),
+                              _buildPasswordRequirement('At least 8 characters', _hasMinLength),
+                              _buildPasswordRequirement('At least 1 uppercase letter (A-Z)', _hasUppercase),
+                              _buildPasswordRequirement('At least 1 lowercase letter (a-z)', _hasLowercase),
+                              _buildPasswordRequirement('At least 1 number (0-9)', _hasNumber),
+                            ],
+                          ),
+                        ),
                       
                       SizedBox(height: 12),
                       
