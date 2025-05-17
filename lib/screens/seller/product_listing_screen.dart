@@ -207,13 +207,23 @@ class _ProductListingScreenState extends State<ProductListingScreen> {
                             ).then((_) => _loadProducts());
                           },
                           icon: const Icon(Icons.add),
-                          label: const Text('Add Product'),
+                          label: Text(
+                            'Add Product',
+                            style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: theme.primaryColor,
+                            foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 20,
+                              horizontal: 24,
                               vertical: 12,
                             ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            elevation: 2,
                           ),
                         ),
                       ],
@@ -251,7 +261,7 @@ class _ProductListingScreenState extends State<ProductListingScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
           Navigator.push(
             context,
@@ -259,16 +269,31 @@ class _ProductListingScreenState extends State<ProductListingScreen> {
           ).then((_) => _loadProducts());
         },
         backgroundColor: theme.primaryColor,
-        child: const Icon(Icons.add),
+        elevation: 3,
+        icon: const Icon(Icons.add),
+        label: Text(
+          'Add Product',
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.w500,
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildFilterChip(String label, String value) {
     final isSelected = _filterStatus == value;
+    final theme = Theme.of(context);
     
-    return ChoiceChip(
-      label: Text(label),
+    return FilterChip(
+      label: Text(
+        label,
+        style: GoogleFonts.poppins(
+          color: isSelected ? Colors.white : Colors.black87,
+          fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
+          fontSize: 13,
+        ),
+      ),
       selected: isSelected,
       onSelected: (selected) {
         if (selected) {
@@ -277,6 +302,19 @@ class _ProductListingScreenState extends State<ProductListingScreen> {
           });
         }
       },
+      backgroundColor: Colors.grey.shade200,
+      selectedColor: theme.primaryColor,
+      checkmarkColor: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(
+          color: isSelected ? theme.primaryColor : Colors.transparent,
+          width: 1,
+        ),
+      ),
+      elevation: isSelected ? 1 : 0,
+      pressElevation: 2,
     );
   }
 
@@ -410,32 +448,45 @@ class _ProductListingScreenState extends State<ProductListingScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      OutlinedButton.icon(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => ProductFormScreen(product: product),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ProductFormScreen(product: product),
+                              ),
+                            ).then((_) => _loadProducts());
+                          },
+                          icon: const Icon(Icons.edit_outlined, size: 18),
+                          label: const Text('Edit'),
+                          style: ElevatedButton.styleFrom(
+                            foregroundColor: Theme.of(context).primaryColor,
+                            backgroundColor: Colors.white,
+                            elevation: 0,
+                            side: BorderSide(color: Theme.of(context).primaryColor.withOpacity(0.5)),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
                             ),
-                          ).then((_) => _loadProducts());
-                        },
-                        icon: const Icon(Icons.edit_outlined),
-                        label: const Text('Edit'),
-                        style: OutlinedButton.styleFrom(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
                           ),
                         ),
                       ),
-                      OutlinedButton.icon(
-                        onPressed: () => _confirmDelete(product),
-                        icon: const Icon(Icons.delete_outline),
-                        label: const Text('Delete'),
-                        style: OutlinedButton.styleFrom(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () => _confirmDelete(product),
+                          icon: const Icon(Icons.delete_outline, size: 18),
+                          label: const Text('Delete'),
+                          style: ElevatedButton.styleFrom(
+                            foregroundColor: Colors.red,
+                            backgroundColor: Colors.red.withOpacity(0.08),
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
-                          foregroundColor: Colors.red,
                         ),
                       ),
                     ],
