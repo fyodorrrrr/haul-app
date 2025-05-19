@@ -9,6 +9,7 @@ import '../../providers/seller_registration_provider.dart';
 import 'order_listing_screen.dart' show SellerOrdersScreen;
 import 'product_listing_screen.dart';
 import 'product_form_screen.dart';
+import 'seller_profile_screen.dart';
 
 class SellerDashboardScreen extends StatefulWidget {
   const SellerDashboardScreen({Key? key}) : super(key: key);
@@ -19,7 +20,9 @@ class SellerDashboardScreen extends StatefulWidget {
 
 class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
   bool _isLoading = true;
-  String _businessName = "";
+  String _businessName = 'Your Shop';
+  String? _profileImageUrl;
+  Map<String, dynamic> _sellerData = {};
   Map<String, dynamic> _salesMetrics = {
     'totalSales': 0.0,
     'ordersCount': 0,
@@ -62,10 +65,12 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
 
       // Get basic seller info
       final sellerData = sellerDoc.data()!;
+      _sellerData = sellerData;
       
       if (!mounted) return;
       setState(() {
         _businessName = sellerData['businessName'] ?? 'Your Shop';
+        _profileImageUrl = sellerData['profileImageUrl'];
         _salesMetrics = {
           'totalSales': sellerData['totalSales'] ?? 0.0,
           'ordersCount': sellerData['ordersCount'] ?? 0,
@@ -124,6 +129,11 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                         color: Colors.grey[600],
                       ),
                     ),
+                    SizedBox(height: 24),
+                    
+                    // Profile Section
+                    _buildProfileSection(),
+                    
                     SizedBox(height: 24),
                     
                     // Metrics Cards
@@ -509,6 +519,87 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildProfileSection() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 30,
+                  backgroundImage: _profileImageUrl != null
+                      ? NetworkImage(_profileImageUrl!)
+                      : const AssetImage('assets/default_profile.png') as ImageProvider,
+                  backgroundColor: Colors.grey.shade200,
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _businessName,
+                        style: GoogleFonts.poppins(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        FirebaseAuth.instance.currentUser?.email ?? '',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.edit),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => SellerProfileScreen(initialData: _sellerData),
+                      ),
+                    ).then((_) => _loadDashboardData());
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => SellerProfileScreen(initialData: _sellerData),
+                  ),
+                ).then((_) => _loadDashboardData());
+              },
+              icon: const Icon(Icons.account_circle_outlined),
+              label: const Text('Manage Profile'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Theme.of(context).primaryColor,
+                side: BorderSide(color: Theme.of(context).primaryColor),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
