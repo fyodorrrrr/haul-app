@@ -9,6 +9,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import '/widgets/loading_screen.dart';
 import '/theme/app_theme.dart';
 import 'register_info_screen.dart';
+import '../seller/seller_dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -23,6 +24,20 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   final GoogleSignIn _googleSignIn = GoogleSignIn();
   bool _obscurePassword = true;
+
+  // Helper to check if user is a seller
+  Future<bool> _checkSellerStatus(String uid) async {
+    try {
+      final sellerDoc = await FirebaseFirestore.instance
+          .collection('sellers')
+          .doc(uid)
+          .get();
+      return sellerDoc.exists;
+    } catch (e) {
+      print('Error checking seller status: $e');
+      return false;
+    }
+  }
 
   //LOGIC FOR LOGIN 
   Future<void> signInUser() async {
@@ -39,7 +54,10 @@ class _LoginScreenState extends State<LoginScreen> {
         // Step 2: Get UID of the logged in user
         String uid = userCredential.user!.uid;
 
-        // Step 3: Fetch additional info from Firestore
+        // Step 3: Check if user is a seller
+        bool isSeller = await _checkSellerStatus(uid);
+
+        // Step 4: Fetch additional info from Firestore
         DocumentSnapshot userDoc = await FirebaseFirestore.instance
             .collection('users')
             .doc(uid)
@@ -51,24 +69,57 @@ class _LoginScreenState extends State<LoginScreen> {
 
           // Debug print (optional)
           print("User Info from Firestore: $userData");
-          
-          // Step 4: Navigate to home or role-based screen
+
+          // Step 5: Navigate based on seller status and saved preference
+          bool prefersSeller = userData['prefersSeller'] == true;
+
+          if (isSeller && prefersSeller) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const SellerDashboardScreen()),
+            );
+          } else {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => HomeScreen(userData: userData)),
+            );
+          }
+        } else {
+          // Create a basic user document if it doesn't exist
+          await FirebaseFirestore.instance.collection('users').doc(uid).set({
+            'uid': uid,
+            'email': _emailController.text.trim(),
+            'role': 'buyer',
+            'created_at': FieldValue.serverTimestamp(),
+          });
+
+          LoadingScreen.hide(context);
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (_) => HomeScreen(userData: userData)),
-          );
-        } else {
-          LoadingScreen.hide(context); // Hide loading screen on error
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('No user data found in Firestore')),
+            MaterialPageRoute(builder: (_) => HomeScreen(userData: {
+              'uid': uid,
+              'email': _emailController.text.trim(),
+              'role': 'buyer',
+            })),
           );
         }
       } catch (e) {
         LoadingScreen.hide(context); // Hide loading screen on error
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Login failed: ${e.toString()}')),
-        );
+        if (e.toString().contains('permission-denied')) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text(
+              'Permission issue. Please check that you have the right access.',
+              style: TextStyle(color: Colors.white),
+            ), backgroundColor: Colors.red),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Login failed: ${e.toString()}')),
+          );
+        }
       }
+    } else {
+      LoadingScreen.hide(context);
     }
   }
 
@@ -76,12 +127,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _signInWithGoogle() async {
     try {
       LoadingScreen.show(context);
-      
-      // Sign out first to clear any cached credentials
       await _googleSignIn.signOut();
-      
-      // Configure Google Sign In to force account selection
-      // Set forceCodeForRefreshToken to true
       final GoogleSignInAccount? googleUser = await GoogleSignIn(
         scopes: ['email', 'profile'],
         forceCodeForRefreshToken: true,
@@ -89,45 +135,29 @@ class _LoginScreenState extends State<LoginScreen> {
         print("Error in GoogleSignIn.signIn(): $error");
         throw error;
       });
-      
       if (googleUser == null) {
         LoadingScreen.hide(context);
-          ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Google Sign-In was canceled')),
         );
         return;
       }
-
-      // 2. Get auth tokens
       final GoogleSignInAuthentication googleAuth = 
           await googleUser.authentication;
-
-      // 3. Create Firebase credential
       final OAuthCredential credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
-
-      // 4. Sign in to Firebase
       final UserCredential userCredential = 
           await FirebaseAuth.instance.signInWithCredential(credential);
-
-      // 5. Check/update Firestore
       final userRef = FirebaseFirestore.instance
           .collection('users')
           .doc(userCredential.user!.uid);
-
       try {
         final userDoc = await userRef.get();
-        
-        // First ensure loading screen is dismissed
         LoadingScreen.hide(context);
-        
-        // Create a map to store user data
         Map<String, dynamic> userData;
-
         if (!userDoc.exists) {
-          // New user - create basic record
           userData = {
             'uid': userCredential.user!.uid,
             'email': userCredential.user!.email,
@@ -137,41 +167,57 @@ class _LoginScreenState extends State<LoginScreen> {
             'created_at': FieldValue.serverTimestamp(),
             'provider': 'google',
           };
-          
           await userRef.set(userData);
-          
-          // Use post-frame callback for navigation
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(
-                builder: (_) => RegisterInfoScreen(userData: userData),
-              ),
-              (route) => false, // Remove all previous routes
-            );
+          WidgetsBinding.instance.addPostFrameCallback((_) async {
+            // Check if user is a seller
+            bool isSeller = await _checkSellerStatus(userCredential.user!.uid);
+            userData['isSeller'] = isSeller;
+            if (isSeller && (userData['prefersSeller'] == true)) {
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(
+                  builder: (_) => const SellerDashboardScreen(),
+                ),
+                (route) => false,
+              );
+            } else {
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(
+                  builder: (_) => RegisterInfoScreen(userData: userData),
+                ),
+                (route) => false,
+              );
+            }
           });
         } else {
-          // Existing user - get their data
           userData = userDoc.data() as Map<String, dynamic>;
-          
-          // Check if profile is complete
-          if (userData['phone'] == null || userData['gender'] == null) {
-            // Use post-frame callback for navigation
+          // Check if user is a seller
+          bool isSeller = await _checkSellerStatus(userCredential.user!.uid);
+          userData['isSeller'] = isSeller;
+          if (isSeller && (userData['prefersSeller'] == true)) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(
+                  builder: (_) => const SellerDashboardScreen(),
+                ),
+                (route) => false,
+              );
+            });
+          } else if (userData['phone'] == null || userData['gender'] == null) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute(
                   builder: (_) => RegisterInfoScreen(userData: userData),
                 ),
-                (route) => false, // Remove all previous routes
+                (route) => false,
               );
             });
           } else {
-            // Use post-frame callback for navigation
             WidgetsBinding.instance.addPostFrameCallback((_) {
               Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute(
                   builder: (_) => HomeScreen(userData: userData),
                 ),
-                (route) => false, // Remove all previous routes
+                (route) => false,
               );
             });
           }
@@ -189,6 +235,30 @@ class _LoginScreenState extends State<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Google sign-in failed: ${_getFriendlyError(e)}'), 
         backgroundColor: AppTheme.errorColor)
+      );
+    }
+  }
+
+  // Example: Seller mode toggle for use in a drawer or menu
+  static Future<void> switchToSellerMode(BuildContext context) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final uid = user.uid;
+    final loginScreenState = context.findAncestorStateOfType<_LoginScreenState>();
+    if (loginScreenState == null) return;
+    bool isSeller = await loginScreenState._checkSellerStatus(uid);
+    if (isSeller) {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .update({'prefersSeller': true});
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const SellerDashboardScreen()),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You are not registered as a seller.')),
       );
     }
   }
