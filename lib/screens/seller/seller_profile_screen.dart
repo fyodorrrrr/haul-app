@@ -17,8 +17,9 @@ class SellerProfileScreen extends StatefulWidget {
   State<SellerProfileScreen> createState() => _SellerProfileScreenState();
 }
 
-class _SellerProfileScreenState extends State<SellerProfileScreen> {
+class _SellerProfileScreenState extends State<SellerProfileScreen> with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
+  late TabController _tabController;
   
   // Text controllers
   final _businessNameController = TextEditingController();
@@ -27,6 +28,23 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
   final _addressController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _websiteController = TextEditingController();
+  
+  // Business hours controllers
+  final Map<String, TextEditingController> _businessHoursControllers = {
+    'monday': TextEditingController(),
+    'tuesday': TextEditingController(),
+    'wednesday': TextEditingController(),
+    'thursday': TextEditingController(),
+    'friday': TextEditingController(),
+    'saturday': TextEditingController(),
+    'sunday': TextEditingController(),
+  };
+  
+  // Payment info controllers
+  final _accountNameController = TextEditingController();
+  final _accountNumberController = TextEditingController();
+  final _bankNameController = TextEditingController();
+  String _selectedAccountType = 'Bank';
   
   // Profile data
   Map<String, dynamic> _profileData = {};
@@ -38,6 +56,7 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 3, vsync: this);
     _loadSellerProfile();
   }
   
@@ -69,7 +88,7 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
         }
       }
       
-      // Set controller values
+      // Set controller values for basic profile
       _businessNameController.text = _profileData['businessName'] ?? '';
       _emailController.text = user.email ?? '';
       _phoneController.text = _profileData['phone'] ?? '';
@@ -77,6 +96,21 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
       _descriptionController.text = _profileData['description'] ?? '';
       _websiteController.text = _profileData['website'] ?? '';
       _profileImageUrl = _profileData['profileImageUrl'];
+      
+      // Set business hours controllers
+      final businessHours = _profileData['businessHours'] as Map<String, dynamic>? ?? {};
+      businessHours.forEach((day, hours) {
+        if (_businessHoursControllers.containsKey(day)) {
+          _businessHoursControllers[day]?.text = hours ?? '';
+        }
+      });
+      
+      // Set payment info controllers
+      final paymentInfo = _profileData['paymentInfo'] as Map<String, dynamic>? ?? {};
+      _accountNameController.text = paymentInfo['accountName'] ?? '';
+      _accountNumberController.text = paymentInfo['accountNumber'] ?? '';
+      _bankNameController.text = paymentInfo['bankName'] ?? '';
+      _selectedAccountType = paymentInfo['accountType'] ?? 'Bank';
       
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -158,6 +192,22 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
         imageUrl = await _uploadProfileImage();
       }
       
+      // Prepare business hours data
+      final businessHours = <String, String>{};
+      _businessHoursControllers.forEach((day, controller) {
+        if (controller.text.isNotEmpty) {
+          businessHours[day] = controller.text.trim();
+        }
+      });
+      
+      // Prepare payment info
+      final paymentInfo = {
+        'accountName': _accountNameController.text.trim(),
+        'accountNumber': _accountNumberController.text.trim(),
+        'bankName': _bankNameController.text.trim(),
+        'accountType': _selectedAccountType,
+      };
+      
       // Update profile data
       final updatedData = {
         'businessName': _businessNameController.text.trim(),
@@ -166,6 +216,8 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
         'description': _descriptionController.text.trim(),
         'website': _websiteController.text.trim(),
         'profileImageUrl': imageUrl,
+        'businessHours': businessHours,
+        'paymentInfo': paymentInfo,
         'lastUpdated': FieldValue.serverTimestamp(),
       };
       
@@ -200,6 +252,11 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
     _addressController.dispose();
     _descriptionController.dispose();
     _websiteController.dispose();
+    _accountNameController.dispose();
+    _accountNumberController.dispose();
+    _bankNameController.dispose();
+    _businessHoursControllers.values.forEach((controller) => controller.dispose());
+    _tabController.dispose();
     super.dispose();
   }
 
@@ -225,50 +282,95 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
             ),
           ),
         ],
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: [
+            Tab(text: 'Profile'),
+            Tab(text: 'Business Hours'),
+            Tab(text: 'Payment Info'),
+          ],
+        ),
       ),
-      drawer: _buildDrawer(),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _loadDashboardData,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Welcome section
-                    Text(
-                      'Welcome back!',
-                      style: GoogleFonts.poppins(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
+          : Column(
+              children: [
+                // Profile Image Section
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    border: Border(
+                      bottom: BorderSide(color: Colors.grey.shade300, width: 1),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Here\'s your store performance',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        color: Colors.grey[600],
-                      ),
+                  ),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        GestureDetector(
+                          onTap: _pickImage,
+                          child: Stack(
+                            children: [
+                              CircleAvatar(
+                                radius: 50,
+                                backgroundImage: _profileImage != null
+                                    ? FileImage(_profileImage!) as ImageProvider
+                                    : (_profileImageUrl != null && _profileImageUrl!.isNotEmpty
+                                        ? NetworkImage(_profileImageUrl!)
+                                        : const AssetImage('assets/default_profile.png') as ImageProvider),
+                                backgroundColor: Colors.grey.shade200,
+                              ),
+                              Positioned(
+                                right: 0,
+                                bottom: 0,
+                                child: Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).primaryColor,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.white, width: 2),
+                                  ),
+                                  child: const Icon(
+                                    Icons.camera_alt,
+                                    color: Colors.white,
+                                    size: 18,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Tap to change profile picture',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 24),
-                    
-                    // NEW: Profile Section
-                    _buildProfileSection(),
-                    const SizedBox(height: 24),
-                    
-                    // NEW: Payment Information Section
-                    _buildPaymentInfo(),
-                    const SizedBox(height: 24),
-                    
-                    // Metrics Cards
-                    // Your existing metrics section
-                    
-                    // Other dashboard components
-                  ],
+                  ),
                 ),
-              ),
+                
+                // Tab Content
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      // Profile Tab
+                      SingleChildScrollView(child: _buildProfileSection()),
+                      
+                      // Business Hours Tab
+                      SingleChildScrollView(child: _buildBusinessHoursSection()),
+                      
+                      // Payment Info Tab
+                      SingleChildScrollView(child: _buildPaymentInfoSection()),
+                    ],
+                  ),
+                ),
+              ],
             ),
     );
   }
@@ -320,200 +422,368 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
       ],
     );
   }
-  
-  Widget _buildDrawer() {
-    // Implement your drawer widget here
-    return Drawer();
-  }
-  
-  Future<void> _loadDashboardData() async {
-    // Implement your dashboard data loading logic here
-  }
-  
-  Widget _buildProfileSection() {
-    // Implement your profile section widget here
-    return Container();
-  }
-
-  Widget _buildVerificationStatus() {
-    final verificationStatus = _profileData['verificationStatus'] ?? 'pending';
-    Color statusColor;
-    String statusText;
-    IconData statusIcon;
-    
-    switch (verificationStatus.toLowerCase()) {
-      case 'approved':
-        statusColor = Colors.green;
-        statusText = 'Verified Seller';
-        statusIcon = Icons.verified;
-        break;
-      case 'rejected':
-        statusColor = Colors.red;
-        statusText = 'Verification Failed';
-        statusIcon = Icons.cancel;
-        break;
-      case 'pending':
-      default:
-        statusColor = Colors.orange;
-        statusText = 'Verification Pending';
-        statusIcon = Icons.pending_actions;
-        break;
-    }
-    
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: statusColor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: statusColor.withOpacity(0.5)),
-      ),
-      child: Row(
-        children: [
-          Icon(statusIcon, color: statusColor),
-          const SizedBox(width: 8),
-          Text(
-            statusText,
-            style: GoogleFonts.poppins(
-              fontWeight: FontWeight.w500,
-              color: statusColor,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBusinessHours() {
-    // Get business hours from Firestore or use defaults
-    final businessHours = _profileData['businessHours'] as Map<String, dynamic>? ?? {};
-    
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Business Hours',
-          style: GoogleFonts.poppins(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 16),
-        _buildDayHourRow('Monday', businessHours['monday'] ?? '9:00 AM - 5:00 PM'),
-        _buildDayHourRow('Tuesday', businessHours['tuesday'] ?? '9:00 AM - 5:00 PM'),
-        _buildDayHourRow('Wednesday', businessHours['wednesday'] ?? '9:00 AM - 5:00 PM'),
-        _buildDayHourRow('Thursday', businessHours['thursday'] ?? '9:00 AM - 5:00 PM'),
-        _buildDayHourRow('Friday', businessHours['friday'] ?? '9:00 AM - 5:00 PM'),
-        _buildDayHourRow('Saturday', businessHours['saturday'] ?? '10:00 AM - 4:00 PM'),
-        _buildDayHourRow('Sunday', businessHours['sunday'] ?? 'Closed'),
-      ],
-    );
-  }
-
-  Widget _buildDayHourRow(String day, String hours) {
+    Widget _buildProfileSection() {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            day,
-            style: GoogleFonts.poppins(
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          Text(
-            hours,
-            style: GoogleFonts.poppins(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPaymentInfo() {
-    final paymentInfo = _profileData['paymentInfo'] as Map<String, dynamic>? ?? {};
-    final hasPaymentInfo = paymentInfo.isNotEmpty;
-    
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      padding: const EdgeInsets.all(16.0),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Payment Information',
-              style: GoogleFonts.poppins(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                // Navigate to payment info update screen
+            _buildTextField(
+              controller: _businessNameController,
+              label: 'Business Name',
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter your business name';
+                }
+                return null;
               },
-              child: Text(
-                hasPaymentInfo ? 'EDIT' : 'ADD',
-                style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+            ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              controller: _emailController,
+              label: 'Email',
+              keyboardType: TextInputType.emailAddress,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter your email';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              controller: _phoneController,
+              label: 'Phone',
+              keyboardType: TextInputType.phone,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter your phone number';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              controller: _addressController,
+              label: 'Address',
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter your address';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              controller: _descriptionController,
+              label: 'Description',
+              maxLines: 3,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter a description';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              controller: _websiteController,
+              label: 'Website',
+              keyboardType: TextInputType.url,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter your website';
+                }
+                return null;
+              },
             ),
           ],
         ),
-        const SizedBox(height: 8),
-        if (hasPaymentInfo)
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildPaymentInfoRow('Account Type', paymentInfo['accountType'] ?? ''),
-                _buildPaymentInfoRow('Account Name', paymentInfo['accountName'] ?? ''),
-                _buildPaymentInfoRow('Account Number', '******${paymentInfo['accountNumber']?.toString().substring(paymentInfo['accountNumber'].toString().length - 4) ?? ''}'),
-                // Add more payment details as needed
-              ],
-            ),
-          )
-        else
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Center(
-              child: Text(
-                'No payment information added yet',
-                style: GoogleFonts.poppins(
-                  color: Colors.grey[600],
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            ),
-          ),
-      ],
+      ),
     );
   }
 
-  Widget _buildPaymentInfoRow(String label, String value) {
+  Widget _buildBusinessHoursSection() {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            label,
+            'Business Hours',
             style: GoogleFonts.poppins(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Set your store\'s business hours. Leave empty for closed days.',
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              color: Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 24),
+          
+          // Monday
+          _buildBusinessHourField('Monday', _businessHoursControllers['monday']!),
+          const SizedBox(height: 16),
+          
+          // Tuesday
+          _buildBusinessHourField('Tuesday', _businessHoursControllers['tuesday']!),
+          const SizedBox(height: 16),
+          
+          // Wednesday
+          _buildBusinessHourField('Wednesday', _businessHoursControllers['wednesday']!),
+          const SizedBox(height: 16),
+          
+          // Thursday
+          _buildBusinessHourField('Thursday', _businessHoursControllers['thursday']!),
+          const SizedBox(height: 16),
+          
+          // Friday
+          _buildBusinessHourField('Friday', _businessHoursControllers['friday']!),
+          const SizedBox(height: 16),
+          
+          // Saturday
+          _buildBusinessHourField('Saturday', _businessHoursControllers['saturday']!),
+          const SizedBox(height: 16),
+          
+          // Sunday
+          _buildBusinessHourField('Sunday', _businessHoursControllers['sunday']!),
+          
+          const SizedBox(height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              OutlinedButton.icon(
+                onPressed: () {
+                  _setStandardBusinessHours();
+                },
+                icon: const Icon(Icons.access_time),
+                label: const Text('Set Standard Hours'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () {
+                  _clearAllBusinessHours();
+                },
+                icon: const Icon(Icons.clear_all),
+                label: const Text('Clear All'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildBusinessHourField(String day, TextEditingController controller) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 100,
+          child: Text(
+            day,
+            style: GoogleFonts.poppins(
+              fontSize: 14,
               fontWeight: FontWeight.w500,
             ),
           ),
+        ),
+        Expanded(
+          child: TextFormField(
+            controller: controller,
+            decoration: InputDecoration(
+              hintText: 'e.g. 9:00 AM - 5:00 PM',
+              hintStyle: GoogleFonts.poppins(
+                fontSize: 14,
+                color: Colors.grey[400],
+              ),
+              filled: true,
+              fillColor: Colors.grey.shade100,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: Theme.of(context).primaryColor),
+              ),
+              suffixIcon: IconButton(
+                icon: const Icon(Icons.clear),
+                onPressed: () {
+                  controller.clear();
+                },
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+  
+  void _setStandardBusinessHours() {
+    setState(() {
+      _businessHoursControllers['monday']!.text = '9:00 AM - 5:00 PM';
+      _businessHoursControllers['tuesday']!.text = '9:00 AM - 5:00 PM';
+      _businessHoursControllers['wednesday']!.text = '9:00 AM - 5:00 PM';
+      _businessHoursControllers['thursday']!.text = '9:00 AM - 5:00 PM';
+      _businessHoursControllers['friday']!.text = '9:00 AM - 5:00 PM';
+      _businessHoursControllers['saturday']!.text = '10:00 AM - 4:00 PM';
+      _businessHoursControllers['sunday']!.text = 'Closed';
+    });
+  }
+  
+  void _clearAllBusinessHours() {
+    setState(() {
+      _businessHoursControllers.forEach((day, controller) {
+        controller.clear();
+      });
+    });
+  }
+  
+  Widget _buildPaymentInfoSection() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Text(
-            value,
-            style: GoogleFonts.poppins(),
+            'Payment Information',
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Provide your payment details for receiving payments from sales.',
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              color: Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 24),
+          
+          // Account Type Selection
+          Text(
+            'Account Type',
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: _selectedAccountType,
+                isExpanded: true,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                borderRadius: BorderRadius.circular(8),
+                items: [
+                  DropdownMenuItem(
+                    value: 'Bank',
+                    child: Text('Bank Account', style: GoogleFonts.poppins()),
+                  ),
+                  DropdownMenuItem(
+                    value: 'E-Wallet',
+                    child: Text('E-Wallet', style: GoogleFonts.poppins()),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Other',
+                    child: Text('Other', style: GoogleFonts.poppins()),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      _selectedAccountType = value;
+                    });
+                  }
+                },
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          
+          // Account Name
+          _buildTextField(
+            controller: _accountNameController,
+            label: 'Account Name',
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please enter the account name';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+          
+          // Account Number
+          _buildTextField(
+            controller: _accountNumberController,
+            label: _selectedAccountType == 'E-Wallet' ? 'E-Wallet Number' : 'Account Number',
+            keyboardType: TextInputType.number,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please enter the account number';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+          
+          // Bank Name
+          _buildTextField(
+            controller: _bankNameController,
+            label: _selectedAccountType == 'Bank' ? 'Bank Name' : 
+                  _selectedAccountType == 'E-Wallet' ? 'E-Wallet Provider' : 'Provider Name',
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please enter the provider name';
+              }
+              return null;
+            },
+          ),
+          
+          const SizedBox(height: 24),
+          
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.blue.shade100),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.blue.shade700),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Your payment information is secure and will only be used for processing your sales revenue.',
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      color: Colors.blue.shade700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
