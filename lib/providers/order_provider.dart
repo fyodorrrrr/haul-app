@@ -29,10 +29,8 @@ class SellerOrdersProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      // Get the current user
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
-        print('Order loading failed: User not logged in');
         _error = 'Please log in to view your orders';
         _isLoading = false;
         notifyListeners();
@@ -40,53 +38,42 @@ class SellerOrdersProvider with ChangeNotifier {
       }
 
       print('Fetching orders for seller: ${user.uid}');
-
-      // Try with a simpler query first to debug
-      // This query doesn't require a composite index
+      
+      // Get all recent orders - will filter for seller on client side
       final snapshot = await FirebaseFirestore.instance
           .collection('orders')
-          .where('sellerId', isEqualTo: user.uid)
-          .limit(50)  // Limit to first 50 orders for performance
+          .orderBy('createdAt', descending: true)
+          .limit(100)
           .get();
 
-      print('Found ${snapshot.docs.length} orders');
+      print('Found ${snapshot.docs.length} total orders, filtering for seller items');
 
-      if (snapshot.docs.isEmpty) {
-        // Check if there are any orders for this seller at all
-        print('No orders found. Checking if sellerId field exists...');
+      List<Map<String, dynamic>> sellerOrders = [];
+
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
         
-        // Check a sample order to see if your field names are correct
-        final sampleOrder = await FirebaseFirestore.instance
-            .collection('orders')
-            .limit(1)
-            .get();
-            
-        if (sampleOrder.docs.isNotEmpty) {
-          print('Sample order fields: ${sampleOrder.docs.first.data().keys}');
+        // Check if this order contains items from this seller
+        final items = List<Map<String, dynamic>>.from(data['items'] ?? []);
+        final sellerItems = items.where((item) => 
+            item['sellerId'] == user.uid).toList();
+        
+        // Only include orders with items from this seller
+        if (sellerItems.isNotEmpty) {
+          // Add formatted date
+          if (data['createdAt'] is Timestamp) {
+            data['createdAtFormatted'] = _formatDate(data['createdAt'] as Timestamp);
+          }
+          
+          sellerOrders.add({
+            ...data,
+            'documentId': doc.id,
+            'items': sellerItems, // Only include this seller's items
+          });
         }
       }
-
-      _orders = snapshot.docs.map((doc) {
-        final data = doc.data();
-        // Check if createdAt exists and convert from Timestamp if needed
-        if (data['createdAt'] is Timestamp) {
-          data['createdAtFormatted'] = _formatDate(data['createdAt'] as Timestamp);
-        }
-        
-        return {
-          ...data,
-          'documentId': doc.id,
-        };
-      }).toList();
-
-      // Sort the orders locally since we removed the orderBy
-      _orders.sort((a, b) {
-        final aDate = a['createdAt'] as Timestamp?;
-        final bDate = b['createdAt'] as Timestamp?;
-        if (aDate == null || bDate == null) return 0;
-        return bDate.compareTo(aDate); // Descending order
-      });
-
+      
+      _orders = sellerOrders;
       _isLoading = false;
       notifyListeners();
     } catch (e) {
