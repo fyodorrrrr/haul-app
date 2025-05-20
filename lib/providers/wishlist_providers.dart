@@ -39,18 +39,19 @@ class WishlistProvider with ChangeNotifier {
   }
 
   // Remove a product from wishlist
-  Future<void> removeFromWishlist(String productId) async {
+  Future<void> removeFromWishlist(String productId, String userId) async {
     try {
       final snapshot = await FirebaseFirestore.instance
           .collection('wishlists')
           .where('productId', isEqualTo: productId)
+          .where('userId', isEqualTo: userId)
           .get();
 
       for (var doc in snapshot.docs) {
         await doc.reference.delete();
       }
 
-      _wishlist.removeWhere((item) => item.productId == productId);
+      _wishlist.removeWhere((item) => item.productId == productId && item.userId == userId);
       notifyListeners();
     } catch (e) {
       print("Error removing from wishlist: $e");
@@ -72,7 +73,7 @@ class WishlistProvider with ChangeNotifier {
   }) async {
     try {
       if (isInWishlist) {
-        await removeFromWishlist(productId);
+        await removeFromWishlist(productId, userId);
         SnackBarHelper.showSnackBar(
           context,
           'Removed from wishlist',

@@ -465,7 +465,7 @@ Future<void> addDummyProducts() async {
 
                         try {
                           if (isInWishlist) {
-                            await wishlistProvider.removeFromWishlist(product.id);
+                            await wishlistProvider.removeFromWishlist(product.id, userId!);
                             SnackBarHelper.showSnackBar(
                               context,
                               'Removed from wishlist',

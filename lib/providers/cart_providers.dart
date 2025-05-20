@@ -42,16 +42,20 @@ class CartProvider with ChangeNotifier {
   // Remove an item from the cart
   Future<void> removeFromCart(String productId) async {
     try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
       final snapshot = await FirebaseFirestore.instance
           .collection('carts')
           .where('productId', isEqualTo: productId)
+          .where('userId', isEqualTo: user.uid)
           .get();
 
       for (var doc in snapshot.docs) {
         await doc.reference.delete();
       }
 
-      _cart.removeWhere((item) => item.productId == productId);
+      _cart.removeWhere((item) => item.productId == productId && item.userId == user.uid);
       notifyListeners();
     } catch (e) {
       print("Error removing from cart: $e");
