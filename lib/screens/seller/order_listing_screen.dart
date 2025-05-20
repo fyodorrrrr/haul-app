@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../providers/seller_orders_provider.dart';
+import '../../providers/order_provider.dart';
 
 class SellerOrdersScreen extends StatefulWidget {
   const SellerOrdersScreen({Key? key}) : super(key: key);
@@ -31,14 +31,59 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> {
           if (provider.isLoading) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (provider.orders.isEmpty) {
+
+          if (provider.error != null) {
             return Center(
-              child: Text(
-                'No orders yet.',
-                style: GoogleFonts.poppins(fontSize: 16),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error_outline, size: 48, color: Colors.red),
+                  SizedBox(height: 16),
+                  Text(
+                    'Failed to load orders',
+                    style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w500),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    provider.error!,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.poppins(fontSize: 14),
+                  ),
+                  SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: () => provider.fetchSellerOrders(),
+                    child: Text('Try Again'),
+                    style: ElevatedButton.styleFrom(
+                      padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    ),
+                  ),
+                ],
               ),
             );
           }
+
+          if (provider.orders.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.shopping_bag_outlined, size: 64, color: Colors.grey),
+                  SizedBox(height: 16),
+                  Text(
+                    'No orders yet',
+                    style: GoogleFonts.poppins(fontSize: 18),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'When customers place orders with you, they\'ll appear here.',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.poppins(fontSize: 14, color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+            );
+          }
+
           final orders = provider.orders;
           return ListView.separated(
             padding: const EdgeInsets.all(16),
