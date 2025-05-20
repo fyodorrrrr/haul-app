@@ -42,6 +42,7 @@ class SellerOrdersProvider with ChangeNotifier {
       // Get all recent orders - will filter for seller on client side
       final snapshot = await FirebaseFirestore.instance
           .collection('orders')
+          .where('sellerIds', arrayContains: user.uid)
           .orderBy('createdAt', descending: true)
           .limit(100)
           .get();
@@ -97,15 +98,8 @@ class SellerOrdersProvider with ChangeNotifier {
           .doc(orderId)
           .update({'status': newStatus});
 
-      // Update local data too
-      final index = _orders.indexWhere((order) => order['documentId'] == orderId);
-      if (index >= 0) {
-        _orders[index] = {
-          ..._orders[index],
-          'status': newStatus,
-        };
-        notifyListeners();
-      }
+      // Refresh the orders list from Firestore
+      await fetchSellerOrders();
 
       return true;
     } catch (e) {

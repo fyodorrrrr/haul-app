@@ -96,6 +96,7 @@ class CheckoutProvider with ChangeNotifier {
       final String orderId = orderRef.id;
       final String orderNumber = 'ORD-${DateTime.now().millisecondsSinceEpoch}';
 
+      final sellerIds = cartItems.map((item) => item.sellerId).toSet().toList();
       final orderData = {
         'orderId': orderId,
         'orderNumber': orderNumber,
@@ -109,6 +110,7 @@ class CheckoutProvider with ChangeNotifier {
         'total': total,
         'status': 'pending',
         'createdAt': FieldValue.serverTimestamp(),
+        'sellerIds': sellerIds,
       };
 
       await orderRef.set(orderData);
