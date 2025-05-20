@@ -310,7 +310,8 @@ class WishlistScreen extends StatelessWidget {
             child: IconButton(
               onPressed: () {
                 // Remove item from wishlist
-                wishlistProvider.removeFromWishlist(wishlistItem.productId);
+                wishlistProvider.removeFromWishlist(wishlistItem.productId,
+                 wishlistItem.userId,);
               },
               icon: Icon(
                 Icons.close,

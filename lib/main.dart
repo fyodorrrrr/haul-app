@@ -19,7 +19,7 @@ import 'providers/seller_registration_provider.dart'; // Import the new provider
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'providers/checkout_provider.dart'; // Import the new provider
 import 'providers/address_provider.dart'; // Import the new provider
-import 'providers/seller_orders_provider.dart'; // Import the new provider
+import 'providers/order_provider.dart'; // Import the new provider
 
 final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
 
