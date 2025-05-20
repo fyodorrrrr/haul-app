@@ -1,5 +1,6 @@
 import '../models/address_model.dart';
 import '../models/shipping_address.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 /// Utility class to convert between Address and ShippingAddress models
 class AddressMapper {
@@ -18,7 +19,7 @@ class AddressMapper {
   }
   
   /// Convert from ShippingAddress to Address
-  static Address toAddress(ShippingAddress shippingAddress) {
+  static Address toAddress(ShippingAddress shippingAddress, {String? userId}) {
     return Address(
       fullName: shippingAddress.fullName,
       phoneNumber: shippingAddress.phoneNumber,
@@ -30,6 +31,7 @@ class AddressMapper {
       region: "", // Not available in ShippingAddress
       postalCode: shippingAddress.zipCode,
       label: "other", // Default label
+      userId: userId ?? FirebaseAuth.instance.currentUser?.uid ?? '',
     );
   }
   

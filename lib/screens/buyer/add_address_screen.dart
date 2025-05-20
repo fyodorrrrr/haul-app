@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '/providers/address_provider.dart';
 import '/models/address_model.dart';
 import '/utils/philippine_location_helper.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class AddAddressScreen extends StatefulWidget {
   final Address? address;
@@ -617,6 +618,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
           postalCode: _postalCodeController.text.trim(),
           label: _selectedLabel,
           isDefault: _isDefault,
+          userId: FirebaseAuth.instance.currentUser?.uid ?? '',
         );
         
         bool success;
