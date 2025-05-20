@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '/providers/address_provider.dart';
 import '/models/address_model.dart';
 import 'add_address_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class SavedAddressesScreen extends StatefulWidget {
   const SavedAddressesScreen({Key? key}) : super(key: key);
@@ -57,7 +58,13 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.error_outline, size: 60, color: Colors.red),
+                  Icon(
+                    provider.error!.contains('permission')
+                      ? Icons.lock_outline
+                      : Icons.error_outline,
+                    size: 60, 
+                    color: provider.error!.contains('permission') ? Colors.orange : Colors.red
+                  ),
                   SizedBox(height: 16),
                   Text(
                     'Error loading addresses',
@@ -80,8 +87,21 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                   ),
                   SizedBox(height: 24),
                   ElevatedButton(
-                    onPressed: () => provider.loadAddresses(),
-                    child: Text('Try Again'),
+                    onPressed: () {
+                      // Force reauthentication if permission error
+                      if (provider.error!.contains('permission')) {
+                        final auth = FirebaseAuth.instance;
+                        // Sign out and redirect to login, or refresh token
+                        // This depends on your auth implementation
+                      } else {
+                        provider.loadAddresses();
+                      }
+                    },
+                    child: Text(
+                      provider.error!.contains('permission')
+                        ? 'Sign In Again'
+                        : 'Try Again'
+                    ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: theme.primaryColor,
                       foregroundColor: Colors.white,

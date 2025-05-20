@@ -1,6 +1,7 @@
 // models/address_model.dart
 class Address {
   final String? id;
+  final String userId; // Make sure this field exists
   final String fullName;
   final String phoneNumber;
   final String addressLine1;
@@ -15,6 +16,7 @@ class Address {
 
   Address({
     this.id,
+    required this.userId,
     required this.fullName,
     required this.phoneNumber,
     required this.addressLine1,
@@ -31,6 +33,7 @@ class Address {
   // Convert to/from Firestore
   Map<String, dynamic> toMap() {
     return {
+      'userId': userId,
       'fullName': fullName,
       'phoneNumber': phoneNumber,
       'addressLine1': addressLine1,
@@ -45,9 +48,10 @@ class Address {
     };
   }
 
-  factory Address.fromMap(String id, Map<String, dynamic> map) {
+  factory Address.fromMap(Map<String, dynamic> map, String? docId) {
     return Address(
-      id: id,
+      id: docId,
+      userId: map['userId'] ?? '',
       fullName: map['fullName'] ?? '',
       phoneNumber: map['phoneNumber'] ?? '',
       addressLine1: map['addressLine1'] ?? '',

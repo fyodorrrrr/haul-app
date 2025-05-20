@@ -27,25 +27,52 @@ class AddressProvider extends ChangeNotifier {
     _isLoading = true;
     _error = null;
     notifyListeners();
-    
+
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) throw Exception('User not authenticated');
-      
-      final snapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('addresses')
-          .get();
-          
-      _addresses = snapshot.docs
-          .map((doc) => Address.fromMap(doc.id, doc.data()))
-          .toList();
-      
-      _isLoading = false;
-      notifyListeners();
+      if (user == null) {
+        _error = 'You must be logged in to view addresses';
+        _isLoading = false;
+        notifyListeners();
+        return;
+      }
+
+      // Try to load addresses from user subcollection first
+      try {
+        final snapshot = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('addresses')
+            .get();
+            
+        _addresses = snapshot.docs
+            .map((doc) => Address.fromMap(doc.data(), doc.id))
+            .toList();
+        
+        _isLoading = false;
+        notifyListeners();
+        return;
+      } catch (e) {
+        // If subcollection approach fails, try direct addresses collection
+        print('Error loading from subcollection: $e');
+        
+        final snapshot = await FirebaseFirestore.instance
+            .collection('addresses')
+            .where('userId', isEqualTo: user.uid)
+            .get();
+            
+        _addresses = snapshot.docs
+            .map((doc) => Address.fromMap(doc.data(), doc.id))
+            .toList();
+      }
     } catch (e) {
-      _error = e.toString();
+      print('Error loading addresses: $e');
+      if (e is FirebaseException && e.code == 'permission-denied') {
+        _error = 'Permission denied. Please check that you have access to view addresses.';
+      } else {
+        _error = 'Failed to load addresses: ${e.toString()}';
+      }
+    } finally {
       _isLoading = false;
       notifyListeners();
     }
@@ -53,67 +80,39 @@ class AddressProvider extends ChangeNotifier {
   
   // Add new address
   Future<bool> addAddress(Address address) async {
-    _isLoading = true;
-    notifyListeners();
-    
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) throw Exception('User not authenticated');
+      if (user == null) return false;
       
-      // If this is the default address, unset any existing default
-      if (address.isDefault) {
-        await _unsetExistingDefault(user.uid);
-      }
+      // Create a copy with the current userId
+      final addressWithUser = Address(
+        // Copy all fields from the original address
+        fullName: address.fullName,
+        phoneNumber: address.phoneNumber,
+        addressLine1: address.addressLine1,
+        addressLine2: address.addressLine2,
+        barangay: address.barangay,
+        city: address.city,
+        province: address.province,
+        region: address.region,
+        postalCode: address.postalCode,
+        label: address.label,
+        isDefault: address.isDefault,
+        // Ensure userId is set to current user
+        userId: user.uid,
+      );
       
-      // If this is the first address, make it default
-      if (_addresses.isEmpty) {
-        address = Address(
-          fullName: address.fullName,
-          phoneNumber: address.phoneNumber,
-          addressLine1: address.addressLine1,
-          addressLine2: address.addressLine2,
-          barangay: address.barangay,
-          city: address.city,
-          province: address.province,
-          region: address.region,
-          postalCode: address.postalCode,
-          label: address.label,
-          isDefault: true,
-        );
-      }
-      
-      // Add to Firestore
-      final docData = {
-        'fullName': address.fullName,
-        'phoneNumber': address.phoneNumber,
-        'addressLine1': address.addressLine1,
-        'addressLine2': address.addressLine2,
-        'region': address.region,
-        'province': address.province,
-        'city': address.city,
-        'barangay': address.barangay,
-        'postalCode': address.postalCode,
-        'label': address.label,
-        'isDefault': address.isDefault,
-      };
-      
-      final docRef = await FirebaseFirestore.instance
+      // Try to save in user's subcollection first
+      await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
           .collection('addresses')
-          .add(docData);
-          
-      // Add to local list
-      final newAddress = Address.fromMap(docRef.id, docData);
-      _addresses.add(newAddress);
+          .add(addressWithUser.toMap());
       
-      _isLoading = false;
-      notifyListeners();
+      await loadAddresses(); // Reload the addresses
       return true;
     } catch (e) {
-      _error = e.toString();
-      _isLoading = false;
-      notifyListeners();
+      print('Error adding address: $e');
       return false;
     }
   }
@@ -209,6 +208,7 @@ class AddressProvider extends ChangeNotifier {
           postalCode: newDefault.postalCode,
           label: newDefault.label,
           isDefault: true,
+          userId: newDefault.userId,
         ));
       }
       
@@ -258,7 +258,8 @@ class AddressProvider extends ChangeNotifier {
           region: _addresses[index].region,
           postalCode: _addresses[index].postalCode,
           label: _addresses[index].label,
-          isDefault: true,
+          isDefault: false,
+          userId: _addresses[index].userId, // Add this line
         );
       }
       
@@ -304,6 +305,7 @@ class AddressProvider extends ChangeNotifier {
             postalCode: _addresses[index].postalCode,
             label: _addresses[index].label,
             isDefault: false,
+            userId: _addresses[index].userId,
           );
         }
       }
