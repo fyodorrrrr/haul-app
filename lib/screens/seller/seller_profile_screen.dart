@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import '/widgets/loading_screen.dart';
 import '/theme/app_theme.dart';
+import 'store_policies_preview_screen.dart';
 
 class SellerProfileScreen extends StatefulWidget {
   final Map<String, dynamic>? initialData;
@@ -31,7 +32,7 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> with SingleTi
     
     // Initialize tab controller
     _tabController = TabController(
-      length: 3, 
+      length: 4,  // Changed from 3 to 4 to add Store Policies tab
       vsync: this,
       initialIndex: widget.initialTab,
     );
@@ -67,14 +68,16 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> with SingleTi
   final _bankNameController = TextEditingController();
   String _selectedAccountType = 'Bank';
   
-  // Profile data
+  // Store policies controllers
+  final _returnPolicyController = TextEditingController();
+  final _shippingPolicyController = TextEditingController();
+  final _termsAndConditionsController = TextEditingController();
+    // Profile data
   Map<String, dynamic> _profileData = {};
   bool _isLoading = true;
-  bool _isUploading = false;
   File? _profileImage;
   String? _profileImageUrl;
-  
-  Future<void> _loadSellerProfile() async {
+    Future<void> _loadSellerProfile() async {
     setState(() {
       _isLoading = true;
     });
@@ -125,6 +128,11 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> with SingleTi
       _accountNumberController.text = paymentInfo['accountNumber'] ?? '';
       _bankNameController.text = paymentInfo['bankName'] ?? '';
       _selectedAccountType = paymentInfo['accountType'] ?? 'Bank';
+        // Set store policies controllers
+      final storePolicies = _profileData['storePolicies'] as Map<String, dynamic>? ?? {};
+      _returnPolicyController.text = storePolicies['returnPolicy'] ?? '';
+      _shippingPolicyController.text = storePolicies['shippingPolicy'] ?? '';
+      _termsAndConditionsController.text = storePolicies['termsAndConditions'] ?? '';
       
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -154,13 +162,11 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> with SingleTi
       });
     }
   }
-  
-  Future<String?> _uploadProfileImage() async {
+    Future<String?> _uploadProfileImage() async {
     if (_profileImage == null) return _profileImageUrl;
     
-    setState(() {
-      _isUploading = true;
-    });
+    final loadingContext = context;
+    LoadingScreen.show(loadingContext);
     
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -182,9 +188,7 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> with SingleTi
       );
       return null;
     } finally {
-      setState(() {
-        _isUploading = false;
-      });
+      LoadingScreen.hide(loadingContext);
     }
   }
   
@@ -222,6 +226,13 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> with SingleTi
         'accountType': _selectedAccountType,
       };
       
+      // Prepare store policies
+      final storePolicies = {
+        'returnPolicy': _returnPolicyController.text.trim(),
+        'shippingPolicy': _shippingPolicyController.text.trim(),
+        'termsAndConditions': _termsAndConditionsController.text.trim(),
+      };
+      
       // Update profile data
       final updatedData = {
         'businessName': _businessNameController.text.trim(),
@@ -232,6 +243,7 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> with SingleTi
         'profileImageUrl': imageUrl,
         'businessHours': businessHours,
         'paymentInfo': paymentInfo,
+        'storePolicies': storePolicies,
         'lastUpdated': FieldValue.serverTimestamp(),
       };
       
@@ -269,6 +281,9 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> with SingleTi
     _accountNameController.dispose();
     _accountNumberController.dispose();
     _bankNameController.dispose();
+    _returnPolicyController.dispose();
+    _shippingPolicyController.dispose();
+    _termsAndConditionsController.dispose();
     _businessHoursControllers.values.forEach((controller) => controller.dispose());
     _tabController.dispose();
     super.dispose();
@@ -302,6 +317,7 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> with SingleTi
             Tab(text: 'Profile'),
             Tab(text: 'Business Hours'),
             Tab(text: 'Payment Info'),
+            Tab(text: 'Store Policies'),
           ],
         ),
       ),
@@ -381,6 +397,9 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> with SingleTi
                       
                       // Payment Info Tab
                       SingleChildScrollView(child: _buildPaymentInfoSection()),
+                      
+                      // Store Policies Tab
+                      SingleChildScrollView(child: _buildStorePoliciesSection()),
                     ],
                   ),
                 ),
@@ -850,6 +869,154 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> with SingleTi
           ),
         ],
       ),
+    );
+  }
+  
+  Widget _buildStorePoliciesSection() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Store Policies',
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              OutlinedButton.icon(
+                onPressed: () {
+                  final policies = {
+                    'returnPolicy': _returnPolicyController.text.trim(),
+                    'shippingPolicy': _shippingPolicyController.text.trim(),
+                    'termsAndConditions': _termsAndConditionsController.text.trim(),
+                  };
+                  
+                  Navigator.push(
+                    context, 
+                    MaterialPageRoute(
+                      builder: (context) => StorePoliciesPreviewScreen(storePolicies: policies),
+                    ),
+                  );
+                },
+                icon: Icon(Icons.visibility_outlined, size: 16),
+                label: Text(
+                  'Preview',
+                  style: GoogleFonts.poppins(fontSize: 12),
+                ),
+                style: OutlinedButton.styleFrom(
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Define your store policies for customers. Clear, informative policies help build trust with your buyers.',
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              color: Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 24),
+          
+          // Return Policy
+          _buildPolicyField(
+            controller: _returnPolicyController,
+            label: 'Return Policy',
+            icon: Icons.assignment_return,
+            hintText: 'Example: Items can be returned within 14 days of delivery if unused and in original packaging.',
+            iconColor: Colors.orange,
+          ),
+          const SizedBox(height: 16),
+          
+          // Shipping Policy
+          _buildPolicyField(
+            controller: _shippingPolicyController,
+            label: 'Shipping Policy',
+            icon: Icons.local_shipping,
+            hintText: 'Example: Orders are shipped within 2 business days. Standard shipping takes 3-5 business days.',
+            iconColor: Colors.blue,
+          ),
+          const SizedBox(height: 16),
+          
+          // Terms and Conditions
+          _buildPolicyField(
+            controller: _termsAndConditionsController,
+            label: 'Terms and Conditions',
+            icon: Icons.gavel,
+            hintText: 'Example: By placing an order, you agree to our terms of service. Payment must be received before shipping.',
+            iconColor: Colors.purple,
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildPolicyField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    required String hintText,
+    required Color iconColor,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 18, color: iconColor),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: GoogleFonts.poppins(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: controller,
+          maxLines: 4,
+          decoration: InputDecoration(
+            hintText: hintText,
+            hintStyle: GoogleFonts.poppins(
+              fontSize: 12,
+              color: Colors.grey[400],
+              fontStyle: FontStyle.italic,
+            ),
+            filled: true,
+            fillColor: Colors.grey.shade100,
+            contentPadding: const EdgeInsets.all(16),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: iconColor),
+            ),
+          ),
+          validator: (value) {
+            // Optional validation - not making policies required, but giving feedback
+            if (value == null || value.isEmpty) {
+              return 'Consider adding a $label for better customer experience';
+            }
+            return null;
+          },
+        ),
+      ],
     );
   }
 }
