@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -601,7 +602,7 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                       Text(
                         FirebaseAuth.instance.currentUser?.email ?? '',
                         style: GoogleFonts.poppins(
-                          fontSize: 14,
+                          fontSize: 12.5,
                           color: Colors.grey[600],
                         ),
                       ),
@@ -728,13 +729,36 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Business Hours Section
-              Text(
-                'Business Hours',
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
+              // Business Hours Section with Edit Button
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Business Hours',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14, // Changed from 16 to 14
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.edit, size: 18),
+                    onPressed: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => SellerProfileScreen(
+                            initialData: _sellerData,
+                            initialTab: 2, // Assuming tab 2 is business hours
+                          ),
+                        ),
+                      ).then((_) => _loadDashboardData());
+                    },
+                    padding: EdgeInsets.zero,
+                    constraints: BoxConstraints(),
+                    splashRadius: 20,
+                  ),
+                ],
               ),
               const SizedBox(height: 8),
               
@@ -753,23 +777,23 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
               Text(
                 'Contact Information',
                 style: GoogleFonts.poppins(
-                  fontSize: 16,
+                  fontSize: 14, // Changed from 16 to 14
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               
-              _buildInfoRow('Phone', _sellerData['phone'] ?? 'Not provided'),
-              _buildInfoRow('Email', FirebaseAuth.instance.currentUser?.email ?? 'Not provided'),
-              _buildInfoRow('Website', _sellerData['website'] ?? 'Not provided'),
-              
+              _buildContactInfoRow(Icons.phone, 'Phone', _sellerData['phone'] ?? 'Not provided'),
+              _buildContactInfoRow(Icons.email_outlined, 'Email', FirebaseAuth.instance.currentUser?.email ?? 'Not provided'),
+              _buildContactInfoRow(Icons.language_outlined, 'Website', _sellerData['website'] ?? 'Not provided'),
+
               const Divider(height: 24),
               
               // Seller Status
               Text(
                 'Account Status',
                 style: GoogleFonts.poppins(
-                  fontSize: 16,
+                  fontSize: 14, // Changed from 16 to 14
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -781,7 +805,7 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
               Text(
                 'Member since: ${_sellerData['created'] != null ? _formatTimestamp(_sellerData['created']) : 'Unknown'}',
                 style: GoogleFonts.poppins(
-                  fontSize: 13,
+                  fontSize: 12, // Changed from 13 to 12
                   color: Colors.grey[700],
                 ),
               ),
@@ -793,9 +817,21 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
             onPressed: () {
               Navigator.pop(context);
             },
-            child: const Text('CLOSE'),
+            child: Text('CLOSE', 
+              style: GoogleFonts.poppins(color: Colors.grey[700])),
           ),
-          OutlinedButton(
+          ElevatedButton.icon(
+            icon: const Icon(Icons.edit),
+            label: Text('EDIT PROFILE', style: GoogleFonts.poppins()),
+            style: ElevatedButton.styleFrom(
+              foregroundColor: Colors.white,
+              backgroundColor: Theme.of(context).primaryColor,
+              elevation: 0,
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
             onPressed: () {
               Navigator.pop(context);
               Navigator.push(
@@ -805,7 +841,6 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                 ),
               ).then((_) => _loadDashboardData());
             },
-            child: const Text('EDIT PROFILE'),
           ),
         ],
       ),
@@ -817,20 +852,44 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            day,
-            style: GoogleFonts.poppins(
-              fontWeight: FontWeight.w500,
-              fontSize: 14,
+          // Fixed width container for day abbreviation
+          Container(
+            width: 45, // Fixed width ensures alignment
+            padding: EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: Theme.of(context).primaryColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              day.substring(0, 3),
+              textAlign: TextAlign.center, // Center the text
+              style: GoogleFonts.poppins(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).primaryColor,
+              ),
             ),
           ),
-          Text(
-            hours,
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              color: Colors.grey[800],
+          SizedBox(width: 10),
+          // Hours with consistent alignment
+          Expanded(
+            child: Text(
+              hours,
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          // Status indicator
+          Container(
+            width: 8,
+            height: 8,
+            margin: EdgeInsets.only(left: 4),
+            decoration: BoxDecoration(
+              color: hours.toLowerCase() == 'closed' ? Colors.red : Colors.green,
+              shape: BoxShape.circle,
             ),
           ),
         ],
@@ -869,6 +928,78 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
     );
   }
 
+  // Helper method for contact information rows
+  Widget _buildContactInfoRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10), // Reduced from 12 to 10
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: EdgeInsets.all(6), // Reduced from 8 to 6
+            decoration: BoxDecoration(
+              color: Theme.of(context).primaryColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              icon,
+              size: 18, // Reduced from 20 to 18
+              color: Theme.of(context).primaryColor,
+            ),
+          ),
+          SizedBox(width: 10), // Reduced from 12 to 10
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12, // Reduced from 13 to 12
+                    color: Colors.grey[600],
+                  ),
+                ),
+                SizedBox(height: 1), // Reduced from 2 to 1
+                Text(
+                  value,
+                  style: GoogleFonts.poppins(
+                    fontSize: 13, // Reduced from 15 to 13
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (label == 'Email' && value != 'Not provided')
+            IconButton(
+              icon: Icon(Icons.copy, size: 18),
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: value));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Email copied to clipboard')),
+                );
+              },
+              padding: EdgeInsets.zero,
+              constraints: BoxConstraints(),
+              splashRadius: 20,
+            ),
+          if (label == 'Website' && value != 'Not provided')
+            IconButton(
+              icon: Icon(Icons.open_in_new, size: 18),
+              onPressed: () {
+                final url = value.startsWith('http') ? value : 'https://$value';
+                // You'll need to add url_launcher package for this
+                // launch(url);
+              },
+              padding: EdgeInsets.zero,
+              constraints: BoxConstraints(),
+              splashRadius: 20,
+            ),
+        ],
+      ),
+    );
+  }
+
   // Helper method for verification status chip
   Widget _buildVerificationStatusChip() {
     final verificationStatus = _sellerData['verificationStatus'] ?? 'pending';
@@ -896,21 +1027,21 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
     }
     
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), // Reduced from 12,8 to 10,6
       decoration: BoxDecoration(
         color: statusColor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16), // Reduced from 20 to 16
         border: Border.all(color: statusColor.withOpacity(0.5)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(statusIcon, color: statusColor, size: 16),
-          const SizedBox(width: 8),
+          Icon(statusIcon, color: statusColor, size: 14), // Reduced from 16 to 14
+          const SizedBox(width: 6), // Reduced from 8 to 6
           Text(
             statusText,
             style: GoogleFonts.poppins(
-              fontSize: 14,
+              fontSize: 13, // Reduced from 14 to 13
               fontWeight: FontWeight.w500,
               color: statusColor,
             ),

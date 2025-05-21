@@ -10,16 +10,37 @@ import '/theme/app_theme.dart';
 
 class SellerProfileScreen extends StatefulWidget {
   final Map<String, dynamic>? initialData;
-
-  const SellerProfileScreen({Key? key, this.initialData}) : super(key: key);
+  final int initialTab; // Add this parameter
+  
+  const SellerProfileScreen({
+    Key? key, 
+    this.initialData,
+    this.initialTab = 0, // Default to first tab
+  }) : super(key: key);
 
   @override
   State<SellerProfileScreen> createState() => _SellerProfileScreenState();
 }
 
 class _SellerProfileScreenState extends State<SellerProfileScreen> with SingleTickerProviderStateMixin {
-  final _formKey = GlobalKey<FormState>();
   late TabController _tabController;
+  
+  @override
+  void initState() {
+    super.initState();
+    
+    // Initialize tab controller
+    _tabController = TabController(
+      length: 3, 
+      vsync: this,
+      initialIndex: widget.initialTab,
+    );
+    
+    // Add this line to load the profile data
+    _loadSellerProfile();
+  }
+  
+  final _formKey = GlobalKey<FormState>();
   
   // Text controllers
   final _businessNameController = TextEditingController();
@@ -52,13 +73,6 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> with SingleTi
   bool _isUploading = false;
   File? _profileImage;
   String? _profileImageUrl;
-  
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-    _loadSellerProfile();
-  }
   
   Future<void> _loadSellerProfile() async {
     setState(() {
@@ -555,26 +569,75 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> with SingleTi
           // Sunday
           _buildBusinessHourField('Sunday', _businessHoursControllers['sunday']!),
           
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
+          Divider(color: Colors.grey.shade300),
+          const SizedBox(height: 16),
+
+          // More compact buttons
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              OutlinedButton.icon(
+              // Standard Hours button (smaller)
+              ElevatedButton(
                 onPressed: () {
                   _setStandardBusinessHours();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Standard hours applied'),
+                      backgroundColor: Colors.green,
+                      duration: Duration(seconds: 1),
+                    ),
+                  );
                 },
-                icon: const Icon(Icons.access_time),
-                label: const Text('Set Standard Hours'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  minimumSize: Size(100, 40),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.access_time, size: 16),
+                    SizedBox(width: 4),
+                    Text('Standard Hours', style: GoogleFonts.poppins(fontSize: 12)),
+                  ],
+                ),
               ),
-              OutlinedButton.icon(
+              
+              // Clear All button (smaller)
+              OutlinedButton(
                 onPressed: () {
                   _clearAllBusinessHours();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Hours cleared'),
+                      backgroundColor: Colors.orange,
+                      duration: Duration(seconds: 1),
+                    ),
+                  );
                 },
-                icon: const Icon(Icons.clear_all),
-                label: const Text('Clear All'),
+                style: OutlinedButton.styleFrom(
+                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  minimumSize: Size(100, 40),
+                  side: BorderSide(color: Colors.red.shade300),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.clear_all, size: 16, color: Colors.red),
+                    SizedBox(width: 4),
+                    Text('Clear All', 
+                      style: GoogleFonts.poppins(fontSize: 12, color: Colors.red),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
+          const SizedBox(height: 16),
         ],
       ),
     );
