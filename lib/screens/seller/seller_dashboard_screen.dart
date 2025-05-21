@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -30,18 +31,25 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
     'viewCount': 0,
   };
 
+  final List<String> _requiredProfileFields = [
+    'businessName',
+    'address',
+    'phone',
+    'description',
+    'businessHours',
+    'profileImageUrl',
+  ];
+
   @override
   void initState() {
     super.initState();
     
-    // Load products after a short delay to ensure context is ready
     Future.delayed(Duration.zero, () {
       if (mounted) {
         Provider.of<ProductProvider>(context, listen: false).loadProducts();
       }
     });
     
-    // Rest of your initState
     _loadDashboardData();
   }
 
@@ -55,7 +63,6 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception('User not authenticated');
 
-      // Get seller information
       final sellerDoc = await FirebaseFirestore.instance
           .collection('sellers')
           .doc(user.uid)
@@ -63,7 +70,6 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
 
       if (!sellerDoc.exists) throw Exception('Seller profile not found');
 
-      // Get basic seller info
       final sellerData = sellerDoc.data()!;
       _sellerData = sellerData;
       
@@ -90,10 +96,50 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
     }
   }
 
+  double _getProfileCompleteness(Map<String, dynamic> data) {
+    int filled = 0;
+    for (final field in _requiredProfileFields) {
+      if (data[field] != null && data[field].toString().trim().isNotEmpty) {
+        if (field == 'businessHours') {
+          if (data['businessHours'] is Map && (data['businessHours'] as Map).isNotEmpty) filled++;
+        } else {
+          filled++;
+        }
+      }
+    }
+    return filled / _requiredProfileFields.length;
+  }
+
+  List<String> _getMissingFields(Map<String, dynamic> data) {
+    List<String> missing = [];
+    for (final field in _requiredProfileFields) {
+      if (data[field] == null || data[field].toString().trim().isEmpty || (field == 'businessHours' && (data['businessHours'] == null || (data['businessHours'] is Map && (data['businessHours'] as Map).isEmpty)))) {
+        missing.add(field);
+      }
+    }
+    return missing;
+  }
+
+  bool _isValidPhone(String? phone) {
+    if (phone == null) return false;
+    final reg = RegExp(r'^(\+?\d{7,15})');
+    return reg.hasMatch(phone);
+  }
+
+  bool _isValidEmail(String? email) {
+    if (email == null) return false;
+    final reg = RegExp(r'^[\w\.-]+@[\w\.-]+\.[a-zA-Z]{2,}');
+    return reg.hasMatch(email);
+  }
+
+  bool _isValidWebsite(String? url) {
+    if (url == null) return false;
+    final reg = RegExp(r'^(https?:\/\/)?([\w\-]+\.)+[\w\-]{2,}(\/\S*)?');
+    return reg.hasMatch(url);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
       appBar: AppBar(
         title: Text(_businessName),
@@ -131,12 +177,10 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                     ),
                     SizedBox(height: 24),
                     
-                    // Profile Section
                     _buildProfileSection(),
                     
                     SizedBox(height: 24),
                     
-                    // Metrics Cards
                     GridView.count(
                       crossAxisCount: 2,
                       crossAxisSpacing: 16,
@@ -173,7 +217,6 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                     
                     SizedBox(height: 32),
                     
-                    // Quick Actions
                     _buildSectionHeader('Quick Actions'),
                     SizedBox(height: 16),
                     Row(
@@ -213,7 +256,6 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                     
                     SizedBox(height: 32),
                     
-                    // Recent Orders
                     _buildSectionHeader('Recent Orders'),
                     SizedBox(height: 8),
                     _buildEmptyState(
@@ -223,7 +265,6 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                     
                     SizedBox(height: 32),
                     
-                    // Recent Products
                     _buildSectionHeader('Products'),
                     SizedBox(height: 8),
                     _buildRecentProducts(),
@@ -275,7 +316,6 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
               MaterialPageRoute(builder: (_) => SellerOrdersScreen()),
             );
           }
-          // Add navigation for other tabs if needed
         },
       ),
     );
@@ -524,7 +564,6 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
   }
 
   Widget _buildProfileSection() {
-    // Get verification status
     final verificationStatus = _sellerData['verificationStatus'] ?? 'pending';
     Color statusColor;
     IconData statusIcon;
@@ -544,7 +583,14 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
         statusIcon = Icons.pending_actions;
         break;
     }
-    
+
+    final completeness = _getProfileCompleteness(_sellerData);
+    final missingFields = _getMissingFields(_sellerData);
+    final showOnboarding = completeness < 1.0;
+    final phoneValid = _isValidPhone(_sellerData['phone']);
+    final emailValid = _isValidEmail(FirebaseAuth.instance.currentUser?.email);
+    final websiteValid = _sellerData['website'] == null || _sellerData['website'].toString().isEmpty || _isValidWebsite(_sellerData['website']);
+
     return Card(
       elevation: 4,
       shadowColor: Colors.black26,
@@ -556,6 +602,62 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (showOnboarding) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                decoration: BoxDecoration(
+                  color: Colors.orange[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange[200]!),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.orange[700], size: 20),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Complete your profile to unlock all features.',
+                        style: GoogleFonts.poppins(fontSize: 13, color: Colors.orange[900], fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: LinearProgressIndicator(
+                      value: completeness,
+                      minHeight: 7,
+                      backgroundColor: Colors.grey[200],
+                      valueColor: AlwaysStoppedAnimation<Color>(completeness == 1.0 ? Colors.green : Colors.orange),
+                    ),
+                  ),
+                  SizedBox(width: 10),
+                  Text('${(completeness * 100).round()}%', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600)),
+                ],
+              ),
+              if (missingFields.isNotEmpty) ...[
+                SizedBox(height: 8),
+                Text(
+                  'Missing: ' + missingFields.map((f) {
+                    switch (f) {
+                      case 'businessName': return 'Business Name';
+                      case 'address': return 'Address';
+                      case 'phone': return 'Phone';
+                      case 'description': return 'Description';
+                      case 'businessHours': return 'Business Hours';
+                      case 'profileImageUrl': return 'Profile Image';
+                      default: return f;
+                    }
+                  }).join(', '),
+                  style: GoogleFonts.poppins(fontSize: 12, color: Colors.orange[900]),
+                ),
+              ],
+              SizedBox(height: 12),
+            ],
             Row(
               children: [
                 Stack(
@@ -598,12 +700,73 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      Text(
-                        FirebaseAuth.instance.currentUser?.email ?? '',
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
+                      Row(
+                        children: [
+                          Icon(Icons.email_outlined, size: 13, color: emailValid ? Colors.grey[600] : Colors.red),
+                          SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              FirebaseAuth.instance.currentUser?.email ?? '',
+                              style: GoogleFonts.poppins(
+                                fontSize: 12.5,
+                                color: emailValid ? Colors.grey[600] : Colors.red,
+                                fontWeight: emailValid ? FontWeight.normal : FontWeight.w600,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (!emailValid)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 4),
+                              child: Icon(Icons.error_outline, color: Colors.red, size: 14),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(Icons.phone, size: 13, color: phoneValid ? Colors.grey[700] : Colors.red),
+                          SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              _sellerData['phone'] ?? 'No phone',
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                color: phoneValid ? Colors.grey[700] : Colors.red,
+                                fontWeight: phoneValid ? FontWeight.normal : FontWeight.w600,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (!phoneValid)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 4),
+                              child: Icon(Icons.error_outline, color: Colors.red, size: 14),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(Icons.language_outlined, size: 13, color: websiteValid ? Colors.grey[700] : Colors.red),
+                          SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              _sellerData['website'] ?? 'No website',
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                color: websiteValid ? Colors.grey[700] : Colors.red,
+                                fontWeight: websiteValid ? FontWeight.normal : FontWeight.w600,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (!websiteValid)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 4),
+                              child: Icon(Icons.error_outline, color: Colors.red, size: 14),
+                            ),
+                        ],
                       ),
                       const SizedBox(height: 4),
                       Row(
@@ -643,7 +806,6 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
             if (_sellerData['description'] != null && _sellerData['description'].toString().isNotEmpty)
               Container(
                 padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
@@ -662,267 +824,9 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => SellerProfileScreen(initialData: _sellerData),
-                        ),
-                      ).then((_) => _loadDashboardData());
-                    },
-                    icon: const Icon(Icons.account_circle_outlined),
-                    label: Text('Manage Profile', style: GoogleFonts.poppins(fontSize: 13)),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Theme.of(context).primaryColor,
-                      side: BorderSide(color: Theme.of(context).primaryColor),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      _showBusinessInfoDialog();
-                    },
-                    icon: const Icon(Icons.storefront),
-                    label: Text('Business Info', style: GoogleFonts.poppins(fontSize: 13)),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.blue[700],
-                      side: BorderSide(color: Colors.blue[700]!),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
           ],
         ),
       ),
     );
-  }
-
-  // Add this method to show business information dialog
-  void _showBusinessInfoDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          'Business Information',
-          style: GoogleFonts.poppins(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Business Hours Section
-              Text(
-                'Business Hours',
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              
-              // Business hours - extract from profile data or show defaults
-              _buildBusinessHourRow('Monday', _sellerData['businessHours']?['monday'] ?? '9:00 AM - 5:00 PM'),
-              _buildBusinessHourRow('Tuesday', _sellerData['businessHours']?['tuesday'] ?? '9:00 AM - 5:00 PM'),
-              _buildBusinessHourRow('Wednesday', _sellerData['businessHours']?['wednesday'] ?? '9:00 AM - 5:00 PM'),
-              _buildBusinessHourRow('Thursday', _sellerData['businessHours']?['thursday'] ?? '9:00 AM - 5:00 PM'),
-              _buildBusinessHourRow('Friday', _sellerData['businessHours']?['friday'] ?? '9:00 AM - 5:00 PM'),
-              _buildBusinessHourRow('Saturday', _sellerData['businessHours']?['saturday'] ?? '10:00 AM - 4:00 PM'),
-              _buildBusinessHourRow('Sunday', _sellerData['businessHours']?['sunday'] ?? 'Closed'),
-              
-              const Divider(height: 24),
-              
-              // Contact Information
-              Text(
-                'Contact Information',
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              
-              _buildInfoRow('Phone', _sellerData['phone'] ?? 'Not provided'),
-              _buildInfoRow('Email', FirebaseAuth.instance.currentUser?.email ?? 'Not provided'),
-              _buildInfoRow('Website', _sellerData['website'] ?? 'Not provided'),
-              
-              const Divider(height: 24),
-              
-              // Seller Status
-              Text(
-                'Account Status',
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              
-              _buildVerificationStatusChip(),
-              
-              const SizedBox(height: 16),
-              Text(
-                'Member since: ${_sellerData['created'] != null ? _formatTimestamp(_sellerData['created']) : 'Unknown'}',
-                style: GoogleFonts.poppins(
-                  fontSize: 13,
-                  color: Colors.grey[700],
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-            },
-            child: const Text('CLOSE'),
-          ),
-          OutlinedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => SellerProfileScreen(initialData: _sellerData),
-                ),
-              ).then((_) => _loadDashboardData());
-            },
-            child: const Text('EDIT PROFILE'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Helper method for business hour rows
-  Widget _buildBusinessHourRow(String day, String hours) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            day,
-            style: GoogleFonts.poppins(
-              fontWeight: FontWeight.w500,
-              fontSize: 14,
-            ),
-          ),
-          Text(
-            hours,
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              color: Colors.grey[800],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Helper method for information rows
-  Widget _buildInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 80,
-            child: Text(
-              label,
-              style: GoogleFonts.poppins(
-                fontWeight: FontWeight.w500,
-                fontSize: 14,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                color: Colors.grey[800],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Helper method for verification status chip
-  Widget _buildVerificationStatusChip() {
-    final verificationStatus = _sellerData['verificationStatus'] ?? 'pending';
-    Color statusColor;
-    String statusText;
-    IconData statusIcon;
-    
-    switch (verificationStatus.toLowerCase()) {
-      case 'approved':
-        statusColor = Colors.green;
-        statusText = 'Verified Seller';
-        statusIcon = Icons.verified;
-        break;
-      case 'rejected':
-        statusColor = Colors.red;
-        statusText = 'Verification Failed';
-        statusIcon = Icons.cancel;
-        break;
-      case 'pending':
-      default:
-        statusColor = Colors.orange;
-        statusText = 'Verification Pending';
-        statusIcon = Icons.pending_actions;
-        break;
-    }
-    
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: statusColor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: statusColor.withOpacity(0.5)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(statusIcon, color: statusColor, size: 16),
-          const SizedBox(width: 8),
-          Text(
-            statusText,
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: statusColor,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Helper method for formatting timestamps
-  String _formatTimestamp(Timestamp timestamp) {
-    DateTime date = timestamp.toDate();
-    return '${date.day}/${date.month}/${date.year}';
   }
 }

@@ -25,6 +25,10 @@ class Product {
   // Add imageUrl getter for backward compatibility
   String get imageUrl => images.isNotEmpty ? images.first : '';
 
+  // Add new properties
+  final String sellerBusinessName;
+  final String? sellerProfileImageUrl;
+
   Product({
     required this.id,
     required this.sellerId,
@@ -46,6 +50,10 @@ class Product {
     required this.updatedAt,
     this.viewCount = 0,
     this.orderCount = 0,
+    
+    // Initialize new properties
+    this.sellerBusinessName = 'Seller',
+    this.sellerProfileImageUrl,
   }) : this.categories = categories ?? [category].where((c) => c.isNotEmpty).toList();
 
   Map<String, dynamic> toMap() {
@@ -69,6 +77,10 @@ class Product {
       'updatedAt': Timestamp.fromDate(updatedAt),
       'viewCount': viewCount,
       'orderCount': orderCount,
+      
+      // Include new properties
+      'sellerBusinessName': sellerBusinessName,
+      'sellerProfileImageUrl': sellerProfileImageUrl,
     };
   }
 
@@ -107,6 +119,10 @@ class Product {
       condition: map['condition'] ?? '',
       size: map['size'] ?? '',
       brand: map['brand'] ?? '',
+      
+      // Include new properties
+      sellerBusinessName: map['sellerBusinessName'] ?? 'Seller',
+      sellerProfileImageUrl: map['sellerProfileImageUrl'],
     );
   }
 }
