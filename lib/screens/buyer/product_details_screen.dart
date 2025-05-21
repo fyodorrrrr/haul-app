@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '/models/product_model.dart';
 import '/models/cart_model.dart';
 import '/models/wishlist_model.dart';
@@ -277,44 +278,168 @@ class ProductDetailsScreen extends StatelessWidget {
   }
 
   Widget _buildSellerSection(BuildContext context) {
-    final _sellerData = {
-      'profileImageUrl': product.sellerProfileImageUrl,
-      'businessName': product.sellerBusinessName,
-    };
-
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundImage: _sellerData['profileImageUrl'] != null
-            ? NetworkImage(_sellerData['profileImageUrl']!)
-            : null,
-        child: _sellerData['profileImageUrl'] == null
-            ? Icon(Icons.store, color: Colors.white)
-            : null,
-      ),
-      title: Text(
-        _sellerData['businessName'] ?? 'Seller',
-        style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-      ),
-      subtitle: Text(
-        'View seller profile',
-        style: GoogleFonts.poppins(fontSize: 12),
-      ),
-      trailing: Icon(Icons.chevron_right),
-      onTap: () {
-        // Check if sellerId is null before navigating
-        if (product.sellerId != null && product.sellerId.isNotEmpty) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => SellerPublicProfileScreen(sellerId: product.sellerId!),
+    // Instead of relying on limited product data, fetch full seller information
+    return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance
+          .collection('sellers')
+          .doc(product.sellerId)
+          .get(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const ListTile(
+            leading: CircleAvatar(
+              child: CircularProgressIndicator(strokeWidth: 2),
             ),
-          );
-        } else {
-          // Show an error message
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Seller information not available')),
+            title: Text('Loading seller information...'),
           );
         }
+
+        // Get seller data or use fallback
+        final Map<String, dynamic> sellerData = 
+            snapshot.data?.data() as Map<String, dynamic>? ?? {};
+        
+        // Extract basic info
+        final String businessName = sellerData['businessName'] ?? 'Seller';
+        final String? profileImageUrl = sellerData['profileImageUrl'];
+        final String location = sellerData['address'] ?? 'No location';
+        final bool isVerified = sellerData['isVerified'] ?? false;
+        
+        return Container(
+          margin: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Sold by',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                ),
+              ),
+              const SizedBox(height: 12),
+              GestureDetector(
+                onTap: () {
+                  if (product.sellerId != null && product.sellerId.isNotEmpty) {
+                    Navigator.push(
+                      context, 
+                      MaterialPageRoute(
+                        builder: (_) => SellerPublicProfileScreen(
+                          sellerId: product.sellerId!
+                        ),
+                      ),
+                    );
+                  }
+                },
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 24,
+                      backgroundColor: Colors.grey[200],
+                      backgroundImage: profileImageUrl != null
+                          ? NetworkImage(profileImageUrl)
+                          : null,
+                      child: profileImageUrl == null
+                          ? Icon(Icons.store, color: Colors.grey[700])
+                          : null,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  businessName,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (isVerified)
+                                Icon(Icons.verified, 
+                                  size: 16, 
+                                  color: Colors.blue[700]
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Icon(Icons.location_on_outlined, 
+                                size: 14, 
+                                color: Colors.grey[600]
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  location,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (sellerData['averageRating'] != null) ...[
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Icon(Icons.star, 
+                                  size: 14, 
+                                  color: Colors.amber
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${sellerData['averageRating'].toStringAsFixed(1)} • ${sellerData['totalRatings'] ?? 0} reviews',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 12,
+                                    color: Colors.grey[800],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12, 
+                        vertical: 6
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).primaryColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        'Visit Store',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Theme.of(context).primaryColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
       },
     );
   }
