@@ -9,7 +9,7 @@ import 'main_home_screen.dart'; // Import the new main home screen
 import 'package:provider/provider.dart'; // Import provider for UserProfileProvider
 import '/providers/user_profile_provider.dart';
 import '/widgets/not_logged_in.dart';
-
+import 'package:firebase_auth/firebase_auth.dart';
 
 class HomeScreen extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -25,6 +25,11 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
+  final TextEditingController searchController = TextEditingController();
+  void handleSearchChanged(String query){
+    print("user is searching for: $query");
+  }
+  
 
   @override
   void initState() {
@@ -70,6 +75,8 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: CustomAppBar(
         title: title,
         showSearchBar: showSearch,
+        searchController: searchController,
+        onSearchChanged: handleSearchChanged,
       ),
       body: SafeArea(
         child: IndexedStack(
@@ -84,3 +91,31 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
+
+// class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
+//   final String title;
+//   final bool showSearchBar;
+
+//   @override
+//   Size get preferredSize => Size.fromHeight(kToolbarHeight);
+
+
+//   const CustomAppBar({
+//     Key? key,
+//     required this.title,
+//     required this.showSearchBar,
+//   }) : super(key: key);
+
+//   @override
+//   Widget build(BuildContext build){
+//     return AppBar(
+//       title: showSearchBar
+//       ? TextField(
+//         decoration: InputDecoration(
+//           hintText: "Search Product"
+//         ),
+//       )
+//       : Text(title)
+//     );
+//   }
+// }

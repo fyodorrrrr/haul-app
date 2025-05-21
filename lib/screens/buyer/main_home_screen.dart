@@ -190,7 +190,8 @@ Future<void> addDummyProducts() async {
     final bool isSmallScreen = size.width < 350;
 
     return SingleChildScrollView(
-      child: Padding(
+      child: Expanded(
+        child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -219,6 +220,7 @@ Future<void> addDummyProducts() async {
           ],
         ),
       ),
+      )
     );
   }
 

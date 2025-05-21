@@ -48,6 +48,13 @@ class Product {
     this.orderCount = 0,
   }) : this.categories = categories ?? [category].where((c) => c.isNotEmpty).toList();
 
+
+  factory Product.fromFirestore(DocumentSnapshot doc) {
+  final data = doc.data() as Map<String, dynamic>? ?? {};
+  return Product.fromMap(doc.id, data);
+}
+
+
   Map<String, dynamic> toMap() {
     return {
       'sellerId': sellerId,
