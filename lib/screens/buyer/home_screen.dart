@@ -12,6 +12,7 @@ import '/widgets/not_logged_in.dart';
 import 'seller_public_profile_screen.dart'; // Import SellerPublicProfileScreen
 import 'package:google_fonts/google_fonts.dart'; // Import Google Fonts
 import '/models/product_model.dart'; // Import Product model
+import 'package:firebase_auth/firebase_auth.dart';
 
 class HomeScreen extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -27,6 +28,11 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
+  final TextEditingController searchController = TextEditingController();
+  void handleSearchChanged(String query){
+    print("user is searching for: $query");
+  }
+  
 
   @override
   void initState() {
@@ -72,6 +78,8 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: CustomAppBar(
         title: title,
         showSearchBar: showSearch,
+        searchController: searchController,
+        onSearchChanged: handleSearchChanged,
       ),
       body: SafeArea(
         child: IndexedStack(

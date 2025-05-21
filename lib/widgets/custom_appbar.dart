@@ -1,18 +1,55 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_auth/firebase_auth.dart'; 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:haul/screens/buyer/search_screen.dart';
 
-class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
+class CustomAppBar extends StatefulWidget implements PreferredSizeWidget {
   final String title;
   final bool showSearchBar;
+  final TextEditingController searchController;
+  final Function(String) onSearchChanged;
 
   const CustomAppBar({
-    Key? key,
+    super.key,
     this.title = 'HAUL',
-    this.showSearchBar = true,
-  }) : super(key: key);
+    required this.showSearchBar,
+    required this.searchController,
+    required this.onSearchChanged,
+
+  });
 
   @override
+  _customAppBarState createState() => _customAppBarState();
+
+  @override
+  Size get preferredSize => Size.fromHeight(120);
+}
+
+  class _customAppBarState extends State<CustomAppBar>{
+  @override
   Widget build(BuildContext context) {
+    final searchController = widget.searchController;
+    List searchResults = [];
+
+    void searchProducts (String query) async {
+      if (query.isEmpty) {
+        return;
+      }
+      QuerySnapshot result = await FirebaseFirestore.instance
+        .collection('products')
+        .where('name', isGreaterThanOrEqualTo: query)
+        .where('name', isLessThan: query + 'z')
+        .get();
+
+        List<DocumentSnapshot> documents = result.docs;
+
+        setState(() {
+          searchResults = documents;
+        });
+    }
+
+
     final size = MediaQuery.of(context).size;
     final width = size.width;
     final height = size.height;
@@ -69,11 +106,11 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
             ),
 
             // Search Bar
-            if (showSearchBar)
+            if (widget.showSearchBar)
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: height * 0.01),
                 child: Container(
-                  height: height * 0.05,
+                  height: height * 0.06,
                   decoration: BoxDecoration(
                     color: Colors.grey.shade200,
                     borderRadius: BorderRadius.circular(8),
@@ -86,7 +123,31 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                       ),
                       const SizedBox(width: 8),
                       Expanded(
+                        //Editing search bar
                         child: TextField(
+                          
+                          controller: searchController,
+                          onChanged: (value){
+                            searchProducts(value);
+                          },
+                          onSubmitted: (value) {
+                            if (value.isNotEmpty){
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => search_product(
+                                    showSearchBar: true,
+                                    searchController: TextEditingController(text: value),
+                                    onSearchChanged: (value){},
+                                    query: value,
+                                  )
+                                )
+                              );
+                            }
+                            searchController.clear();
+                          },
+
+
                           decoration: InputDecoration(
                             hintText: 'Search for products',
                             hintStyle: GoogleFonts.poppins(
@@ -95,7 +156,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                             ),
                             border: InputBorder.none,
                             isDense: true,
-                            contentPadding: EdgeInsets.symmetric(vertical: height * 0.012),
+                            contentPadding: EdgeInsets.symmetric(vertical: height * 0.01),
                           ),
                           style: GoogleFonts.poppins(
                             fontSize: fontSize,
@@ -126,7 +187,4 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
       ),
     );
   }
-
-  @override
-  Size get preferredSize => const Size.fromHeight(140.0);
 }
