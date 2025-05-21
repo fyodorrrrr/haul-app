@@ -334,87 +334,90 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> with SingleTi
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                // Profile Image Section
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    border: Border(
-                      bottom: BorderSide(color: Colors.grey.shade300, width: 1),
+          : Form(
+              key: _formKey,
+              child: Column(
+                children: [
+                  // Profile Image Section
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      border: Border(
+                        bottom: BorderSide(color: Colors.grey.shade300, width: 1),
+                      ),
                     ),
-                  ),
-                  child: Center(
-                    child: Column(
-                      children: [
-                        GestureDetector(
-                          onTap: _pickImage,
-                          child: Stack(
-                            children: [
-                              CircleAvatar(
-                                radius: 50,
-                                backgroundImage: _profileImage != null
-                                    ? FileImage(_profileImage!) as ImageProvider
-                                    : (_profileImageUrl != null && _profileImageUrl!.isNotEmpty
-                                        ? NetworkImage(_profileImageUrl!)
-                                        : const AssetImage('assets/default_profile.png') as ImageProvider),
-                                backgroundColor: Colors.grey.shade200,
-                              ),
-                              Positioned(
-                                right: 0,
-                                bottom: 0,
-                                child: Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context).primaryColor,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(color: Colors.white, width: 2),
-                                  ),
-                                  child: const Icon(
-                                    Icons.camera_alt,
-                                    color: Colors.white,
-                                    size: 18,
+                    child: Center(
+                      child: Column(
+                        children: [
+                          GestureDetector(
+                            onTap: _pickImage,
+                            child: Stack(
+                              children: [
+                                CircleAvatar(
+                                  radius: 50,
+                                  backgroundImage: _profileImage != null
+                                      ? FileImage(_profileImage!) as ImageProvider
+                                      : (_profileImageUrl != null && _profileImageUrl!.isNotEmpty
+                                          ? NetworkImage(_profileImageUrl!)
+                                          : const AssetImage('assets/default_profile.png') as ImageProvider),
+                                  backgroundColor: Colors.grey.shade200,
+                                ),
+                                Positioned(
+                                  right: 0,
+                                  bottom: 0,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(6),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context).primaryColor,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: Colors.white, width: 2),
+                                    ),
+                                    child: const Icon(
+                                      Icons.camera_alt,
+                                      color: Colors.white,
+                                      size: 18,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Tap to change profile picture',
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            color: Colors.grey[600],
+                          const SizedBox(height: 8),
+                          Text(
+                            'Tap to change profile picture',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
                           ),
-                        ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  
+                  // Tab Content
+                  Expanded(
+                    child: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        // Profile Tab
+                        SingleChildScrollView(child: _buildProfileSection()),
+                        
+                        // Business Hours Tab
+                        SingleChildScrollView(child: _buildBusinessHoursSection()),
+                        
+                        // Payment Info Tab
+                        SingleChildScrollView(child: _buildPaymentInfoSection()),
+                        
+                        // Store Policies Tab
+                        SingleChildScrollView(child: _buildStorePoliciesSection()),
                       ],
                     ),
                   ),
-                ),
-                
-                // Tab Content
-                Expanded(
-                  child: TabBarView(
-                    controller: _tabController,
-                    children: [
-                      // Profile Tab
-                      SingleChildScrollView(child: _buildProfileSection()),
-                      
-                      // Business Hours Tab
-                      SingleChildScrollView(child: _buildBusinessHoursSection()),
-                      
-                      // Payment Info Tab
-                      SingleChildScrollView(child: _buildPaymentInfoSection()),
-                      
-                      // Store Policies Tab
-                      SingleChildScrollView(child: _buildStorePoliciesSection()),
-                    ],
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
     );
   }
@@ -466,85 +469,83 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> with SingleTi
       ],
     );
   }
-    Widget _buildProfileSection() {
+  
+  Widget _buildProfileSection() {
     return Padding(
       padding: const EdgeInsets.all(16.0),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildTextField(
-              controller: _businessNameController,
-              label: 'Business Name',
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please enter your business name';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-            _buildTextField(
-              controller: _emailController,
-              label: 'Email',
-              keyboardType: TextInputType.emailAddress,
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please enter your email';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-            _buildTextField(
-              controller: _phoneController,
-              label: 'Phone',
-              keyboardType: TextInputType.phone,
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please enter your phone number';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-            _buildTextField(
-              controller: _addressController,
-              label: 'Address',
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please enter your address';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-            _buildTextField(
-              controller: _descriptionController,
-              label: 'Description',
-              maxLines: 3,
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please enter a description';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-            _buildTextField(
-              controller: _websiteController,
-              label: 'Website',
-              keyboardType: TextInputType.url,
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please enter your website';
-                }
-                return null;
-              },
-            ),
-          ],
-        ),
+      child: Column(  // Remove the Form widget from here
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildTextField(
+            controller: _businessNameController,
+            label: 'Business Name',
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please enter your business name';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+          _buildTextField(
+            controller: _emailController,
+            label: 'Email',
+            keyboardType: TextInputType.emailAddress,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please enter your email';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+          _buildTextField(
+            controller: _phoneController,
+            label: 'Phone',
+            keyboardType: TextInputType.phone,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please enter your phone number';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+          _buildTextField(
+            controller: _addressController,
+            label: 'Address',
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please enter your address';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+          _buildTextField(
+            controller: _descriptionController,
+            label: 'Description',
+            maxLines: 3,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please enter a description';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+          _buildTextField(
+            controller: _websiteController,
+            label: 'Website',
+            keyboardType: TextInputType.url,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please enter your website';
+              }
+              return null;
+            },
+          ),
+        ],
       ),
     );
   }
