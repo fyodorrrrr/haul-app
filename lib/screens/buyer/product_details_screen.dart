@@ -7,6 +7,8 @@ import '/models/wishlist_model.dart';
 import '/providers/cart_providers.dart';
 import '/providers/wishlist_providers.dart';
 import '/utils/snackbar_helper.dart';
+import 'seller_public_profile_screen.dart';
+
 
 class ProductDetailsScreen extends StatelessWidget {
   final Product product;
@@ -34,6 +36,7 @@ class ProductDetailsScreen extends StatelessWidget {
           _buildProductDetails(),
           _buildSpecifications(),
           _buildDeliveryInfo(),
+          SliverToBoxAdapter(child: _buildSellerSection(context)),
         ],
       ),
       bottomNavigationBar: _buildBottomButtons(context, wishlistProvider, cartProvider, isInWishlist, isInCart),
@@ -270,6 +273,49 @@ class ProductDetailsScreen extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildSellerSection(BuildContext context) {
+    final _sellerData = {
+      'profileImageUrl': product.sellerProfileImageUrl,
+      'businessName': product.sellerBusinessName,
+    };
+
+    return ListTile(
+      leading: CircleAvatar(
+        backgroundImage: _sellerData['profileImageUrl'] != null
+            ? NetworkImage(_sellerData['profileImageUrl']!)
+            : null,
+        child: _sellerData['profileImageUrl'] == null
+            ? Icon(Icons.store, color: Colors.white)
+            : null,
+      ),
+      title: Text(
+        _sellerData['businessName'] ?? 'Seller',
+        style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+      ),
+      subtitle: Text(
+        'View seller profile',
+        style: GoogleFonts.poppins(fontSize: 12),
+      ),
+      trailing: Icon(Icons.chevron_right),
+      onTap: () {
+        // Check if sellerId is null before navigating
+        if (product.sellerId != null && product.sellerId.isNotEmpty) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => SellerPublicProfileScreen(sellerId: product.sellerId!),
+            ),
+          );
+        } else {
+          // Show an error message
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Seller information not available')),
+          );
+        }
+      },
     );
   }
 

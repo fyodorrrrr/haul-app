@@ -9,7 +9,9 @@ import 'main_home_screen.dart'; // Import the new main home screen
 import 'package:provider/provider.dart'; // Import provider for UserProfileProvider
 import '/providers/user_profile_provider.dart';
 import '/widgets/not_logged_in.dart';
-
+import 'seller_public_profile_screen.dart'; // Import SellerPublicProfileScreen
+import 'package:google_fonts/google_fonts.dart'; // Import Google Fonts
+import '/models/product_model.dart'; // Import Product model
 
 class HomeScreen extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -80,6 +82,40 @@ class _HomeScreenState extends State<HomeScreen> {
       bottomNavigationBar: CustomBottomNavBar(
         currentIndex: _selectedIndex,
         onTap: _onTabTapped,
+      ),
+    );
+  }
+
+  // In your product card widget, add a tap handler for the seller name
+  Widget _buildSellerInfo(Product product) {
+    return GestureDetector(
+      onTap: () {
+        // Add null check to prevent error
+        if (product.sellerId != null && product.sellerId.isNotEmpty) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => SellerPublicProfileScreen(sellerId: product.sellerId),
+            ),
+          );
+        }
+      },
+      child: Row(
+        children: [
+          Text(
+            'by ',
+            style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[600]),
+          ),
+          Text(
+            // Use a property that does exist, or a placeholder
+            product.sellerBusinessName ?? 'Seller', 
+            style: GoogleFonts.poppins(
+              fontSize: 12, 
+              color: Theme.of(context).primaryColor,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }
