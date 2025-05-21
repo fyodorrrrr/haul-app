@@ -313,11 +313,22 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> with SingleTi
         ],
         bottom: TabBar(
           controller: _tabController,
+          isScrollable: true, // Make tabs scrollable
+          labelPadding: const EdgeInsets.symmetric(horizontal: 20.0), // Add padding between tabs
+          indicatorSize: TabBarIndicatorSize.label, // Makes indicator match tab width
           tabs: [
-            Tab(text: 'Profile'),
-            Tab(text: 'Business Hours'),
-            Tab(text: 'Payment Info'),
-            Tab(text: 'Store Policies'),
+            Tab(
+              child: Text('Profile', style: GoogleFonts.poppins(fontSize: 13)),
+            ),
+            Tab(
+              child: Text('Business Hours', style: GoogleFonts.poppins(fontSize: 13)),
+            ),
+            Tab(
+              child: Text('Payment Info', style: GoogleFonts.poppins(fontSize: 13)),
+            ),
+            Tab(
+              child: Text('Store Policies', style: GoogleFonts.poppins(fontSize: 13)),
+            ),
           ],
         ),
       ),
@@ -663,53 +674,207 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> with SingleTi
   }
   
   Widget _buildBusinessHourField(String day, TextEditingController controller) {
-    return Row(
+    // Parse existing times if any
+    TimeOfDay? openingTime;
+    TimeOfDay? closingTime;
+    bool isClosed = false;
+    
+    if (controller.text.toLowerCase() == 'closed') {
+      isClosed = true;
+    } else if (controller.text.contains('-')) {
+      try {
+        final parts = controller.text.split('-');
+        if (parts.length == 2) {
+          openingTime = _parseTimeString(parts[0].trim());
+          closingTime = _parseTimeString(parts[1].trim());
+        }
+      } catch (e) {
+        // Invalid format, use default values
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
-          width: 100,
-          child: Text(
-            day,
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-        Expanded(
-          child: TextFormField(
-            controller: controller,
-            decoration: InputDecoration(
-              hintText: 'e.g. 9:00 AM - 5:00 PM',
-              hintStyle: GoogleFonts.poppins(
-                fontSize: 14,
-                color: Colors.grey[400],
-              ),
-              filled: true,
-              fillColor: Colors.grey.shade100,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: Colors.grey.shade300),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: Colors.grey.shade300),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: Theme.of(context).primaryColor),
-              ),
-              suffixIcon: IconButton(
-                icon: const Icon(Icons.clear),
-                onPressed: () {
-                  controller.clear();
-                },
+        // Day header with closed switch
+        Row(
+          children: [
+            SizedBox(
+              width: 100,
+              child: Text(
+                day,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
-          ),
+            Spacer(),
+            Text(
+              'Closed',
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                color: isClosed ? Colors.red[700] : Colors.grey[600],
+              ),
+            ),
+            Switch(
+              value: isClosed,
+              onChanged: (value) {
+                setState(() {
+                  if (value) {
+                    controller.text = 'Closed';
+                  } else {
+                    // Default to 9-5 if no previous values
+                    openingTime ??= TimeOfDay(hour: 9, minute: 0);
+                    closingTime ??= TimeOfDay(hour: 17, minute: 0);
+                    controller.text = '${_formatTimeOfDay(openingTime!)} - ${_formatTimeOfDay(closingTime!)}';
+                  }
+                });
+              },
+              activeColor: Colors.red[700],
+            ),
+          ],
         ),
+        
+        // Time selection controls (hidden when closed)
+        if (!isClosed)
+          Padding(
+            padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
+            child: Row(
+              children: [
+                const SizedBox(width: 16),
+                // Opening time button
+                Expanded(
+                  child: InkWell(
+                    onTap: () async {
+                      final time = await showTimePicker(
+                        context: context,
+                        initialTime: openingTime ?? TimeOfDay(hour: 9, minute: 0),
+                      );
+                      
+                      if (time != null) {
+                        setState(() {
+                          openingTime = time;
+                          if (closingTime != null) {
+                            controller.text = '${_formatTimeOfDay(openingTime!)} - ${_formatTimeOfDay(closingTime!)}';
+                          } else {
+                            closingTime = TimeOfDay(hour: 17, minute: 0); // Default closing time
+                            controller.text = '${_formatTimeOfDay(openingTime!)} - ${_formatTimeOfDay(closingTime!)}';
+                          }
+                        });
+                      }
+                    },
+                    child: Container(
+                      padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            openingTime != null ? _formatTimeOfDay(openingTime!) : 'Opening time',
+                            style: GoogleFonts.poppins(fontSize: 13),
+                          ),
+                          Icon(Icons.access_time, size: 16, color: Colors.grey[700]),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Text('to', style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey[600])),
+                ),
+                
+                // Closing time button
+                Expanded(
+                  child: InkWell(
+                    onTap: () async {
+                      final time = await showTimePicker(
+                        context: context,
+                        initialTime: closingTime ?? TimeOfDay(hour: 17, minute: 0),
+                      );
+                      
+                      if (time != null) {
+                        setState(() {
+                          closingTime = time;
+                          if (openingTime != null) {
+                            controller.text = '${_formatTimeOfDay(openingTime!)} - ${_formatTimeOfDay(closingTime!)}';
+                          } else {
+                            openingTime = TimeOfDay(hour: 9, minute: 0); // Default opening time
+                            controller.text = '${_formatTimeOfDay(openingTime!)} - ${_formatTimeOfDay(closingTime!)}';
+                          }
+                        });
+                      }
+                    },
+                    child: Container(
+                      padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            closingTime != null ? _formatTimeOfDay(closingTime!) : 'Closing time',
+                            style: GoogleFonts.poppins(fontSize: 13),
+                          ),
+                          Icon(Icons.access_time, size: 16, color: Colors.grey[700]),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        Divider(),
       ],
     );
+  }
+
+  // Helper method to parse a time string (e.g. "9:00 AM") to TimeOfDay
+  TimeOfDay? _parseTimeString(String timeStr) {
+    try {
+      final isAM = timeStr.toUpperCase().contains('AM');
+      final isPM = timeStr.toUpperCase().contains('PM');
+      
+      // Remove AM/PM indicators
+      timeStr = timeStr
+        .toUpperCase()
+        .replaceAll('AM', '')
+        .replaceAll('PM', '')
+        .trim();
+      
+      final parts = timeStr.split(':');
+      if (parts.length >= 2) {
+        int hour = int.parse(parts[0]);
+        int minute = int.parse(parts[1]);
+        
+        // Convert 12-hour format to 24-hour format
+        if (isPM && hour < 12) hour += 12;
+        if (isAM && hour == 12) hour = 0;
+        
+        return TimeOfDay(hour: hour, minute: minute);
+      }
+    } catch (e) {
+      // Parsing failed
+    }
+    return null;
+  }
+
+  // Helper method to format TimeOfDay to string (e.g. "9:00 AM")
+  String _formatTimeOfDay(TimeOfDay time) {
+    final hour = time.hourOfPeriod == 0 ? 12 : time.hourOfPeriod;
+    final minute = time.minute.toString().padLeft(2, '0');
+    final period = time.period == DayPeriod.am ? 'AM' : 'PM';
+    return '$hour:$minute $period';
   }
   
   void _setStandardBusinessHours() {
