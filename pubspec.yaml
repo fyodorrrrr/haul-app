@@ -17,6 +17,7 @@ dependencies:
   firebase_storage: ^11.7.7
   image_picker: 1.1.2
   provider: 6.1.4
+  syncfusion_flutter_charts: ^29.2.5
   intl: ^0.20.2
   firebase_app_check: ^0.2.1+8 
   url_launcher: ^6.1.10

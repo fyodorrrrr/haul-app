@@ -31,54 +31,31 @@ class SellerOrdersProvider with ChangeNotifier {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
-        _error = 'Please log in to view your orders';
-        _isLoading = false;
-        notifyListeners();
-        return;
+        throw Exception('User not authenticated');
       }
 
       print('Fetching orders for seller: ${user.uid}');
-      
-      // Get all recent orders - will filter for seller on client side
-      final snapshot = await FirebaseFirestore.instance
+
+      // This query should now work with your index:
+      // sellerIds (array-contains) + createdAt (orderBy)
+      final ordersQuery = await FirebaseFirestore.instance
           .collection('orders')
           .where('sellerIds', arrayContains: user.uid)
           .orderBy('createdAt', descending: true)
-          .limit(100)
           .get();
 
-      print('Found ${snapshot.docs.length} total orders, filtering for seller items');
+      print('Found ${ordersQuery.docs.length} orders');
 
-      List<Map<String, dynamic>> sellerOrders = [];
-
-      for (var doc in snapshot.docs) {
+      _orders = ordersQuery.docs.map((doc) {
         final data = doc.data();
-        
-        // Check if this order contains items from this seller
-        final items = List<Map<String, dynamic>>.from(data['items'] ?? []);
-        final sellerItems = items.where((item) => 
-            item['sellerId'] == user.uid).toList();
-        
-        // Only include orders with items from this seller
-        if (sellerItems.isNotEmpty) {
-          // Add formatted date
-          if (data['createdAt'] is Timestamp) {
-            data['createdAtFormatted'] = _formatDate(data['createdAt'] as Timestamp);
-          }
-          
-          sellerOrders.add({
-            ...data,
-            'documentId': doc.id,
-            'items': sellerItems, // Only include this seller's items
-          });
-        }
-      }
-      
-      _orders = sellerOrders;
+        data['documentId'] = doc.id; // Add document ID for updates
+        return data;
+      }).toList();
+
       _isLoading = false;
       notifyListeners();
     } catch (e) {
-      print('Error fetching orders: $e');
+      print('Error fetching seller orders: $e');
       _error = e.toString();
       _isLoading = false;
       notifyListeners();

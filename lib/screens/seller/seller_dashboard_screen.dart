@@ -8,10 +8,13 @@ import 'dart:async';
 import '../../models/product_model.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/seller_registration_provider.dart';
+import '../../providers/analytics_provider.dart';
 import 'order_listing_screen.dart' show SellerOrdersScreen;
 import 'product_listing_screen.dart';
 import 'product_form_screen.dart';
 import 'seller_profile_screen.dart';
+import 'analytics_screen.dart';
+import 'package:syncfusion_flutter_charts/charts.dart';
 
 class SellerDashboardScreen extends StatefulWidget {
   const SellerDashboardScreen({Key? key}) : super(key: key);
@@ -30,6 +33,7 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
     'ordersCount': 0,
     'activeListings': 0,
     'viewCount': 0,
+    'totalSalesWeek': 0.0,
   };
 
   List<Map<String, dynamic>> _recentOrders = [];
@@ -50,15 +54,21 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
   @override
   void initState() {
     super.initState();
-    
-    Future.delayed(Duration.zero, () {
-      if (mounted) {
-        Provider.of<ProductProvider>(context, listen: false).loadProducts();
-      }
-    });
-    
     _loadDashboardData();
     _setupOrdersListener();
+    
+    // Load analytics with delay to ensure provider is ready
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final analyticsProvider = Provider.of<AnalyticsProvider>(context, listen: false);
+        print('Loading analytics from dashboard...');
+        analyticsProvider.fetchAnalytics().then((_) {
+          print('Analytics loading completed');
+        }).catchError((error) {
+          print('Analytics loading failed: $error');
+        });
+      }
+    });
   }
 
   @override
@@ -147,6 +157,7 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
           'ordersCount': sellerData['ordersCount'] ?? 0,
           'activeListings': sellerData['activeListings'] ?? 0,
           'viewCount': sellerData['viewCount'] ?? 0,
+          'totalSalesWeek': sellerData['totalSalesWeek'] ?? 0.0,
         };
         _isLoading = false;
       });
@@ -280,6 +291,27 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                       ],
                     ),
                     
+                    SizedBox(height: 24),
+                    Consumer<AnalyticsProvider>(
+                      builder: (context, provider, _) {
+                        if (provider.isLoading) {
+                          return Center(child: CircularProgressIndicator());
+                        }
+                        return Column(
+                          children: [
+                            _buildAnalyticsSummary(),
+                            if (provider.error != null)
+                              TextButton(
+                                onPressed: () {
+                                  Provider.of<AnalyticsProvider>(context, listen: false).fetchAnalytics();
+                                },
+                                child: Text('Retry loading analytics'),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+                    
                     SizedBox(height: 32),
                     
                     _buildSectionHeader('Quick Actions'),
@@ -319,7 +351,12 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                           context, 
                           Icons.analytics_outlined, 
                           'Analytics', 
-                          () {}
+                          () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => AnalyticsScreen()),
+                            );
+                          }
                         ),
                       ],
                     ),
@@ -515,194 +552,344 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
         final products = provider.products;
         
         if (products.isEmpty) {
-          return Container(
-            height: 160,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.blue.withOpacity(0.3)),
-            ),
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.inventory_2_outlined, color: Colors.blue[600], size: 36),
-                  SizedBox(height: 12),
-                  Text(
-                    'No products yet',
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.blue[700],
-                    ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    'Add your first product to start selling',
-                    style: GoogleFonts.poppins(
-                      fontSize: 13,
-                      color: Colors.blue[600],
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  SizedBox(height: 12),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => ProductFormScreen()),
-                      );
-                    },
-                    icon: Icon(Icons.add, size: 16),
-                    label: Text('Add Product'),
-                    style: ElevatedButton.styleFrom(
-                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
+          return _buildEmptyProductsState();
         }
         
-        // Grid layout for products - more compact and different from orders
-        return Column(
-          children: [
-            Container(
-              height: 180,
-              child: GridView.builder(
-                scrollDirection: Axis.horizontal,
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 1,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 1.1,
-                ),
-                itemCount: products.length > 6 ? 6 : products.length,
-                itemBuilder: (context, index) {
-                  final product = products[index];
-                  return _buildCompactProductCard(product);
-                },
-              ),
-            ),
-            if (products.length > 6)
-              Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => ProductListingScreen()),
-                    );
-                  },
-                  icon: Icon(Icons.inventory_2_outlined, size: 16),
-                  label: Text('View all ${products.length} products'),
-                  style: OutlinedButton.styleFrom(
-                    padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  ),
-                ),
-              ),
-          ],
-        );
+        return _buildProductsGrid(products);
       },
     );
   }
 
-  Widget _buildCompactProductCard(Product product) {
+  Widget _buildEmptyProductsState() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.blue.withOpacity(0.05),
+            Colors.purple.withOpacity(0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.blue.withOpacity(0.1)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.inventory_2_outlined,
+              size: 32,
+              color: Colors.blue[600],
+            ),
+          ),
+          SizedBox(height: 16),
+          Text(
+            'No Products Yet',
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey[800],
+            ),
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Start building your inventory by adding your first product',
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              color: Colors.grey[600],
+            ),
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: 20),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => ProductFormScreen()),
+              );
+            },
+            icon: Icon(Icons.add, size: 18),
+            label: Text('Add Your First Product'),
+            style: ElevatedButton.styleFrom(
+              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProductsGrid(List<Product> products) {
+    return Column(
+      children: [
+        SizedBox(
+          height: 200, // Increased from 180 to 200 to accommodate content
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: EdgeInsets.symmetric(horizontal: 8),
+            itemCount: products.length > 6 ? 6 : products.length,
+            itemBuilder: (context, index) {
+              final product = products[index];
+              return Container(
+                width: 140,
+                margin: EdgeInsets.only(right: 12),
+                child: _buildSimpleProductCard(product),
+              );
+            },
+          ),
+        ),
+        if (products.length > 6)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => ProductListingScreen()),
+                  );
+                },
+                icon: Icon(Icons.visibility_outlined, size: 16),
+                label: Text('View All ${products.length} Products'),
+                style: OutlinedButton.styleFrom(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildSimpleProductCard(Product product) {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Product image - taking most of the space
-            Expanded(
-              flex: 3,
-              child: Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  color: Colors.grey[200],
-                ),
-                child: product.images.isNotEmpty
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.network(
-                          product.images.first,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Icon(
-                            Icons.image_not_supported,
-                            color: Colors.grey[600],
-                            size: 28,
-                          ),
-                        ),
-                      )
-                    : Icon(
-                        Icons.inventory_2_outlined,
-                        color: Colors.grey[600],
-                        size: 28,
-                      ),
-              ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ProductFormScreen(product: product),
             ),
-            SizedBox(height: 8),
-            // Product info - compact
-            Expanded(
-              flex: 2,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    product.name,
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+          );
+        },
+        child: Container(
+          width: 140,
+          height: 190, // Increased from 170 to 190 to prevent overflow
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Image section with status badge
+              Container(
+                height: 80, // Reduced from 85 to 80 to save space
+                width: double.infinity,
+                margin: EdgeInsets.all(6), // Reduced from 8 to 6
+                child: Stack(
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      height: double.infinity,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        color: Colors.grey[100],
+                      ),
+                      child: product.images.isNotEmpty
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.network(
+                                product.images.first,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => _buildImagePlaceholder(),
+                              ),
+                            )
+                          : _buildImagePlaceholder(),
                     ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '₱${product.price.toStringAsFixed(2)}',
-                        style: GoogleFonts.poppins(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green[700],
+                    
+                    // Status badge
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: Container(
+                        padding: EdgeInsets.symmetric(horizontal: 4, vertical: 1), // Reduced padding
+                        decoration: BoxDecoration(
+                          color: product.isActive ? Colors.green : Colors.red,
+                          borderRadius: BorderRadius.circular(6), // Reduced radius
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 2,
+                              offset: Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          product.isActive ? 'LIVE' : 'OFF',
+                          style: GoogleFonts.poppins(
+                            fontSize: 7, // Reduced from 8 to 7
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Product details section
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(6, 0, 6, 6), // Reduced all padding
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Product name
+                      Container(
+                        height: 28, // Reduced from 32 to 28
+                        child: Text(
+                          product.name,
+                          style: GoogleFonts.poppins(
+                            fontSize: 10, // Reduced from 11 to 10
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey[800],
+                            height: 1.1, // Reduced line height
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      
+                      // Bottom section with price and details
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
+                          // Price
                           Text(
-                            '${product.stock} in stock',
+                            '₱${product.price.toStringAsFixed(2)}',
                             style: GoogleFonts.poppins(
-                              fontSize: 10,
-                              color: Colors.grey[600],
+                              fontSize: 12, // Reduced from 13 to 12
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green[700],
                             ),
                           ),
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              color: product.isActive ? Colors.green : Colors.red,
-                              shape: BoxShape.circle,
-                            ),
+                          
+                          SizedBox(height: 2),
+                          
+                          // Stock and category row
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Flexible(
+                                child: Container(
+                                  padding: EdgeInsets.symmetric(horizontal: 4, vertical: 1), // Reduced padding
+                                  decoration: BoxDecoration(
+                                    color: _getStockColor(product.stock).withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(4), // Reduced radius
+                                  ),
+                                  child: Text(
+                                    '${product.stock}',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 7, // Reduced from 8 to 7
+                                      fontWeight: FontWeight.w600,
+                                      color: _getStockColor(product.stock),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                padding: EdgeInsets.symmetric(horizontal: 3, vertical: 1), // Reduced padding
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(3), // Reduced radius
+                                ),
+                                child: Text(
+                                  product.category.length > 4 
+                                      ? product.category.substring(0, 4).toUpperCase()
+                                      : product.category.toUpperCase(),
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 6, // Reduced from 7 to 6
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.blue[700],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          
+                          SizedBox(height: 2),
+                          
+                          // Action row with views and edit icon
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.visibility_outlined,
+                                    size: 10, // Reduced from 12 to 10
+                                    color: Colors.grey[500],
+                                  ),
+                                  SizedBox(width: 2),
+                                  Text(
+                                    '${product.viewCount ?? 0}',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 8, // Reduced from 9 to 8
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Icon(
+                                Icons.edit_outlined,
+                                size: 12, // Reduced from 14 to 12
+                                color: Colors.blue[600],
+                              ),
+                            ],
                           ),
                         ],
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildImagePlaceholder() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey[200],
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Icon(
+        Icons.inventory_2_outlined,
+        color: Colors.grey[500],
+        size: 20,
       ),
     );
   }
@@ -1256,4 +1443,124 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
       ),
     );
   }
+
+  Widget _buildAnalyticsSummary() {
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Sales Overview',
+              style: GoogleFonts.poppins(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'This Week',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      '\$${_salesMetrics['totalSalesWeek'] ?? 0}',
+                      style: GoogleFonts.poppins(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green[700],
+                      ),
+                    ),
+                  ],
+                ),
+                Container(
+                  width: 150,
+                  height: 50,
+                  child: Consumer<AnalyticsProvider>(
+                    builder: (context, provider, _) {
+                      // Add error handling for debugging
+                      print('Analytics provider state: isLoading=${provider.isLoading}, hasError=${provider.error != null}');
+                      
+                      if (provider.isLoading) {
+                        return Center(child: CircularProgressIndicator(strokeWidth: 2));
+                      }
+                      
+                      if (provider.error != null) {
+                        print('Error in provider: ${provider.error}');
+                        return Center(child: Text('Error', style: TextStyle(color: Colors.red)));
+                      }
+                      
+                      final analytics = provider.analytics;
+                      print('SalesData points: ${analytics.salesByDate.length}');
+                      
+                      // Prepare chart data with defensive programming
+                      List<SalesData> chartData = [];
+                      
+                      // Only try to map data if we have some
+                      if (analytics.salesByDate.isNotEmpty) {
+                        try {
+                          chartData = analytics.salesByDate.map((dataPoint) {
+                            // Convert the date string to a numeric index for the chart
+                            // This is crude but will work for visualization
+                            final dateIndex = analytics.salesByDate.indexOf(dataPoint).toDouble();
+                            return SalesData(dateIndex, dataPoint.sales);
+                          }).toList();
+                        } catch (e) {
+                          print('Chart data conversion error: $e');
+                          chartData = [SalesData(0, 0), SalesData(1, 0)]; 
+                        }
+                      } else {
+                        // Fallback data 
+                        chartData = [SalesData(0, 0), SalesData(1, 0)];
+                      }
+                      
+                      return SfCartesianChart(
+                        plotAreaBorderWidth: 0,
+                        primaryXAxis: NumericAxis(isVisible: false),
+                        primaryYAxis: NumericAxis(isVisible: false),
+                        series: <CartesianSeries<SalesData, double>>[
+                          SplineAreaSeries<SalesData, double>(
+                            dataSource: chartData,
+                            xValueMapper: (SalesData data, _) => data.day,
+                            yValueMapper: (SalesData data, _) => data.sales,
+                            color: Colors.blue.withOpacity(0.2),
+                            borderColor: Colors.blue,
+                            borderWidth: 2,
+                          )
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Color _getStockColor(int stock) {
+    if (stock <= 0) return Colors.red;
+    if (stock <= 5) return Colors.orange;
+    return Colors.green;
+  }
+}
+
+class SalesData {
+  final double day;
+  final double sales;
+  
+  SalesData(this.day, this.sales);
 }
