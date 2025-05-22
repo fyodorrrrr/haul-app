@@ -35,25 +35,54 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     });
     
     try {
-      final query = widget.query.trim().toLowerCase();
+      String lowercaseQuery = widget.query.trim().toLowerCase();
+      print('🔍 SearchResultsScreen searching for: "$lowercaseQuery"');
       
+      // Use the SAME logic as your working home screen search
       final QuerySnapshot result = await FirebaseFirestore.instance
           .collection('products')
           .where('isActive', isEqualTo: true)
-          .where('name', isGreaterThanOrEqualTo: query)
-          .where('name', isLessThan: query + 'z')
-          .limit(20)
-          .get();
+          .get(); // Remove the problematic .where() clauses that require indexes
           
-      final List<Product> products = result.docs
-          .map((doc) => Product.fromMap(doc.id, doc.data() as Map<String, dynamic>))
+      print('📦 SearchResults fetched: ${result.docs.length} products');
+      
+      // Use client-side filtering (same as home screen)
+      final List<Product> allProducts = result.docs
+          .map((doc) {
+            try {
+              return Product.fromMap(doc.id, doc.data() as Map<String, dynamic>);
+            } catch (e) {
+              print('❌ Error parsing product ${doc.id}: $e');
+              return null;
+            }
+          })
+          .where((product) => product != null)
+          .cast<Product>()
           .toList();
           
+      // Apply the same filtering logic as your working search
+      final List<Product> filteredProducts = allProducts
+          .where((product) {
+            final name = (product.name ?? '').toLowerCase();
+            final brand = (product.brand ?? '').toLowerCase();
+            final category = (product.category ?? '').toLowerCase();
+            final description = (product.description ?? '').toLowerCase();
+            
+            return name.contains(lowercaseQuery) || 
+                   brand.contains(lowercaseQuery) || 
+                   category.contains(lowercaseQuery) ||
+                   description.contains(lowercaseQuery);
+          })
+          .toList();
+          
+      print('🎯 SearchResults filtered: ${filteredProducts.length} matches');
+          
       setState(() {
-        _searchResults = products;
+        _searchResults = filteredProducts;
         _isLoading = false;
       });
     } catch (e) {
+      print('❌ SearchResults error: $e');
       setState(() {
         _error = e.toString();
         _isLoading = false;

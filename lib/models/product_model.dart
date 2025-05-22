@@ -93,43 +93,40 @@ class Product {
 
   // Update the fromMap method in your Product model to handle legacy data
   factory Product.fromMap(String id, Map<String, dynamic> map) {
-    return Product(
-      id: id,
-      sellerId: map['sellerId'] ?? '',
-      name: map['name'] ?? '',
-      description: map['description'] ?? '',
-      price: (map['price'] ?? 0).toDouble(),
-      stock: map['stock']?.toInt() ?? 0,
-      
-      // Handle potential legacy data structures
-      images: map['images'] != null 
-        ? List<String>.from(map['images']) 
-        : map['imageUrl'] != null 
-          ? [map['imageUrl']] 
-          : [],
-          
-      // Handle categories field that might be missing
-      categories: map['categories'] != null 
-        ? List<String>.from(map['categories']) 
-        : map['category'] != null && map['category'].toString().isNotEmpty
-          ? [map['category']]
-          : [],
-          
-      // Handle other new fields with default values
-      isActive: map['isActive'] ?? true,
-      createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      updatedAt: (map['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      viewCount: map['viewCount']?.toInt() ?? 0,
-      orderCount: map['orderCount']?.toInt() ?? 0,
-      
-      // Add default values for new fields
-      condition: map['condition'] ?? '',
-      size: map['size'] ?? '',
-      brand: map['brand'] ?? '',
-      
-      // Include new properties
-      sellerBusinessName: map['sellerBusinessName'] ?? 'Seller',
-      sellerProfileImageUrl: map['sellerProfileImageUrl'],
-    );
+    try {
+      return Product(
+        id: id,
+        name: map['name']?.toString() ?? '', // Convert to string and handle null
+        price: (map['price'] ?? 0).toDouble(),
+        description: map['description']?.toString() ?? '',
+        category: map['category']?.toString() ?? '',
+        size: map['size']?.toString() ?? '',
+        condition: map['condition']?.toString() ?? '',
+        brand: map['brand']?.toString() ?? '',
+        images: map['images'] != null 
+          ? List<String>.from(map['images']) 
+          : map['imageUrl'] != null 
+            ? [map['imageUrl']] 
+            : [],
+        sellerId: map['sellerId']?.toString() ?? '',
+        isActive: map['isActive'] ?? true,
+        stock: map['stock']?.toInt() ?? 0,
+        createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        updatedAt: (map['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        viewCount: map['viewCount']?.toInt() ?? 0,
+        orderCount: map['orderCount']?.toInt() ?? 0,
+        categories: map['categories'] != null 
+          ? List<String>.from(map['categories']) 
+          : map['category'] != null && map['category'].toString().isNotEmpty
+            ? [map['category']]
+            : [],
+        sellerBusinessName: map['sellerBusinessName'] ?? 'Seller',
+        sellerProfileImageUrl: map['sellerProfileImageUrl'],
+      );
+    } catch (e) {
+      print('Error parsing product $id: $e');
+      print('Raw data: $map'); // Add this to see the raw data
+      throw FormatException('Invalid product data format for $id: $e');
+    }
   }
 }

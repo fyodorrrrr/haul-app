@@ -35,20 +35,140 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Product> _searchSuggestions = []; // Add a local variable for search suggestions
 
   void handleSearchChanged(String query) {
-    if (query.length >= 3) { // Only search after 3 characters
+    if (query.length >= 2) { // Reduced from 3 to 2 characters for earlier suggestions
+      // Convert query to lowercase for case-insensitive search
+      String lowercaseQuery = query.toLowerCase();
+      
+      // First try to get products by name
       FirebaseFirestore.instance
           .collection('products')
-          .where('name', isGreaterThanOrEqualTo: query)
-          .where('name', isLessThan: query + 'z')
-          .limit(5) // Limit results for better performance
+          .where('isActive', isEqualTo: true) // Only get active products
+          .limit(20) // Get more products to filter locally
           .get()
           .then((result) {
-        setState(() {
-          // Update a local variable with search suggestions
-          _searchSuggestions = result.docs
-              .map((doc) => Product.fromMap(doc.id, doc.data()))
-              .toList();
-        });
+            setState(() {
+              // Filter results client-side to find products with matching name anywhere
+              _searchSuggestions = result.docs
+                  .map((doc) => Product.fromMap(doc.id, doc.data()))
+                  .where((product) => 
+                      product.name.toLowerCase().contains(lowercaseQuery) ||
+                      (product.brand != null && 
+                       product.brand.toLowerCase().contains(lowercaseQuery)) ||
+                      (product.category != null && 
+                       product.category.toLowerCase().contains(lowercaseQuery))
+                  )
+                  .take(5) // Limit to 5 suggestions
+                  .toList();
+            });
+          })
+          .catchError((error) {
+            print('Error searching products: $error');
+          });
+    } else if (query.isEmpty) {
+      // Clear suggestions when search is empty
+      setState(() {
+        _searchSuggestions = [];
+      });
+    }
+  }
+
+  void handleSearchAdvanced(String query) {
+    if (query.length >= 2) {
+      String lowercaseQuery = query.toLowerCase();
+      print('🔍 Searching for: "$lowercaseQuery"');
+      
+      // Get products where name contains query
+      FirebaseFirestore.instance
+          .collection('products')
+          .where('isActive', isEqualTo: true)
+          .get()
+          .then((result) {
+            print('📦 Total products fetched: ${result.docs.length}');
+            
+            if (result.docs.isEmpty) {
+              print('❌ No products in database at all!');
+              setState(() {
+                _searchSuggestions = [];
+              });
+              return;
+            }
+            
+            // Debug: Print ALL products to see what we're working with
+            for (int i = 0; i < result.docs.length; i++) {
+              final doc = result.docs[i];
+              final data = doc.data();
+              print('📋 Product ${i + 1}: "${data['name']}" | Active: ${data['isActive']} | Brand: "${data['brand']}" | Category: "${data['category']}"');
+            }
+            
+            try {
+              final List<Product> allProducts = result.docs
+                  .map((doc) {
+                    try {
+                      final product = Product.fromMap(doc.id, doc.data());
+                      print('✅ Parsed product: "${product.name}" | Brand: "${product.brand}" | Category: "${product.category}"');
+                      return product;
+                    } catch (e) {
+                      print('❌ Error parsing product ${doc.id}: $e');
+                      return null;
+                    }
+                  })
+                  .where((product) => product != null)
+                  .cast<Product>()
+                  .toList();
+                  
+              print('✅ Successfully parsed ${allProducts.length} products');
+              
+              final List<Product> filteredProducts = allProducts
+                  .where((product) {
+                    final name = (product.name ?? '').toLowerCase();
+                    final brand = (product.brand ?? '').toLowerCase();
+                    final category = (product.category ?? '').toLowerCase();
+                    final description = (product.description ?? '').toLowerCase();
+                    
+                    print('🔍 Checking product: "$name" against query: "$lowercaseQuery"');
+                    print('   - Name contains: ${name.contains(lowercaseQuery)}');
+                    print('   - Brand contains: ${brand.contains(lowercaseQuery)}');
+                    print('   - Category contains: ${category.contains(lowercaseQuery)}');
+                    print('   - Description contains: ${description.contains(lowercaseQuery)}');
+                    
+                    bool matches = name.contains(lowercaseQuery) || 
+                                  brand.contains(lowercaseQuery) || 
+                                  category.contains(lowercaseQuery) ||
+                                  description.contains(lowercaseQuery);
+                    
+                    if (matches) {
+                      print('✅ Match found: ${product.name}');
+                    } else {
+                      print('❌ No match for: ${product.name}');
+                    }
+                    
+                    return matches;
+                  })
+                  .take(5)
+                  .toList();
+                  
+              print('🎯 Final filtered results: ${filteredProducts.length}');
+              
+              setState(() {
+                _searchSuggestions = filteredProducts;
+              });
+              
+            } catch (e) {
+              print('❌ Error processing search results: $e');
+              setState(() {
+                _searchSuggestions = [];
+              });
+            }
+          })
+          .catchError((error) {
+            print('❌ Firestore error: $error');
+            setState(() {
+              _searchSuggestions = [];
+            });
+          });
+    } else {
+      setState(() {
+        _searchSuggestions = [];
       });
     }
   }
@@ -99,23 +219,26 @@ class _HomeScreenState extends State<HomeScreen> {
     final bool showSearch = _selectedIndex == 0 || _selectedIndex == 1;
     
     return Scaffold(
-      appBar: CustomAppBar(
-        title: title, // Required: The title for the app bar
-        searchController: searchController, // Required: Your search text controller
-        onSearchChanged: handleSearchChanged, // Required: Your search handler function
-        showSearchBar: showSearch, // Optional: Whether to show the search bar
-        searchSuggestions: _searchSuggestions, // Optional: Your search suggestions list
-        onSearchSubmitted: () { // Optional: Function called when user submits search
-          if (searchController.text.isNotEmpty) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => SearchResultsScreen(query: searchController.text),
-              ),
-            );
-          }
-        },
-      ),
+      // Only show AppBar for Home and Explore tabs (index 0 and 1)
+      appBar: showSearch 
+          ? CustomAppBar(
+              title: title, // Use dynamic title based on current tab
+              searchController: searchController,
+              onSearchChanged: handleSearchAdvanced,
+              showSearchBar: true,
+              searchSuggestions: _searchSuggestions,
+              onSearchSubmitted: () {
+                if (searchController.text.isNotEmpty) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => SearchResultsScreen(query: searchController.text),
+                    ),
+                  );
+                }
+              },
+            )
+          : null, // No AppBar for Wishlist, Cart, and Profile tabs
       backgroundColor: Colors.white,
       body: Stack(
         children: [
@@ -127,8 +250,8 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           
-          // Search suggestions dropdown - only show when search is active
-          if (showSearch && searchController.text.length >= 3 && _searchSuggestions.isNotEmpty)
+          // Search suggestions dropdown - only show when search is active AND on searchable tabs
+          if (showSearch && searchController.text.length >= 2 && _searchSuggestions.isNotEmpty)
             Positioned(
               top: 0,
               left: 0,
