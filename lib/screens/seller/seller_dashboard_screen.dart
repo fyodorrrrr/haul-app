@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'dart:async';
 import '../../models/product_model.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/seller_registration_provider.dart';
@@ -31,6 +32,10 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
     'viewCount': 0,
   };
 
+  List<Map<String, dynamic>> _recentOrders = [];
+  bool _ordersLoading = true;
+  String? _ordersError;
+
   final List<String> _requiredProfileFields = [
     'businessName',
     'address',
@@ -39,6 +44,8 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
     'businessHours',
     'profileImageUrl',
   ];
+
+  StreamSubscription<QuerySnapshot>? _ordersSubscription;
 
   @override
   void initState() {
@@ -51,6 +58,64 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
     });
     
     _loadDashboardData();
+    _setupOrdersListener();
+  }
+
+  @override
+  void dispose() {
+    _ordersSubscription?.cancel();
+    super.dispose();
+  }
+
+  void _setupOrdersListener() {
+    setState(() {
+      _ordersLoading = true;
+      _ordersError = null;
+    });
+    
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw Exception('User not authenticated');
+
+      final ordersStream = FirebaseFirestore.instance
+          .collection('orders')
+          .where('sellerIds', arrayContains: user.uid)
+          .orderBy('createdAt', descending: true)
+          .limit(3)
+          .snapshots();
+      
+      _ordersSubscription = ordersStream.listen(
+        (snapshot) {
+          if (mounted) {
+            final orders = snapshot.docs.map((doc) {
+              final data = doc.data();
+              data['documentId'] = doc.id;
+              return data;
+            }).toList();
+            
+            setState(() {
+              _recentOrders = orders;
+              _ordersLoading = false;
+            });
+          }
+        },
+        onError: (error) {
+          if (mounted) {
+            setState(() {
+              _ordersError = error.toString();
+              _ordersLoading = false;
+            });
+          }
+        }
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _ordersError = e.toString();
+          _ordersLoading = false;
+        });
+      }
+    }
   }
 
   Future<void> _loadDashboardData() async {
@@ -237,7 +302,12 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                           context, 
                           Icons.shopping_bag_outlined, 
                           'Orders', 
-                          () {}
+                          () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => SellerOrdersScreen()),
+                            );
+                          }
                         ),
                         _buildActionButton(
                           context, 
@@ -258,10 +328,7 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                     
                     _buildSectionHeader('Recent Orders'),
                     SizedBox(height: 8),
-                    _buildEmptyState(
-                      'No orders yet',
-                      'Your recent orders will appear here'
-                    ),
+                    _buildRecentOrdersSection(),
                     
                     SizedBox(height: 32),
                     
@@ -367,6 +434,23 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
   }
 
   Widget _buildSectionHeader(String title) {
+    VoidCallback? onSeeAll;
+    if (title == 'Recent Orders') {
+      onSeeAll = () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => SellerOrdersScreen()),
+        );
+      };    } else if (title == 'Products') {
+      onSeeAll = () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => ProductListingScreen()),
+        );
+      };
+    } else {
+      onSeeAll = null;
+    }
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -377,10 +461,11 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
             fontWeight: FontWeight.bold,
           ),
         ),
-        TextButton(
-          onPressed: () {},
-          child: Text('See All'),
-        ),
+        if (onSeeAll != null)
+          TextButton(
+            onPressed: onSeeAll,
+            child: Text('See All'),
+          ),
       ],
     );
   }
@@ -415,87 +500,210 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
           style: GoogleFonts.poppins(fontSize: 12),
         ),
       ],
-    );
-  }
-
-  Widget _buildEmptyState(String title, String subtitle) {
-    return Card(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Container(
-        padding: EdgeInsets.all(24),
-        width: double.infinity,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.inventory_2_outlined,
-              size: 48,
-              color: Colors.grey[400],
-            ),
-            SizedBox(height: 16),
-            Text(
-              title,
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                color: Colors.grey[600],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+    );  }
 
   Widget _buildRecentProducts() {
     return Consumer<ProductProvider>(
       builder: (context, provider, child) {
         if (provider.isLoading) {
-          return Center(child: CircularProgressIndicator());
+          return Container(
+            height: 120,
+            child: Center(child: CircularProgressIndicator()),
+          );
         }
         
         final products = provider.products;
         
         if (products.isEmpty) {
-          return _buildEmptyState(
-            'No products yet',
-            'Add your first product to start selling'
+          return Container(
+            height: 160,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.blue.withOpacity(0.3)),
+            ),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.inventory_2_outlined, color: Colors.blue[600], size: 36),
+                  SizedBox(height: 12),
+                  Text(
+                    'No products yet',
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.blue[700],
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Add your first product to start selling',
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      color: Colors.blue[600],
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => ProductFormScreen()),
+                      );
+                    },
+                    icon: Icon(Icons.add, size: 16),
+                    label: Text('Add Product'),
+                    style: ElevatedButton.styleFrom(
+                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           );
         }
         
+        // Grid layout for products - more compact and different from orders
         return Column(
           children: [
-            ListView.builder(
-              shrinkWrap: true,
-              physics: NeverScrollableScrollPhysics(),
-              itemCount: products.length > 3 ? 3 : products.length,
-              itemBuilder: (context, index) {
-                final product = products[index];
-                return _buildProductCard(product);
-              },
-            ),
-            if (products.length > 3)
-              TextButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => ProductListingScreen()),
-                  );
+            Container(
+              height: 180,
+              child: GridView.builder(
+                scrollDirection: Axis.horizontal,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 1,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 1.1,
+                ),
+                itemCount: products.length > 6 ? 6 : products.length,
+                itemBuilder: (context, index) {
+                  final product = products[index];
+                  return _buildCompactProductCard(product);
                 },
-                child: Text('View all ${products.length} products'),
+              ),
+            ),
+            if (products.length > 6)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => ProductListingScreen()),
+                    );
+                  },
+                  icon: Icon(Icons.inventory_2_outlined, size: 16),
+                  label: Text('View all ${products.length} products'),
+                  style: OutlinedButton.styleFrom(
+                    padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  ),
+                ),
               ),
           ],
         );
       },
+    );
+  }
+
+  Widget _buildCompactProductCard(Product product) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Product image - taking most of the space
+            Expanded(
+              flex: 3,
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.grey[200],
+                ),
+                child: product.images.isNotEmpty
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          product.images.first,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Icon(
+                            Icons.image_not_supported,
+                            color: Colors.grey[600],
+                            size: 28,
+                          ),
+                        ),
+                      )
+                    : Icon(
+                        Icons.inventory_2_outlined,
+                        color: Colors.grey[600],
+                        size: 28,
+                      ),
+              ),
+            ),
+            SizedBox(height: 8),
+            // Product info - compact
+            Expanded(
+              flex: 2,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    product.name,
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '₱${product.price.toStringAsFixed(2)}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green[700],
+                        ),
+                      ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '${product.stock} in stock',
+                            style: GoogleFonts.poppins(
+                              fontSize: 10,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: product.isActive ? Colors.green : Colors.red,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -666,7 +874,7 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                       radius: 36,
                       backgroundImage: _profileImageUrl != null
                           ? NetworkImage(_profileImageUrl!)
-                          : const AssetImage('assets/default_profile.png') as ImageProvider,
+                          : const AssetImage('assets/haul_logo.png') as ImageProvider,
                       backgroundColor: Colors.grey.shade200,
                     ),
                     Positioned(
@@ -826,6 +1034,225 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
               ),
           ],
         ),
+      ),
+    );
+  }
+  Widget _buildRecentOrdersSection() {
+    if (_ordersLoading) {
+      return Container(
+        height: 120,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (_ordersError != null) {
+      return Container(
+        height: 120,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.red.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.red.withOpacity(0.3)),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, color: Colors.red, size: 32),
+              SizedBox(height: 8),
+              Text(
+                'Failed to load orders',
+                style: GoogleFonts.poppins(
+                  color: Colors.red[700],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    if (_recentOrders.isEmpty) {
+      return Container(
+        // Remove fixed height to let content determine height
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.grey.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.withOpacity(0.3)),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min, // Use min to avoid expanding unnecessarily
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.shopping_bag_outlined, color: Colors.grey[600], size: 32),
+              SizedBox(height: 8),
+              Text(
+                'No recent orders',
+                style: GoogleFonts.poppins(
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              Text(
+                'Orders will appear here once customers start buying',
+                style: GoogleFonts.poppins(
+                  color: Colors.grey[500],
+                  fontSize: 12,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2, // Limit to 2 lines
+                overflow: TextOverflow.ellipsis, // Add ellipsis if text overflows
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Horizontal scrollable order cards with different layout
+    return Container(
+      height: 140,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: _recentOrders.length,
+        itemBuilder: (context, index) {
+          final order = _recentOrders[index];
+          final createdAt = order['createdAt'] is Timestamp
+              ? (order['createdAt'] as Timestamp).toDate()
+              : null;
+          final orderItems = order['items'] is List ? List<Map<String, dynamic>>.from(order['items']) : [];
+          String? imageUrl;
+          if (orderItems.isNotEmpty && orderItems[0]['imageURL'] != null) {
+            imageUrl = orderItems[0]['imageURL'];
+          }
+          
+          // Get status color
+          Color statusColor = Colors.orange;
+          String status = order['status'] ?? 'pending';
+          switch (status.toLowerCase()) {
+            case 'delivered':
+              statusColor = Colors.green;
+              break;
+            case 'processing':
+              statusColor = Colors.blue;
+              break;
+            case 'cancelled':
+              statusColor = Colors.red;
+              break;
+            default:
+              statusColor = Colors.orange;
+          }
+
+          return Container(
+            width: 200,
+            margin: EdgeInsets.only(right: 12),
+            child: Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            color: Colors.grey[200],
+                          ),
+                          child: imageUrl != null
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Image.network(
+                                    imageUrl,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Icon(
+                                      Icons.shopping_bag_outlined,
+                                      color: Colors.grey[600],
+                                      size: 20,
+                                    ),
+                                  ),
+                                )
+                              : Icon(
+                                  Icons.shopping_bag_outlined,
+                                  color: Colors.grey[600],
+                                  size: 20,
+                                ),
+                        ),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Order #${order['orderNumber'] ?? order['orderId'] ?? ''}',
+                                style: GoogleFonts.poppins(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if (createdAt != null)
+                                Text(
+                                  '${createdAt.day}/${createdAt.month}/${createdAt.year}',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 11,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '₱${order['total']?.toStringAsFixed(2) ?? '0.00'}',
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green[700],
+                          ),
+                        ),
+                        Container(
+                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: statusColor.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            status.toUpperCase(),
+                            style: GoogleFonts.poppins(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: statusColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      '${orderItems.length} item${orderItems.length != 1 ? 's' : ''}',
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
