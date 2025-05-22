@@ -14,6 +14,7 @@ import '/screens/seller/seller_registration_screen.dart';
 import '/screens/seller/seller_verification_screen.dart';
 import '/screens/buyer/saved_addresses_screen.dart';
 import '/screens/seller/seller_dashboard_screen.dart';
+import '/screens/buyer/order_history.dart';
 
 class ProfileScreen extends StatefulWidget {
   final UserProfile userProfile;
@@ -112,7 +113,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _buildMenuItem(
               icon: Icons.shopping_bag_outlined, 
               title: 'Order History',
-              onTap: () {},
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const OrderHistoryScreen()),
+                );
+              },
             ),
             _buildMenuItem(
               icon: Icons.local_shipping_outlined, 

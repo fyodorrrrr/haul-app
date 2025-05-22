@@ -197,6 +197,11 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       final price = double.parse(_priceController.text);
       final stock = int.parse(_stockController.text);
       
+      // If stock is 0, force isActive to false
+      if (stock == 0) {
+        _isActive = false;
+      }
+      
       if (widget.product == null) {
         // Add new product
         success = await provider.addProduct(
@@ -518,13 +523,20 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
                         title: Text('Active'),
-                        subtitle: Text('Product is visible to customers'),
+                        subtitle: Text(
+                          int.tryParse(_stockController.text) == 0
+                              ? 'Out of stock items cannot be activated'
+                              : 'Product is visible to customers'
+                        ),
                         value: _isActive,
-                        onChanged: (value) {
-                          safeSetState(() {
-                            _isActive = value;
-                          });
-                        },
+                        // Disable the switch when stock is 0
+                        onChanged: int.tryParse(_stockController.text) == 0
+                            ? null  // This disables the switch
+                            : (value) {
+                                safeSetState(() {
+                                  _isActive = value;
+                                });
+                              },
                       ),
                     ],
                     
