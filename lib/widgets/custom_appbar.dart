@@ -52,14 +52,37 @@ class _CustomAppBarState extends State<CustomAppBar> {
     return AppBar(
       elevation: 0,
       backgroundColor: Colors.white,
-      title: Text(
-        widget.title,
-        style: GoogleFonts.poppins(
-          color: Colors.black,
-          fontWeight: FontWeight.w600,
-          fontSize: 18,
-        ),
+      automaticallyImplyLeading: false, // Remove default back button
+      centerTitle: true, // Center the title/logo
+      title: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Add your logo here
+          Image.asset(
+            'assets/haul_logo_.png', // Replace with your logo path
+            height: 64, // Adjust height as needed
+            width: 64,  // Adjust width as needed
+          ),
+        ],
       ),
+      // Add leading and trailing widgets if needed
+      leading: widget.title == 'Explore' 
+          ? IconButton(
+              icon: Icon(Icons.filter_list, color: Colors.black),
+              onPressed: () {
+                // Add filter functionality
+              },
+            )
+          : null,
+      actions: [
+        IconButton(
+          icon: Icon(Icons.notifications_outlined, color: Colors.black),
+          onPressed: () {
+            // Add notification functionality
+          },
+        ),
+      ],
       bottom: widget.showSearchBar
           ? PreferredSize(
               preferredSize: const Size.fromHeight(60.0),
@@ -98,7 +121,7 @@ class _CustomAppBarState extends State<CustomAppBar> {
                           }
                         },
                         decoration: InputDecoration(
-                          hintText: 'Search products...',
+                          hintText: 'Search for thrift items...',
                           hintStyle: GoogleFonts.poppins(
                             fontSize: 14,
                             color: Colors.grey[500],
