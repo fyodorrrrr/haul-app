@@ -10,8 +10,7 @@ import '/providers/wishlist_providers.dart';
 import '/utils/snackbar_helper.dart';
 import 'seller_public_profile_screen.dart';
 
-
-class ProductDetailsScreen extends StatelessWidget {
+class ProductDetailsScreen extends StatefulWidget {
   final Product product;
   final String? userId;
 
@@ -22,11 +21,44 @@ class ProductDetailsScreen extends StatelessWidget {
   }) : super(key: key);
 
   @override
+  _ProductDetailsScreenState createState() => _ProductDetailsScreenState();
+}
+
+class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _incrementProductView();
+  }
+
+  Future<void> _incrementProductView() async {
+    try {
+      // Update product view count
+      await FirebaseFirestore.instance
+          .collection('products')
+          .doc(widget.product.id)
+          .update({
+        'viewCount': FieldValue.increment(1),
+      });
+
+      // Update seller total view count
+      await FirebaseFirestore.instance
+          .collection('sellers')
+          .doc(widget.product.sellerId)
+          .update({
+        'viewCount': FieldValue.increment(1),
+      });
+    } catch (e) {
+      print('Error updating view count: $e');
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final wishlistProvider = Provider.of<WishlistProvider>(context);
     final cartProvider = Provider.of<CartProvider>(context);
-    final isInWishlist = wishlistProvider.isInWishlist(product.id);
-    final isInCart = cartProvider.isInCart(product.id);
+    final isInWishlist = wishlistProvider.isInWishlist(widget.product.id);
+    final isInCart = cartProvider.isInCart(widget.product.id);
     final size = MediaQuery.of(context).size;
 
     return Scaffold(
@@ -70,12 +102,12 @@ class ProductDetailsScreen extends StatelessWidget {
       ),
       flexibleSpace: FlexibleSpaceBar(
         background: Hero(
-          tag: 'product-${product.id}',
+          tag: 'product-${widget.product.id}',
           child: Stack(
             fit: StackFit.expand,
             children: [
               Image.network(
-                product.imageUrl,
+                widget.product.imageUrl,
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stackTrace) {
                   return Container(
@@ -121,7 +153,7 @@ class ProductDetailsScreen extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    product.name,
+                    widget.product.name,
                     style: GoogleFonts.poppins(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -135,7 +167,7 @@ class ProductDetailsScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Text(
-                    '\$${product.price.toStringAsFixed(2)}',
+                    '\$${widget.product.price.toStringAsFixed(2)}',
                     style: GoogleFonts.poppins(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
@@ -155,7 +187,7 @@ class ProductDetailsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              product.description,
+              widget.product.description,
               style: GoogleFonts.poppins(
                 fontSize: 14,
                 color: Colors.grey[700],
@@ -185,10 +217,10 @@ class ProductDetailsScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            _buildSpecificationItem(Icons.category_outlined, 'Category', product.category),
-            _buildSpecificationItem(Icons.straighten, 'Size', product.size),
-            _buildSpecificationItem(Icons.inventory_2_outlined, 'Condition', product.condition),
-            _buildSpecificationItem(Icons.branding_watermark_outlined, 'Brand', product.brand),
+            _buildSpecificationItem(Icons.category_outlined, 'Category', widget.product.category),
+            _buildSpecificationItem(Icons.straighten, 'Size', widget.product.size),
+            _buildSpecificationItem(Icons.inventory_2_outlined, 'Condition', widget.product.condition),
+            _buildSpecificationItem(Icons.branding_watermark_outlined, 'Brand', widget.product.brand),
           ],
         ),
       ),
@@ -282,7 +314,7 @@ class ProductDetailsScreen extends StatelessWidget {
     return FutureBuilder<DocumentSnapshot>(
       future: FirebaseFirestore.instance
           .collection('sellers')
-          .doc(product.sellerId)
+          .doc(widget.product.sellerId)
           .get(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -325,12 +357,12 @@ class ProductDetailsScreen extends StatelessWidget {
               const SizedBox(height: 12),
               GestureDetector(
                 onTap: () {
-                  if (product.sellerId != null && product.sellerId.isNotEmpty) {
+                  if (widget.product.sellerId != null && widget.product.sellerId.isNotEmpty) {
                     Navigator.push(
                       context, 
                       MaterialPageRoute(
                         builder: (_) => SellerPublicProfileScreen(
-                          sellerId: product.sellerId!
+                          sellerId: widget.product.sellerId!
                         ),
                       ),
                     );
@@ -469,7 +501,7 @@ class ProductDetailsScreen extends StatelessWidget {
             margin: const EdgeInsets.only(right: 16),
             child: OutlinedButton(
               onPressed: () {
-                if (userId == null) {
+                if (widget.userId == null) {
                   SnackBarHelper.showSnackBar(
                     context,
                     'Please log in to add items to your wishlist.', isError: true,
@@ -478,14 +510,14 @@ class ProductDetailsScreen extends StatelessWidget {
                 }
                 wishlistProvider.handleWishlist(
                   context: context,
-                  productId: product.id,
-                  userId: userId!,
+                  productId: widget.product.id,
+                  userId: widget.userId!,
                   wishlistItem: WishlistModel(
-                    productId: product.id,
-                    userId: userId!,
-                    productName: product.name,
-                    productImage: product.imageUrl,
-                    productPrice: product.price,
+                    productId: widget.product.id,
+                    userId: widget.userId!,
+                    productName: widget.product.name,
+                    productImage: widget.product.imageUrl,
+                    productPrice: widget.product.price,
                     addedAt: DateTime.now(),
                   ),
                   isInWishlist: isInWishlist,
@@ -508,7 +540,7 @@ class ProductDetailsScreen extends StatelessWidget {
           Expanded(
             child: ElevatedButton(
               onPressed: () {
-                if (userId == null) {
+                if (widget.userId == null) {
                   SnackBarHelper.showSnackBar(
                     context,
                     'Please log in to manage your cart.', isError: true,
@@ -517,15 +549,15 @@ class ProductDetailsScreen extends StatelessWidget {
                 }
                 cartProvider.handleAddToCart(
                   context: context,
-                  productId: product.id,
-                  userId: userId!,
+                  productId: widget.product.id,
+                  userId: widget.userId!,
                   cartItem: CartModel(
-                    productId: product.id,
-                    userId: userId!,
-                    sellerId: product.sellerId,
-                    productName: product.name,
-                    imageURL: product.imageUrl,
-                    productPrice: product.price,
+                    productId: widget.product.id,
+                    userId: widget.userId!,
+                    sellerId: widget.product.sellerId,
+                    productName: widget.product.name,
+                    imageURL: widget.product.imageUrl,
+                    productPrice: widget.product.price,
                     addedAt: DateTime.now(),
                   ),
                 );
