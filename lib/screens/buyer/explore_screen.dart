@@ -339,55 +339,62 @@ class _ExploreScreenState extends State<ExploreScreen> {
                       ),
                     )
                   : _featuredProducts.isEmpty
-                    ? SliverFillRemaining(
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Container(
-                                padding: EdgeInsets.all(20),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey[200],
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(Icons.search_off, size: 64, color: Colors.grey[500]),
-                              ),
-                              SizedBox(height: 24),
-                              Text(
-                                'No items found',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              SizedBox(height: 8),
-                              Text(
-                                'Try adjusting your filters',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 16,
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                              SizedBox(height: 24),
-                              ElevatedButton.icon(
-                                onPressed: () {
-                                  setState(() {
-                                    _selectedCategory = 'All';
-                                    _selectedCondition = 'All';
-                                    _priceRange = RangeValues(0, 200);
-                                  });
-                                  _loadFeaturedProducts();
-                                },
-                                icon: Icon(Icons.refresh),
-                                label: Text('Reset Filters'),
-                                style: ElevatedButton.styleFrom(
-                                  padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                                  textStyle: GoogleFonts.poppins(
-                                    fontWeight: FontWeight.w500,
+                    ? SliverToBoxAdapter(
+                        child: Container(
+                          height: MediaQuery.of(context).size.height * 0.5, // Fixed height constraint
+                          padding: EdgeInsets.only(bottom: 80), // Extra bottom padding
+                          child: Center(
+                            child: SingleChildScrollView( // Make scrollable if needed
+                              physics: AlwaysScrollableScrollPhysics(),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min, // Use min size
+                                children: [
+                                  Container(
+                                    padding: EdgeInsets.all(20),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[200],
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(Icons.search_off, size: 64, color: Colors.grey[500]),
                                   ),
-                                ),
+                                  SizedBox(height: 24),
+                                  Text(
+                                    'No items found',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  SizedBox(height: 8),
+                                  Text(
+                                    'Try adjusting your filters',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 16,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                  SizedBox(height: 24),
+                                  ElevatedButton.icon(
+                                    onPressed: () {
+                                      setState(() {
+                                        _selectedCategory = 'All';
+                                        _selectedCondition = 'All';
+                                        _priceRange = RangeValues(0, 200);
+                                      });
+                                      _loadFeaturedProducts();
+                                    },
+                                    icon: Icon(Icons.refresh),
+                                    label: Text('Reset Filters'),
+                                    style: ElevatedButton.styleFrom(
+                                      padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                      textStyle: GoogleFonts.poppins(
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
+                            ),
                           ),
                         ),
                       )
@@ -420,157 +427,161 @@ class _ExploreScreenState extends State<ExploreScreen> {
               top: 0,
               left: 0,
               right: 0,
-              child: Container(
-                margin: EdgeInsets.fromLTRB(16, 140, 16, 0),
-                padding: EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 10,
-                      offset: Offset(0, 5),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Material(
+                elevation: 8,
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  margin: EdgeInsets.fromLTRB(16, 140, 16, 0),
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.7, // Limit height to 70% of screen
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          'Filter Options',
-                          style: GoogleFonts.poppins(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Filter Options',
+                              style: GoogleFonts.poppins(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            IconButton(
+                              icon: Icon(Icons.close),
+                              onPressed: () => setState(() => _showFilterPanel = false),
+                            ),
+                          ],
                         ),
-                        IconButton(
-                          icon: Icon(Icons.close),
-                          onPressed: () => setState(() => _showFilterPanel = false),
-                        ),
-                      ],
-                    ),
-                    Divider(),
-                    
-                    // Condition Section
-                    Text(
-                      'Condition',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        'All', 'Like New', 'Good', 'Fair', 'Vintage'
-                      ].map((condition) {
-                        final isSelected = _selectedCondition == condition;
-                        return FilterChip(
-                          label: Text(condition),
-                          selected: isSelected,
-                          onSelected: (selected) {
-                            setState(() {
-                              _selectedCondition = condition;
-                            });
-                            _applyFilters();
-                          },
-                          selectedColor: Theme.of(context).primaryColor.withOpacity(0.2),
-                          checkmarkColor: Theme.of(context).primaryColor,
-                        );
-                      }).toList(),
-                    ),
-                    SizedBox(height: 24),
-                    
-                    // Price Range Section
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
+                        Divider(),
+                        
+                        // Condition Section
                         Text(
-                          'Price Range',
+                          'Condition',
                           style: GoogleFonts.poppins(
                             fontSize: 16,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
-                        Text(
-                          '\$${_priceRange.start.round()} - \$${_priceRange.end.round()}',
-                          style: GoogleFonts.poppins(
-                            fontWeight: FontWeight.w600,
-                            color: Theme.of(context).primaryColor,
-                          ),
+                        SizedBox(height: 12),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            'All', 'Like New', 'Good', 'Fair', 'Vintage'
+                          ].map((condition) {
+                            final isSelected = _selectedCondition == condition;
+                            return FilterChip(
+                              label: Text(condition),
+                              selected: isSelected,
+                              onSelected: (selected) {
+                                setState(() {
+                                  _selectedCondition = condition;
+                                });
+                                _applyFilters();
+                              },
+                              selectedColor: Theme.of(context).primaryColor.withOpacity(0.2),
+                              checkmarkColor: Theme.of(context).primaryColor,
+                            );
+                          }).toList(),
                         ),
+                        SizedBox(height: 24),
+                        
+                        // Price Range Section
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Price Range',
+                              style: GoogleFonts.poppins(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            Text(
+                              '\$${_priceRange.start.round()} - \$${_priceRange.end.round()}',
+                              style: GoogleFonts.poppins(
+                                fontWeight: FontWeight.w600,
+                                color: Theme.of(context).primaryColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 12),
+                        RangeSlider(
+                          values: _priceRange,
+                          min: 0,
+                          max: 200,
+                          divisions: 20,
+                          activeColor: Theme.of(context).primaryColor,
+                          inactiveColor: Colors.grey[300],
+                          labels: RangeLabels(
+                            '\$${_priceRange.start.round()}',
+                            '\$${_priceRange.end.round()}',
+                          ),
+                          onChanged: (RangeValues values) {
+                            setState(() {
+                              _priceRange = values;
+                            });
+                          },
+                          onChangeEnd: (RangeValues values) {
+                            _applyFilters();
+                          },
+                        ),
+                        SizedBox(height: 24),
+                        
+                        // Apply & Reset buttons
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                child: Text('Reset Filters'),
+                                style: OutlinedButton.styleFrom(
+                                  padding: EdgeInsets.symmetric(vertical: 12),
+                                  side: BorderSide(color: Theme.of(context).primaryColor),
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _selectedCategory = 'All';
+                                    _selectedCondition = 'All';
+                                    _priceRange = RangeValues(0, 200);
+                                    _sortBy = 'newest';
+                                  });
+                                  _loadFeaturedProducts();
+                                },
+                              ),
+                            ),
+                            SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton(
+                                child: Text('Apply Filters'),
+                                style: ElevatedButton.styleFrom(
+                                  padding: EdgeInsets.symmetric(vertical: 12),
+                                  backgroundColor: Theme.of(context).primaryColor,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _showFilterPanel = false;
+                                  });
+                                  _applyFilters();
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        // Add extra bottom padding
+                        SizedBox(height: 16),
                       ],
                     ),
-                    SizedBox(height: 12),
-                    RangeSlider(
-                      values: _priceRange,
-                      min: 0,
-                      max: 200,
-                      divisions: 20,
-                      activeColor: Theme.of(context).primaryColor,
-                      inactiveColor: Colors.grey[300],
-                      labels: RangeLabels(
-                        '\$${_priceRange.start.round()}',
-                        '\$${_priceRange.end.round()}',
-                      ),
-                      onChanged: (RangeValues values) {
-                        setState(() {
-                          _priceRange = values;
-                        });
-                      },
-                      onChangeEnd: (RangeValues values) {
-                        _applyFilters();
-                      },
-                    ),
-                    SizedBox(height: 24),
-                    
-                    // Apply & Reset buttons
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            child: Text('Reset Filters'),
-                            style: OutlinedButton.styleFrom(
-                              padding: EdgeInsets.symmetric(vertical: 12),
-                              side: BorderSide(color: Theme.of(context).primaryColor),
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                _selectedCategory = 'All';
-                                _selectedCondition = 'All';
-                                _priceRange = RangeValues(0, 200);
-                                _sortBy = 'newest';
-                              });
-                              _loadFeaturedProducts();
-                            },
-                          ),
-                        ),
-                        SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton(
-                            child: Text('Apply Filters'),
-                            style: ElevatedButton.styleFrom(
-                              padding: EdgeInsets.symmetric(vertical: 12),
-                              backgroundColor: Theme.of(context).primaryColor,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                _showFilterPanel = false;
-                              });
-                              _applyFilters();
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
