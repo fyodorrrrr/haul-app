@@ -30,6 +30,10 @@ class CustomAppBar extends StatefulWidget implements PreferredSizeWidget {
 class _CustomAppBarState extends State<CustomAppBar> {
   bool _isSearchFocused = false;
   final FocusNode _searchFocus = FocusNode();
+  String _selectedCategory = 'All';
+  String _selectedCondition = 'All';
+  RangeValues _priceRange = RangeValues(0, 200);
+  String _sortBy = 'newest';
 
   @override
   void initState() {
@@ -45,6 +49,10 @@ class _CustomAppBarState extends State<CustomAppBar> {
   void dispose() {
     _searchFocus.dispose();
     super.dispose();
+  }
+
+  void _loadFeaturedProducts() {
+    // Add logic to load featured products
   }
 
   @override
@@ -82,6 +90,18 @@ class _CustomAppBarState extends State<CustomAppBar> {
             // Add notification functionality
           },
         ),
+        // IconButton(
+        //   icon: Icon(Icons.clear_all),
+        //   onPressed: () {
+        //     setState(() {
+        //       _selectedCategory = 'All';
+        //       _selectedCondition = 'All';
+        //       _priceRange = RangeValues(0, 200);
+        //       _sortBy = 'newest';
+        //     });
+        //     _loadFeaturedProducts();
+        //   },
+        // ),
       ],
       bottom: widget.showSearchBar
           ? PreferredSize(
