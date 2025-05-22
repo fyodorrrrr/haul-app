@@ -1,190 +1,139 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:firebase_auth/firebase_auth.dart'; 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:haul/screens/buyer/search_screen.dart';
+import '/models/product_model.dart';
 
 class CustomAppBar extends StatefulWidget implements PreferredSizeWidget {
   final String title;
   final bool showSearchBar;
   final TextEditingController searchController;
   final Function(String) onSearchChanged;
+  final List<Product>? searchSuggestions;
+  final VoidCallback? onSearchSubmitted;
 
   const CustomAppBar({
-    super.key,
-    this.title = 'HAUL',
-    required this.showSearchBar,
+    Key? key,
+    required this.title,
+    this.showSearchBar = true,
     required this.searchController,
     required this.onSearchChanged,
-
-  });
-
-  @override
-  _customAppBarState createState() => _customAppBarState();
+    this.searchSuggestions,
+    this.onSearchSubmitted,
+  }) : super(key: key);
 
   @override
-  Size get preferredSize => Size.fromHeight(120);
+  State<CustomAppBar> createState() => _CustomAppBarState();
+
+  @override
+  Size get preferredSize => Size.fromHeight(showSearchBar ? 122.0 : 56.0);
 }
 
-  class _customAppBarState extends State<CustomAppBar>{
+class _CustomAppBarState extends State<CustomAppBar> {
+  bool _isSearchFocused = false;
+  final FocusNode _searchFocus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _searchFocus.addListener(() {
+      setState(() {
+        _isSearchFocused = _searchFocus.hasFocus;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchFocus.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final searchController = widget.searchController;
-    List searchResults = [];
-
-    void searchProducts (String query) async {
-      if (query.isEmpty) {
-        return;
-      }
-      QuerySnapshot result = await FirebaseFirestore.instance
-        .collection('products')
-        .where('name', isGreaterThanOrEqualTo: query)
-        .where('name', isLessThan: query + 'z')
-        .get();
-
-        List<DocumentSnapshot> documents = result.docs;
-
-        setState(() {
-          searchResults = documents;
-        });
-    }
-
-
-    final size = MediaQuery.of(context).size;
-    final width = size.width;
-    final height = size.height;
-
-    final isSmallScreen = width < 360;
-    final iconSize = isSmallScreen ? 20.0 : width * 0.06;
-    final fontSize = isSmallScreen ? 12.0 : width * 0.04;
-    final horizontalPadding = width * 0.04;
-    final toolbarHeight = kToolbarHeight;
-
-    return Container(
-      color: Colors.white,
-      child: SafeArea(
-        bottom: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Top Row
-            SizedBox(
-              height: toolbarHeight,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return AppBar(
+      elevation: 0,
+      backgroundColor: Colors.white,
+      title: Text(
+        widget.title,
+        style: GoogleFonts.poppins(
+          color: Colors.black,
+          fontWeight: FontWeight.w600,
+          fontSize: 18,
+        ),
+      ),
+      bottom: widget.showSearchBar
+          ? PreferredSize(
+              preferredSize: const Size.fromHeight(60.0),
+              child: Column(
                 children: [
-                  // Settings Icon
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-                    child: IconButton(
-                      icon: Icon(Icons.settings, size: iconSize, color: Colors.black),
-                      onPressed: () {},
+                  Container(
+                    margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: _isSearchFocused
+                          ? [
+                              BoxShadow(
+                                color: Colors.grey.withOpacity(0.1),
+                                spreadRadius: 1,
+                                blurRadius: 3,
+                                offset: const Offset(0, 2),
+                              ),
+                            ]
+                          : null,
                     ),
-                  ),
-
-                  // Center Logo
-                  Expanded(
-                    child: Center(
-                      child: Image.asset(
-                        'assets/haul_logo_.png',
-                        height: height * 0.04,
-                        fit: BoxFit.contain,
+                    child: Theme(
+                      data: Theme.of(context).copyWith(
+                        colorScheme: ColorScheme.fromSwatch().copyWith(
+                          secondary: Theme.of(context).primaryColor,
+                        ),
                       ),
-                    ),
-                  ),
-
-                  // Notifications Icon
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-                    child: IconButton(
-                      icon: Icon(Icons.notifications_outlined, size: iconSize, color: Colors.black),
-                      onPressed: () {},
+                      child: TextField(
+                        controller: widget.searchController,
+                        focusNode: _searchFocus,
+                        onChanged: widget.onSearchChanged,
+                        onSubmitted: (value) {
+                          if (widget.onSearchSubmitted != null) {
+                            widget.onSearchSubmitted!();
+                          }
+                        },
+                        decoration: InputDecoration(
+                          hintText: 'Search products...',
+                          hintStyle: GoogleFonts.poppins(
+                            fontSize: 14,
+                            color: Colors.grey[500],
+                          ),
+                          prefixIcon: Icon(
+                            Icons.search,
+                            color: Colors.grey[600],
+                          ),
+                          suffixIcon: widget.searchController.text.isNotEmpty
+                              ? IconButton(
+                                  icon: Icon(
+                                    Icons.close,
+                                    color: Colors.grey[600],
+                                    size: 20,
+                                  ),
+                                  onPressed: () {
+                                    widget.searchController.clear();
+                                    widget.onSearchChanged('');
+                                    setState(() {});
+                                  },
+                                )
+                              : null,
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 8,
+                            horizontal: 16,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ],
               ),
-            ),
-
-            // Search Bar
-            if (widget.showSearchBar)
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: height * 0.01),
-                child: Container(
-                  height: height * 0.06,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade200,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(left: 12.0),
-                        child: Icon(Icons.search, color: Colors.grey, size: iconSize),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        //Editing search bar
-                        child: TextField(
-                          
-                          controller: searchController,
-                          onChanged: (value){
-                            searchProducts(value);
-                          },
-                          onSubmitted: (value) {
-                            if (value.isNotEmpty){
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => search_product(
-                                    showSearchBar: true,
-                                    searchController: TextEditingController(text: value),
-                                    onSearchChanged: (value){},
-                                    query: value,
-                                  )
-                                )
-                              );
-                            }
-                            searchController.clear();
-                          },
-
-
-                          decoration: InputDecoration(
-                            hintText: 'Search for products',
-                            hintStyle: GoogleFonts.poppins(
-                              fontSize: fontSize,
-                              color: Colors.black54,
-                            ),
-                            border: InputBorder.none,
-                            isDense: true,
-                            contentPadding: EdgeInsets.symmetric(vertical: height * 0.01),
-                          ),
-                          style: GoogleFonts.poppins(
-                            fontSize: fontSize,
-                            color: Colors.black,
-                          ),
-                        ),
-                      ),
-                      Container(
-                        height: double.infinity,
-                        decoration: BoxDecoration(
-                          color: Colors.black,
-                          borderRadius: const BorderRadius.only(
-                            topRight: Radius.circular(8),
-                            bottomRight: Radius.circular(8),
-                          ),
-                        ),
-                        padding: EdgeInsets.symmetric(horizontal: width * 0.03),
-                        child: Center(
-                          child: Icon(Icons.menu, color: Colors.white, size: iconSize),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
+            )
+          : null,
     );
   }
 }

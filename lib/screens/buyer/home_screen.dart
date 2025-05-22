@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:haul/screens/buyer/product_details_screen.dart';
+import 'package:haul/screens/buyer/search_results_screen.dart';
 import '/widgets/custom_appbar.dart';
 import '/widgets/custom_bottomnav.dart';
 import 'explore_screen.dart';
@@ -13,6 +15,7 @@ import 'seller_public_profile_screen.dart'; // Import SellerPublicProfileScreen
 import 'package:google_fonts/google_fonts.dart'; // Import Google Fonts
 import '/models/product_model.dart'; // Import Product model
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // Import Firebase Firestore
 
 class HomeScreen extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -29,11 +32,27 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   final TextEditingController searchController = TextEditingController();
-  void handleSearchChanged(String query){
-    print("user is searching for: $query");
+  List<Product> _searchSuggestions = []; // Add a local variable for search suggestions
+
+  void handleSearchChanged(String query) {
+    if (query.length >= 3) { // Only search after 3 characters
+      FirebaseFirestore.instance
+          .collection('products')
+          .where('name', isGreaterThanOrEqualTo: query)
+          .where('name', isLessThan: query + 'z')
+          .limit(5) // Limit results for better performance
+          .get()
+          .then((result) {
+        setState(() {
+          // Update a local variable with search suggestions
+          _searchSuggestions = result.docs
+              .map((doc) => Product.fromMap(doc.id, doc.data()))
+              .toList();
+        });
+      });
+    }
   }
   
-
   @override
   void initState() {
     super.initState();
@@ -41,6 +60,12 @@ class _HomeScreenState extends State<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<UserProfileProvider>().fetchUserProfile();
     });
+  }
+
+  @override
+  void dispose() {
+    searchController.dispose(); // Don't forget to dispose controllers
+    super.dispose();
   }
 
   void _onTabTapped(int index) {
@@ -74,18 +99,103 @@ class _HomeScreenState extends State<HomeScreen> {
     final bool showSearch = _selectedIndex == 0 || _selectedIndex == 1;
     
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: CustomAppBar(
-        title: title,
-        showSearchBar: showSearch,
-        searchController: searchController,
-        onSearchChanged: handleSearchChanged,
+        title: title, // Required: The title for the app bar
+        searchController: searchController, // Required: Your search text controller
+        onSearchChanged: handleSearchChanged, // Required: Your search handler function
+        showSearchBar: showSearch, // Optional: Whether to show the search bar
+        searchSuggestions: _searchSuggestions, // Optional: Your search suggestions list
+        onSearchSubmitted: () { // Optional: Function called when user submits search
+          if (searchController.text.isNotEmpty) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => SearchResultsScreen(query: searchController.text),
+              ),
+            );
+          }
+        },
       ),
-      body: SafeArea(
-        child: IndexedStack(
-          index: _selectedIndex,
-          children: screens,
-        ),
+      backgroundColor: Colors.white,
+      body: Stack(
+        children: [
+          // Your existing SafeArea and IndexedStack
+          SafeArea(
+            child: IndexedStack(
+              index: _selectedIndex,
+              children: screens,
+            ),
+          ),
+          
+          // Search suggestions dropdown - only show when search is active
+          if (showSearch && searchController.text.length >= 3 && _searchSuggestions.isNotEmpty)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: Material(
+                elevation: 4.0,
+                color: Colors.transparent,
+                child: Container(
+                  color: Colors.white,
+                  constraints: BoxConstraints(
+                    maxHeight: 300,
+                  ),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    padding: EdgeInsets.zero,
+                    itemCount: _searchSuggestions.length,
+                    itemBuilder: (context, index) {
+                      final product = _searchSuggestions[index];
+                      return ListTile(
+                        leading: Container(
+                          width: 50,
+                          height: 50,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            image: product.imageUrl.isNotEmpty 
+                              ? DecorationImage(
+                                  image: NetworkImage(product.imageUrl),
+                                  fit: BoxFit.cover,
+                                )
+                              : null,
+                          ),
+                          child: product.imageUrl.isEmpty 
+                            ? Icon(Icons.image_not_supported, color: Colors.grey)
+                            : null,
+                        ),
+                        title: Text(
+                          product.name,
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w500,
+                            fontSize: 14,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text(
+                          '\$${product.price.toStringAsFixed(2)}',
+                          style: GoogleFonts.poppins(
+                            color: Theme.of(context).primaryColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        onTap: () {
+                          // Navigate to product details
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ProductDetailsScreen(product: product),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
       bottomNavigationBar: CustomBottomNavBar(
         currentIndex: _selectedIndex,
