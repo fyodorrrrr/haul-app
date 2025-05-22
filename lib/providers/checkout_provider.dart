@@ -70,6 +70,7 @@ class CheckoutProvider with ChangeNotifier {
       return false;
     }
 
+    // Existing validation code...
     if (_shippingAddress == null) {
       _errorMessage = "Shipping address is required";
       notifyListeners();
@@ -91,7 +92,10 @@ class CheckoutProvider with ChangeNotifier {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception("User not authenticated");
 
-      // Use Firestore auto-generated ID
+      // Create a batch for atomic operations
+      final batch = FirebaseFirestore.instance.batch();
+
+      // Create order document
       final orderRef = FirebaseFirestore.instance.collection('orders').doc();
       final String orderId = orderRef.id;
       final String orderNumber = 'ORD-${DateTime.now().millisecondsSinceEpoch}';
@@ -113,12 +117,58 @@ class CheckoutProvider with ChangeNotifier {
         'sellerIds': sellerIds,
       };
 
-      await orderRef.set(orderData);
+      // Add order to batch
+      batch.set(orderRef, orderData);
       
+      // Count quantities for each product (since you don't have a quantity field)
+      Map<String, int> productQuantities = {};
+      for (var item in cartItems) {
+        if (productQuantities.containsKey(item.productId)) {
+          productQuantities[item.productId] = productQuantities[item.productId]! + 1;
+        } else {
+          productQuantities[item.productId] = 1;
+        }
+      }
+      
+      // Update stock for each product
+      for (var entry in productQuantities.entries) {
+        final productId = entry.key;
+        final quantity = entry.value;
+        
+        final productRef = FirebaseFirestore.instance.collection('products').doc(productId);
+        
+        // Get current product data
+        final productDoc = await productRef.get();
+        if (productDoc.exists) {
+          final productData = productDoc.data()!;
+          
+          // Calculate new stock
+          int currentStock = productData['stock'] ?? 0;
+          int newStock = currentStock - quantity;
+          
+          // Prevent negative stock
+          if (newStock < 0) newStock = 0;
+          
+          // Prepare update data
+          Map<String, dynamic> updateData = {'stock': newStock};
+          
+          // If stock is zero, mark product as inactive
+          if (newStock == 0) {
+            updateData['isActive'] = false;
+          }
+          
+          // Add product update to batch
+          batch.update(productRef, updateData);
+        }
+      }
+      
+      // Commit all operations atomically
+      await batch.commit();
+      
+      // Clear the cart
       await _clearCart(user.uid);
 
       _orderId = orderId;
-
       _isLoading = false;
       _isProcessingOrder = false;
       notifyListeners();

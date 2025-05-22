@@ -70,8 +70,13 @@ class _MainHomeScreenState extends State<MainHomeScreen> with RouteAware {
 
   Future<void> fetchProducts() async {
     try {
-      print('Fetching products from Firestore...');
-      final snapshot = await FirebaseFirestore.instance.collection('products').get();
+      print('Fetching active products from Firestore...');
+      
+      // Add where clause to only get active products
+      final snapshot = await FirebaseFirestore.instance
+          .collection('products')
+          .where('isActive', isEqualTo: true) // Only get active products
+          .get();
 
       final fetchedProducts = snapshot.docs.map((doc) {
         // Pass both the document ID and the data map
@@ -83,7 +88,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> with RouteAware {
         uniqueBrands = extractUniqueBrands(fetchedProducts);
       });
 
-      print('Fetched ${products.length} products.');
+      print('Fetched ${products.length} active products.');
       print('Extracted brands: $uniqueBrands');
     } catch (e) {
       print('Error fetching products: $e');
