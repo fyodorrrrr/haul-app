@@ -10,6 +10,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'product_details_screen.dart';
 import '/utils/snackbar_helper.dart';
 import '/main.dart';
+import 'package:haul/screens/buyer/brand_screen.dart';
 
 class MainHomeScreen extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -405,26 +406,37 @@ class _MainHomeScreenState extends State<MainHomeScreen> with RouteAware {
         itemCount: brandsList.length,
         itemBuilder: (context, index) {
           final brand = brandsList[index];
-          return Container(
-            width: 80,
-            height: 80,
-            margin: const EdgeInsets.only(right: 12),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade300,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Center(
-              child: Text(
-                brand,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.black87,
+          return GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => BrandProductsScreen(brandName: brand),
+                ),
+              );
+            },
+            child: Container(
+              width: 80,
+              height: 80,
+              margin: const EdgeInsets.only(right: 12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Center(
+                child: Text(
+                  brand,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.black87,
+                  ),
                 ),
               ),
             ),
           );
+
         },
       ),
     );
