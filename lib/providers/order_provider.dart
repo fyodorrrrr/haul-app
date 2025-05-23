@@ -24,11 +24,11 @@ class SellerOrdersProvider with ChangeNotifier {
   ];
 
   Future<void> fetchSellerOrders() async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
-
     try {
+      _isLoading = true;
+      _error = null;
+      notifyListeners();
+
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
         throw Exception('User not authenticated');
@@ -36,21 +36,60 @@ class SellerOrdersProvider with ChangeNotifier {
 
       print('Fetching orders for seller: ${user.uid}');
 
-      // This query should now work with your index:
-      // sellerIds (array-contains) + createdAt (orderBy)
-      final ordersQuery = await FirebaseFirestore.instance
+      // SIMPLIFIED: Get all orders and filter client-side to avoid query permission issues
+      final querySnapshot = await FirebaseFirestore.instance
           .collection('orders')
-          .where('sellerIds', arrayContains: user.uid)
-          .orderBy('createdAt', descending: true)
           .get();
 
-      print('Found ${ordersQuery.docs.length} orders');
+      print('Retrieved ${querySnapshot.docs.length} total orders');
 
-      _orders = ordersQuery.docs.map((doc) {
+      // Filter orders that contain this seller's products
+      final sellerOrders = querySnapshot.docs.where((doc) {
         final data = doc.data();
-        data['documentId'] = doc.id; // Add document ID for updates
+        
+        // FIXED: Handle both List and Map formats for sellerIds
+        final sellerIds = data['sellerIds'];
+        bool hasSellerProduct = false;
+        
+        if (sellerIds is Map<String, dynamic>) {
+          // Map format: {"sellerId1": true, "sellerId2": true}
+          hasSellerProduct = sellerIds.containsKey(user.uid);
+        } else if (sellerIds is List<dynamic>) {
+          // List format: ["sellerId1", "sellerId2"]
+          hasSellerProduct = sellerIds.contains(user.uid);
+        } else {
+          // Fallback: Check items for seller products
+          final items = data['items'] as List<dynamic>?;
+          if (items != null) {
+            hasSellerProduct = items.any((item) {
+              if (item is Map<String, dynamic>) {
+                return item['sellerId'] == user.uid;
+              }
+              return false;
+            });
+          }
+        }
+        
+        if (hasSellerProduct) {
+          print('Order ${doc.id} contains seller products');
+        }
+        
+        return hasSellerProduct;
+      }).map((doc) {
+        final data = doc.data();
+        data['documentId'] = doc.id;
         return data;
       }).toList();
+
+      // Sort by creation date (client-side)
+      sellerOrders.sort((a, b) {
+        final aTime = (a['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
+        final bTime = (b['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
+        return bTime.compareTo(aTime); // Descending order
+      });
+
+      print('Found ${sellerOrders.length} orders for seller');
+      _orders = sellerOrders;
 
       _isLoading = false;
       notifyListeners();

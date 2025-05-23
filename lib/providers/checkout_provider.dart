@@ -114,7 +114,7 @@ class CheckoutProvider with ChangeNotifier {
         'total': total,
         'status': 'pending',
         'createdAt': FieldValue.serverTimestamp(),
-        'sellerIds': sellerIds,
+        'sellerIds': {for (var id in sellerIds) id: true},
       };
 
       // Add order to batch
