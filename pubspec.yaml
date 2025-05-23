@@ -52,6 +52,7 @@ flutter:
     - assets/data/philippine_provinces_cities_municipalities_and_barangays_2019v2.json
     - .env
     - assets/images/banner_1.jpg
+    - assets/images/banner_2.jpg
 
 flutter_native_splash:
   color: "#ffffff" 
