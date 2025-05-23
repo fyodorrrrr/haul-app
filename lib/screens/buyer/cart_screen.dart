@@ -7,6 +7,7 @@ import '/models/cart_model.dart';
 import '/widgets/not_logged_in.dart';
 import '/providers/checkout_provider.dart';
 import '/screens/checkout/checkout_screen.dart';
+import '../../utils/currency_formatter.dart';
 
 class CartScreen extends StatelessWidget {
   const CartScreen({Key? key}) : super(key: key);
@@ -102,7 +103,7 @@ class CartScreen extends StatelessWidget {
                     ),
                     child: Column(
                       children: [
-                        _buildSummaryRow('Subtotal', '\$${subtotal.toStringAsFixed(2)}'),
+                        _buildSummaryRow('Subtotal', CurrencyFormatter.format(subtotal)),
                         const SizedBox(height: 8),
                         _buildSummaryRow('Shipping', '\$${shipping.toStringAsFixed(2)}'),
                         const SizedBox(height: 8),
@@ -110,7 +111,7 @@ class CartScreen extends StatelessWidget {
                         const Divider(height: 24),
                         _buildSummaryRow(
                           'Total',
-                          '\$${total.toStringAsFixed(2)}',
+                          CurrencyFormatter.format(total),
                           isTotal: true,
                         ),
                         const SizedBox(height: 16),

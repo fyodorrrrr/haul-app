@@ -21,6 +21,7 @@ import 'providers/checkout_provider.dart'; // Import the new provider
 import 'providers/address_provider.dart'; // Import the new provider
 import 'providers/order_provider.dart'; // Import the new provider
 import 'providers/analytics_provider.dart'; // Import the new provider
+import 'providers/inventory_provider.dart'; // Import the new provider
 
 final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
 
@@ -63,6 +64,7 @@ class MainApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AddressProvider()), // Add the new provider
         ChangeNotifierProvider(create: (_) => SellerOrdersProvider()),
         ChangeNotifierProvider(create: (_) => AnalyticsProvider()), // Add the new provider
+        ChangeNotifierProvider(create: (_) => InventoryProvider()), // Add the new provider
       ],
       child: 
       MaterialApp(

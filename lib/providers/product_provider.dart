@@ -4,7 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:uuid/uuid.dart';
-import '../models/product_model.dart';
+import '../models/product.dart';
 
 class ProductProvider extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -37,7 +37,7 @@ class ProductProvider extends ChangeNotifier {
       final querySnapshot = await FirebaseFirestore.instance
           .collection('products')
           .where('sellerId', isEqualTo: user.uid)
-          // Remove any other filters that might exclude products
+          .orderBy('updatedAt', descending: true)
           .get();
       
       print("Found ${querySnapshot.docs.length} products"); // Debug log
@@ -46,15 +46,32 @@ class ProductProvider extends ChangeNotifier {
           .map((doc) {
             try {
               print("Processing product: ${doc.id}"); // Debug log
-              return Product.fromMap(doc.id, doc.data());
+              final data = doc.data() as Map<String, dynamic>;
+              data['id'] = doc.id; // Add document ID to data
+              
+              // FIXED: Convert Timestamps to proper format before creating Product
+              if (data['createdAt'] is Timestamp) {
+                data['createdAt'] = (data['createdAt'] as Timestamp).toDate();
+              }
+              if (data['updatedAt'] is Timestamp) {
+                data['updatedAt'] = (data['updatedAt'] as Timestamp).toDate();
+              }
+              
+              // Handle other potential Timestamp fields
+              data.forEach((key, value) {
+                if (value is Timestamp) {
+                  data[key] = value.toDate();
+                }
+              });
+              
+              return Product.fromMap(data);
             } catch (e) {
               print("Error processing product ${doc.id}: $e"); // Debug log
-              // Return null for products that can't be parsed
               return null;
             }
           })
-          .where((product) => product != null) // Filter out null products
-          .cast<Product>() // Cast to Product type
+          .where((product) => product != null)
+          .cast<Product>()
           .toList();
       
       print("Successfully loaded ${_products.length} products"); // Debug log
@@ -89,10 +106,17 @@ class ProductProvider extends ChangeNotifier {
   Future<bool> addProduct({
     required String name,
     required String description,
-    required double price,
+    required double costPrice,
+    required double sellingPrice,
     required int stock,
     required List<File> images,
-    required List<String> categories,
+    required String category,
+    required String brand,
+    String? sku,
+    String? subcategory,
+    double? salePrice,
+    int? minimumStock,
+    String location = 'Main Warehouse',
   }) async {
     _setLoadingState(true);
     try {
@@ -102,36 +126,64 @@ class ProductProvider extends ChangeNotifier {
       // Upload images first
       final imageUrls = await _uploadImages(images);
       
-      // Create new product
+      // Generate SKU if not provided
+      final productSku = sku ?? 'SKU-${DateTime.now().millisecondsSinceEpoch}';
+      
+      // Create new product with enhanced model
       final newProduct = Product(
         id: '', // Will be set by Firestore
-        sellerId: user.uid,
         name: name,
         description: description,
-        price: price,
-        stock: stock,
+        sku: productSku,
+        category: category,
+        subcategory: subcategory ?? category,
+        brand: brand,
         images: imageUrls,
-        categories: categories,
-        brand: 'Default Brand', // Add the required brand parameter
+        variants: [], // Start with empty variants
+        currentStock: stock,
+        minimumStock: minimumStock ?? 5,
+        maximumStock: 1000,
+        reorderPoint: minimumStock ?? 10,
+        reorderQuantity: 50,
+        location: location,
+        reservedStock: 0,
+        costPrice: costPrice,
+        sellingPrice: sellingPrice,
+        salePrice: salePrice,
+        taxRate: 0.0,
+        bulkPricing: [],
+        weight: 0.0,
+        dimensions: ProductDimensions(),
+        status: ProductStatus.active,
         isActive: true,
+        totalSold: 0,
+        viewCount: 0,
+        turnoverRate: 0.0,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
+        sellerId: user.uid,
       );
       
       // Save to Firestore
       final docRef = await _firestore.collection('products').add(newProduct.toMap());
+      
+      // Update the product with the document ID
+      await docRef.update({'id': docRef.id});
       
       // Update the seller's metrics
       await _firestore.collection('sellers').doc(user.uid).update({
         'activeListings': FieldValue.increment(1),
       });
       
-      // Add to local list
-      _products.insert(0, Product.fromMap(docRef.id, newProduct.toMap()));
+      // Add to local list with the correct ID
+      final productData = newProduct.toMap();
+      productData['id'] = docRef.id;
+      _products.insert(0, Product.fromMap(productData));
       
       _setLoadingState(false);
       return true;
     } catch (e) {
+      print("Error adding product: $e");
       _setLoadingState(false, e.toString());
       return false;
     }
@@ -142,12 +194,18 @@ class ProductProvider extends ChangeNotifier {
     required String productId,
     required String name,
     required String description,
-    required double price,
+    required double costPrice,
+    required double sellingPrice,
     required int stock,
     required List<File> newImages,
     required List<String> existingImageUrls,
-    required List<String> categories,
+    required String category,
+    required String brand,
     required bool isActive,
+    String? subcategory,
+    double? salePrice,
+    int? minimumStock,
+    String? sku,
   }) async {
     _setLoadingState(true);
     try {
@@ -166,11 +224,17 @@ class ProductProvider extends ChangeNotifier {
       await productRef.update({
         'name': name,
         'description': description,
-        'price': price,
-        'stock': stock,
+        'costPrice': costPrice,
+        'sellingPrice': sellingPrice,
+        'currentStock': stock, // Updated field name
         'images': allImageUrls,
-        'categories': categories,
+        'category': category,
+        'subcategory': subcategory ?? category,
+        'brand': brand,
         'isActive': isActive,
+        'salePrice': salePrice,
+        'minimumStock': minimumStock ?? 5,
+        'sku': sku,
         'updatedAt': FieldValue.serverTimestamp(),
       });
       
@@ -178,12 +242,17 @@ class ProductProvider extends ChangeNotifier {
       final index = _products.indexWhere((p) => p.id == productId);
       if (index != -1) {
         final updated = await productRef.get();
-        _products[index] = Product.fromMap(productId, updated.data()!);
+        if (updated.exists) {
+          final data = updated.data()! as Map<String, dynamic>;
+          data['id'] = productId;
+          _products[index] = Product.fromMap(data);
+        }
       }
       
       _setLoadingState(false);
       return true;
     } catch (e) {
+      print("Error updating product: $e");
       _setLoadingState(false, e.toString());
       return false;
     }
@@ -216,6 +285,39 @@ class ProductProvider extends ChangeNotifier {
       _setLoadingState(false);
       return true;
     } catch (e) {
+      print("Error deleting product: $e");
+      _setLoadingState(false, e.toString());
+      return false;
+    }
+  }
+
+  // Update stock for a product
+  Future<bool> updateStock(String productId, int newStock, String reason) async {
+    _setLoadingState(true);
+    try {
+      final user = _auth.currentUser;
+      if (user == null) throw Exception("User not authenticated");
+      
+      // Update in Firestore
+      await _firestore.collection('products').doc(productId).update({
+        'currentStock': newStock,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      
+      // Update local list
+      final index = _products.indexWhere((p) => p.id == productId);
+      if (index != -1) {
+        final currentProduct = _products[index];
+        final updatedData = currentProduct.toMap();
+        updatedData['currentStock'] = newStock;
+        updatedData['updatedAt'] = DateTime.now().toIso8601String();
+        _products[index] = Product.fromMap(updatedData);
+      }
+      
+      _setLoadingState(false);
+      return true;
+    } catch (e) {
+      print("Error updating stock: $e");
       _setLoadingState(false, e.toString());
       return false;
     }
@@ -230,21 +332,68 @@ class ProductProvider extends ChangeNotifier {
       final sellerDoc = await _firestore.collection('sellers').doc(user.uid).get();
       final sellerData = sellerDoc.data() ?? {};
       
+      // Calculate inventory values
+      final totalInventoryValue = _products.fold(0.0, (sum, p) => sum + (p.costPrice * p.currentStock));
+      final totalSellingValue = _products.fold(0.0, (sum, p) => sum + (p.sellingPrice * p.currentStock));
+      final lowStockCount = _products.where((p) => p.isLowStock).length;
+      final outOfStockCount = _products.where((p) => p.isOutOfStock).length;
+      
       return {
         'totalProducts': _products.length,
         'activeProducts': _products.where((p) => p.isActive).length,
+        'lowStockProducts': lowStockCount,
+        'outOfStockProducts': outOfStockCount,
         'totalViews': _products.fold(0, (sum, p) => sum + p.viewCount),
         'totalOrders': sellerData['ordersCount'] ?? 0,
         'totalSales': sellerData['totalSales'] ?? 0.0,
+        'inventoryValue': totalInventoryValue,
+        'sellingValue': totalSellingValue,
+        'profitPotential': totalSellingValue - totalInventoryValue,
       };
     } catch (e) {
+      print("Error getting statistics: $e");
       return {
         'totalProducts': 0,
         'activeProducts': 0,
+        'lowStockProducts': 0,
+        'outOfStockProducts': 0,
         'totalViews': 0,
         'totalOrders': 0,
         'totalSales': 0.0,
+        'inventoryValue': 0.0,
+        'sellingValue': 0.0,
+        'profitPotential': 0.0,
       };
     }
+  }
+
+  // Get products by category
+  List<Product> getProductsByCategory(String category) {
+    if (category.toLowerCase() == 'all') return _products;
+    return _products.where((p) => p.category.toLowerCase() == category.toLowerCase()).toList();
+  }
+
+  // Get low stock products
+  List<Product> getLowStockProducts() {
+    return _products.where((p) => p.isLowStock && p.isActive).toList();
+  }
+
+  // Search products
+  List<Product> searchProducts(String query) {
+    if (query.isEmpty) return _products;
+    
+    final lowercaseQuery = query.toLowerCase();
+    return _products.where((product) =>
+      product.name.toLowerCase().contains(lowercaseQuery) ||
+      product.sku.toLowerCase().contains(lowercaseQuery) ||
+      product.category.toLowerCase().contains(lowercaseQuery) ||
+      product.brand.toLowerCase().contains(lowercaseQuery)
+    ).toList();
+  }
+
+  // Clear error message
+  void clearError() {
+    _errorMessage = null;
+    notifyListeners();
   }
 }

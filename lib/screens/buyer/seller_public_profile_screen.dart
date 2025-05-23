@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../../models/product_model.dart';
+import '../../models/product.dart';
 import 'product_details_screen.dart';
 
 class SellerPublicProfileScreen extends StatefulWidget {
@@ -102,8 +102,20 @@ class _SellerPublicProfileScreenState extends State<SellerPublicProfileScreen> w
           .where('isActive', isEqualTo: true) // Only show active products
           .get();
           
+      // Fixed Product.fromMap() call
       _products = productsSnapshot.docs
-          .map((doc) => Product.fromMap(doc.id, doc.data()))
+          .map((doc) {
+            try {
+              final data = doc.data() as Map<String, dynamic>;
+              data['id'] = doc.id; // Add document ID to data
+              return Product.fromMap(data);
+            } catch (e) {
+              print('Error parsing product ${doc.id}: $e');
+              return null;
+            }
+          })
+          .where((product) => product != null)
+          .cast<Product>()
           .toList();
           
       // Sort products by default
@@ -132,10 +144,12 @@ class _SellerPublicProfileScreenState extends State<SellerPublicProfileScreen> w
         _products.sort((a, b) => a.createdAt.compareTo(b.createdAt));
         break;
       case 'price_high':
-        _products.sort((a, b) => b.price.compareTo(a.price));
+        // Fixed: Changed from 'price' to 'sellingPrice'
+        _products.sort((a, b) => b.sellingPrice.compareTo(a.sellingPrice));
         break;
       case 'price_low':
-        _products.sort((a, b) => a.price.compareTo(b.price));
+        // Fixed: Changed from 'price' to 'sellingPrice'
+        _products.sort((a, b) => a.sellingPrice.compareTo(b.sellingPrice));
         break;
     }
   }
@@ -392,12 +406,19 @@ class _SellerPublicProfileScreenState extends State<SellerPublicProfileScreen> w
   }
 
   Widget _buildProductCard(Product product) {
+    // Get current user ID for product details screen
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final userId = currentUser?.uid;
+
     return GestureDetector(
       onTap: () {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => ProductDetailsScreen(product: product),
+            builder: (_) => ProductDetailsScreen(
+              product: product,
+              userId: userId, // Pass userId to ProductDetailsScreen
+            ),
           ),
         );
       },
@@ -408,13 +429,13 @@ class _SellerPublicProfileScreenState extends State<SellerPublicProfileScreen> w
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Product image
+            // Product image - Fixed to use images array
             Expanded(
               child: Container(
                 width: double.infinity,
                 child: product.images.isNotEmpty
                   ? Image.network(
-                      product.images.first,
+                      product.images.first, // Use first image from array
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => Container(
                         color: Colors.grey[300],
@@ -443,12 +464,58 @@ class _SellerPublicProfileScreenState extends State<SellerPublicProfileScreen> w
                     overflow: TextOverflow.ellipsis,
                   ),
                   SizedBox(height: 4),
-                  Text(
-                    '\$${product.price.toStringAsFixed(2)}',
-                    style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: Theme.of(context).primaryColor,
+                  // Show effective price (sale price if available, otherwise selling price)
+                  Row(
+                    children: [
+                      if (product.salePrice != null) ...[
+                        // Show original price with strikethrough
+                        Text(
+                          '₱${product.sellingPrice.toStringAsFixed(2)}',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                            decoration: TextDecoration.lineThrough,
+                          ),
+                        ),
+                        SizedBox(width: 8),
+                        // Show sale price
+                        Text(
+                          '₱${product.salePrice!.toStringAsFixed(2)}',
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: Colors.red,
+                          ),
+                        ),
+                      ] else ...[
+                        // Show regular selling price
+                        Text(
+                          '₱${product.sellingPrice.toStringAsFixed(2)}', // Fixed: Changed from 'price' to 'sellingPrice'
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: Theme.of(context).primaryColor,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  
+                  // Stock indicator
+                  SizedBox(height: 4),
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: _getStockColor(product).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      _getStockText(product),
+                      style: GoogleFonts.poppins(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                        color: _getStockColor(product),
+                      ),
                     ),
                   ),
                 ],
@@ -458,6 +525,19 @@ class _SellerPublicProfileScreenState extends State<SellerPublicProfileScreen> w
         ),
       ),
     );
+  }
+
+  // Helper methods for stock status
+  Color _getStockColor(Product product) {
+    if (product.currentStock <= 0) return Colors.red;
+    if (product.isLowStock) return Colors.orange;
+    return Colors.green;
+  }
+
+  String _getStockText(Product product) {
+    if (product.currentStock <= 0) return 'Out of Stock';
+    if (product.isLowStock) return 'Low Stock';
+    return 'In Stock';
   }
 
   Widget _buildAboutTab() {

@@ -7,15 +7,15 @@ import 'explore_screen.dart';
 import 'wishlist_screen.dart';
 import 'cart_screen.dart';
 import 'profile_screen.dart';
-import 'main_home_screen.dart'; // Import the new main home screen
-import 'package:provider/provider.dart'; // Import provider for UserProfileProvider
+import 'main_home_screen.dart';
+import 'package:provider/provider.dart';
 import '/providers/user_profile_provider.dart';
 import '/widgets/not_logged_in.dart';
-import 'seller_public_profile_screen.dart'; // Import SellerPublicProfileScreen
-import 'package:google_fonts/google_fonts.dart'; // Import Google Fonts
-import '/models/product_model.dart'; // Import Product model
+import 'seller_public_profile_screen.dart';
+import 'package:google_fonts/google_fonts.dart';
+import '../../models/product.dart'; // Make sure this points to your enhanced Product model
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // Import Firebase Firestore
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class HomeScreen extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -32,32 +32,38 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   final TextEditingController searchController = TextEditingController();
-  List<Product> _searchSuggestions = []; // Add a local variable for search suggestions
+  List<Product> _searchSuggestions = [];
 
   void handleSearchChanged(String query) {
-    if (query.length >= 2) { // Reduced from 3 to 2 characters for earlier suggestions
-      // Convert query to lowercase for case-insensitive search
+    if (query.length >= 2) {
       String lowercaseQuery = query.toLowerCase();
       
-      // First try to get products by name
       FirebaseFirestore.instance
           .collection('products')
-          .where('isActive', isEqualTo: true) // Only get active products
-          .limit(20) // Get more products to filter locally
+          .where('isActive', isEqualTo: true)
+          .limit(20)
           .get()
           .then((result) {
             setState(() {
-              // Filter results client-side to find products with matching name anywhere
               _searchSuggestions = result.docs
-                  .map((doc) => Product.fromMap(doc.id, doc.data()))
+                  .map((doc) {
+                    try {
+                      final data = doc.data() as Map<String, dynamic>;
+                      data['id'] = doc.id; // Add document ID to data
+                      return Product.fromMap(data);
+                    } catch (e) {
+                      print('Error parsing product ${doc.id}: $e');
+                      return null;
+                    }
+                  })
+                  .where((product) => product != null)
+                  .cast<Product>()
                   .where((product) => 
                       product.name.toLowerCase().contains(lowercaseQuery) ||
-                      (product.brand != null && 
-                       product.brand.toLowerCase().contains(lowercaseQuery)) ||
-                      (product.category != null && 
-                       product.category.toLowerCase().contains(lowercaseQuery))
+                      product.brand.toLowerCase().contains(lowercaseQuery) ||
+                      product.category.toLowerCase().contains(lowercaseQuery)
                   )
-                  .take(5) // Limit to 5 suggestions
+                  .take(5)
                   .toList();
             });
           })
@@ -65,7 +71,6 @@ class _HomeScreenState extends State<HomeScreen> {
             print('Error searching products: $error');
           });
     } else if (query.isEmpty) {
-      // Clear suggestions when search is empty
       setState(() {
         _searchSuggestions = [];
       });
@@ -77,7 +82,6 @@ class _HomeScreenState extends State<HomeScreen> {
       String lowercaseQuery = query.toLowerCase();
       print('🔍 Searching for: "$lowercaseQuery"');
       
-      // Get products where name contains query
       FirebaseFirestore.instance
           .collection('products')
           .where('isActive', isEqualTo: true)
@@ -93,18 +97,13 @@ class _HomeScreenState extends State<HomeScreen> {
               return;
             }
             
-            // Debug: Print ALL products to see what we're working with
-            for (int i = 0; i < result.docs.length; i++) {
-              final doc = result.docs[i];
-              final data = doc.data();
-              print('📋 Product ${i + 1}: "${data['name']}" | Active: ${data['isActive']} | Brand: "${data['brand']}" | Category: "${data['category']}"');
-            }
-            
             try {
               final List<Product> allProducts = result.docs
                   .map((doc) {
                     try {
-                      final product = Product.fromMap(doc.id, doc.data());
+                      final data = doc.data() as Map<String, dynamic>;
+                      data['id'] = doc.id; // Add document ID to data
+                      final product = Product.fromMap(data);
                       print('✅ Parsed product: "${product.name}" | Brand: "${product.brand}" | Category: "${product.category}"');
                       return product;
                     } catch (e) {
@@ -120,16 +119,10 @@ class _HomeScreenState extends State<HomeScreen> {
               
               final List<Product> filteredProducts = allProducts
                   .where((product) {
-                    final name = (product.name ?? '').toLowerCase();
-                    final brand = (product.brand ?? '').toLowerCase();
-                    final category = (product.category ?? '').toLowerCase();
-                    final description = (product.description ?? '').toLowerCase();
-                    
-                    print('🔍 Checking product: "$name" against query: "$lowercaseQuery"');
-                    print('   - Name contains: ${name.contains(lowercaseQuery)}');
-                    print('   - Brand contains: ${brand.contains(lowercaseQuery)}');
-                    print('   - Category contains: ${category.contains(lowercaseQuery)}');
-                    print('   - Description contains: ${description.contains(lowercaseQuery)}');
+                    final name = product.name.toLowerCase();
+                    final brand = product.brand.toLowerCase();
+                    final category = product.category.toLowerCase();
+                    final description = product.description.toLowerCase();
                     
                     bool matches = name.contains(lowercaseQuery) || 
                                   brand.contains(lowercaseQuery) || 
@@ -138,8 +131,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     
                     if (matches) {
                       print('✅ Match found: ${product.name}');
-                    } else {
-                      print('❌ No match for: ${product.name}');
                     }
                     
                     return matches;
@@ -176,7 +167,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    // Fetch user profile when app starts
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<UserProfileProvider>().fetchUserProfile();
     });
@@ -184,7 +174,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
-    searchController.dispose(); // Don't forget to dispose controllers
+    searchController.dispose();
     super.dispose();
   }
 
@@ -196,33 +186,28 @@ class _HomeScreenState extends State<HomeScreen> {
   
   @override
   Widget build(BuildContext context) {
-    // Define screens array
     final List<Widget> screens = [
-      MainHomeScreen(userData: widget.userData), // Home (index 0)
-      const ExploreScreen(),                    // Explore (index 1)
-      const WishlistScreen(),                   // Wishlist (index 2)
-      const CartScreen(),                       // Cart (index 3)
+      MainHomeScreen(userData: widget.userData),
+      const ExploreScreen(),
+      const WishlistScreen(),
+      const CartScreen(),
       Consumer<UserProfileProvider>(
         builder: (context, provider, child) {
           return provider.userProfile != null
               ? ProfileScreen(userProfile: provider.userProfile!)
               : NotLoggedInScreen(message: 'Please log in to continue', icon: Icons.lock_outline);
         },
-      ),  // Profile (index 4)
+      ),
     ];
     
-    // Get titles for app bar based on selected tab
     final List<String> titles = ['Home', 'Explore', 'Wishlist', 'Cart', 'Profile'];
     final String title = titles[_selectedIndex];
-    
-    // Show search only on Home and Explore tabs
     final bool showSearch = _selectedIndex == 0 || _selectedIndex == 1;
     
     return Scaffold(
-      // Only show AppBar for Home and Explore tabs (index 0 and 1)
       appBar: showSearch 
           ? CustomAppBar(
-              title: title, // Use dynamic title based on current tab
+              title: title,
               searchController: searchController,
               onSearchChanged: handleSearchAdvanced,
               showSearchBar: true,
@@ -238,11 +223,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 }
               },
             )
-          : null, // No AppBar for Wishlist, Cart, and Profile tabs
+          : null,
       backgroundColor: Colors.white,
       body: Stack(
         children: [
-          // Your existing SafeArea and IndexedStack
           SafeArea(
             child: IndexedStack(
               index: _selectedIndex,
@@ -250,7 +234,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           
-          // Search suggestions dropdown - only show when search is active AND on searchable tabs
+          // Fixed search suggestions dropdown
           if (showSearch && searchController.text.length >= 2 && _searchSuggestions.isNotEmpty)
             Positioned(
               top: 0,
@@ -276,16 +260,20 @@ class _HomeScreenState extends State<HomeScreen> {
                           height: 50,
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(8),
-                            image: product.imageUrl.isNotEmpty 
-                              ? DecorationImage(
-                                  image: NetworkImage(product.imageUrl),
-                                  fit: BoxFit.cover,
-                                )
-                              : null,
+                            color: Colors.grey[200],
                           ),
-                          child: product.imageUrl.isEmpty 
-                            ? Icon(Icons.image_not_supported, color: Colors.grey)
-                            : null,
+                          child: product.images.isNotEmpty 
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.network(
+                                  product.images.first,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Icon(Icons.image_not_supported, color: Colors.grey);
+                                  },
+                                ),
+                              )
+                            : Icon(Icons.image_not_supported, color: Colors.grey),
                         ),
                         title: Text(
                           product.name,
@@ -297,14 +285,13 @@ class _HomeScreenState extends State<HomeScreen> {
                           overflow: TextOverflow.ellipsis,
                         ),
                         subtitle: Text(
-                          '\$${product.price.toStringAsFixed(2)}',
+                          '₱${product.sellingPrice.toStringAsFixed(2)}', // Updated to use sellingPrice
                           style: GoogleFonts.poppins(
                             color: Theme.of(context).primaryColor,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                         onTap: () {
-                          // Navigate to product details
                           Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -327,12 +314,11 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // In your product card widget, add a tap handler for the seller name
+  // Updated seller info widget to use correct field names
   Widget _buildSellerInfo(Product product) {
     return GestureDetector(
       onTap: () {
-        // Add null check to prevent error
-        if (product.sellerId != null && product.sellerId.isNotEmpty) {
+        if (product.sellerId.isNotEmpty) {
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -348,8 +334,7 @@ class _HomeScreenState extends State<HomeScreen> {
             style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[600]),
           ),
           Text(
-            // Use a property that does exist, or a placeholder
-            product.sellerBusinessName ?? 'Seller', 
+            product.brand, // Use brand as seller name, or you can add a sellerName field to Product model
             style: GoogleFonts.poppins(
               fontSize: 12, 
               color: Theme.of(context).primaryColor,

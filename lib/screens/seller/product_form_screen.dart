@@ -3,9 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../models/product_model.dart';
+import '../../models/product.dart';
 import '../../providers/product_provider.dart';
 import '../../utils/safe_state.dart';
+import '../../utils/currency_formatter.dart';
 
 class ProductFormScreen extends StatefulWidget {
   final Product? product; // Null for new products
@@ -20,8 +21,13 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
-  final _priceController = TextEditingController();
+  final _costPriceController = TextEditingController();
+  final _sellingPriceController = TextEditingController();
+  final _salePriceController = TextEditingController();
   final _stockController = TextEditingController();
+  final _skuController = TextEditingController();
+  final _brandController = TextEditingController();
+  final _minimumStockController = TextEditingController();
   
   final Map<String, List<String>> _categoryMap = {
     'Tops': [
@@ -91,7 +97,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   };
 
   String _selectedMainCategory = '';
-  List<String> _selectedSubcategories = [];
+  String _selectedSubcategory = '';
   
   List<File> _newImageFiles = [];
   List<String> _existingImageUrls = [];
@@ -106,27 +112,27 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     
     // If editing, populate form with existing data
     if (widget.product != null) {
-      _nameController.text = widget.product!.name;
-      _descriptionController.text = widget.product!.description;
-      _priceController.text = widget.product!.price.toString();
-      _stockController.text = widget.product!.stock.toString();
+      final product = widget.product!;
+      _nameController.text = product.name;
+      _descriptionController.text = product.description;
+      _costPriceController.text = product.costPrice.toString();
+      _sellingPriceController.text = product.sellingPrice.toString();
+      _salePriceController.text = product.salePrice?.toString() ?? '';
+      _stockController.text = product.currentStock.toString(); // Fixed: Changed from 'stock' to 'currentStock'
+      _skuController.text = product.sku;
+      _brandController.text = product.brand;
+      _minimumStockController.text = product.minimumStock.toString();
       
-      // Initialize subcategories from product
-      _selectedSubcategories = List.from(widget.product!.categories);
+      // Initialize categories from product
+      _selectedMainCategory = product.category;
+      _selectedSubcategory = product.subcategory;
       
-      // Try to determine main category from subcategories
-      for (final entry in _categoryMap.entries) {
-        for (final subcat in _selectedSubcategories) {
-          if (entry.value.contains(subcat)) {
-            _selectedMainCategory = entry.key;
-            break;
-          }
-        }
-        if (_selectedMainCategory.isNotEmpty) break;
-      }
-      
-      _existingImageUrls = List.from(widget.product!.images);
-      _isActive = widget.product!.isActive;
+      // Initialize images array
+      _existingImageUrls = List.from(product.images); // Fixed: Changed from 'imageUrls' to 'images'
+      _isActive = product.isActive;
+    } else {
+      // Set defaults for new products
+      _minimumStockController.text = '5';
     }
   }
   
@@ -134,8 +140,13 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
-    _priceController.dispose();
+    _costPriceController.dispose();
+    _sellingPriceController.dispose();
+    _salePriceController.dispose();
     _stockController.dispose();
+    _skuController.dispose();
+    _brandController.dispose();
+    _minimumStockController.dispose();
     super.dispose();
   }
 
@@ -181,9 +192,9 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       return;
     }
     
-    if (_selectedSubcategories.isEmpty) {
+    if (_selectedMainCategory.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select at least one subcategory')),
+        const SnackBar(content: Text('Please select a main category')),
       );
       return;
     }
@@ -194,8 +205,28 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     bool success;
     
     try {
-      final price = double.parse(_priceController.text);
+      final costPrice = double.parse(_costPriceController.text);
+      final sellingPrice = double.parse(_sellingPriceController.text);
+      final salePrice = _salePriceController.text.isNotEmpty 
+          ? double.parse(_salePriceController.text) 
+          : null;
       final stock = int.parse(_stockController.text);
+      final minimumStock = int.parse(_minimumStockController.text);
+      
+      // Validate pricing
+      if (sellingPrice <= costPrice) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Selling price must be higher than cost price')),
+        );
+        return;
+      }
+      
+      if (salePrice != null && salePrice >= sellingPrice) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Sale price must be lower than selling price')),
+        );
+        return;
+      }
       
       // If stock is 0, force isActive to false
       if (stock == 0) {
@@ -203,27 +234,39 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       }
       
       if (widget.product == null) {
-        // Add new product
+        // Add new product - Updated parameters to match enhanced ProductProvider
         success = await provider.addProduct(
           name: _nameController.text.trim(),
           description: _descriptionController.text.trim(),
-          price: price,
+          costPrice: costPrice,
+          sellingPrice: sellingPrice,
           stock: stock,
           images: _newImageFiles,
-          categories: _selectedSubcategories, // Use subcategories here
+          category: _selectedMainCategory,
+          brand: _brandController.text.trim(),
+          sku: _skuController.text.trim(),
+          subcategory: _selectedSubcategory.isNotEmpty ? _selectedSubcategory : _selectedMainCategory,
+          salePrice: salePrice,
+          minimumStock: minimumStock,
         );
       } else {
-        // Update existing product
+        // Update existing product - Updated parameters to match enhanced ProductProvider
         success = await provider.updateProduct(
           productId: widget.product!.id,
           name: _nameController.text.trim(),
           description: _descriptionController.text.trim(),
-          price: price,
+          costPrice: costPrice,
+          sellingPrice: sellingPrice,
           stock: stock,
           newImages: _newImageFiles,
           existingImageUrls: _existingImageUrls,
-          categories: _selectedSubcategories, // Use subcategories here
+          category: _selectedMainCategory,
+          brand: _brandController.text.trim(),
           isActive: _isActive,
+          subcategory: _selectedSubcategory.isNotEmpty ? _selectedSubcategory : _selectedMainCategory,
+          salePrice: salePrice,
+          minimumStock: minimumStock,
+          sku: _skuController.text.trim(),
         );
       }
       
@@ -369,7 +412,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                         ),
                         alignLabelWithHint: true,
                       ),
-                      maxLines: 5,
+                      maxLines: 3,
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
                           return 'Please enter a product description';
@@ -379,15 +422,62 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                     ),
                     const SizedBox(height: 16),
                     
-                    // Price & Stock in same row
+                    // SKU and Brand in same row
                     Row(
                       children: [
                         Expanded(
                           child: TextFormField(
-                            controller: _priceController,
+                            controller: _skuController,
                             decoration: InputDecoration(
-                              labelText: 'Price',
-                              prefixText: '\$ ',
+                              labelText: 'SKU',
+                              hintText: 'Auto-generated if empty',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _brandController,
+                            decoration: InputDecoration(
+                              labelText: 'Brand',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Please enter brand';
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Pricing section
+                    Text(
+                      'Pricing',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    
+                    // Cost Price & Selling Price in same row
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _costPriceController,
+                            decoration: InputDecoration(
+                              labelText: 'Cost Price',
+                              prefixText: '${CurrencyFormatter.symbol} ', // Using the utility
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),
@@ -407,9 +497,94 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                         const SizedBox(width: 16),
                         Expanded(
                           child: TextFormField(
+                            controller: _sellingPriceController,
+                            decoration: InputDecoration(
+                              labelText: 'Selling Price',
+                              prefixText: '₱ ',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            keyboardType: TextInputType.number,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Required';
+                              }
+                              if (double.tryParse(value) == null) {
+                                return 'Invalid price';
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Sale Price (optional)
+                    TextFormField(
+                      controller: _salePriceController,
+                      decoration: InputDecoration(
+                        labelText: 'Sale Price (Optional)',
+                        prefixText: '₱ ',
+                        hintText: 'Leave empty if not on sale',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      keyboardType: TextInputType.number,
+                      validator: (value) {
+                        if (value != null && value.isNotEmpty) {
+                          if (double.tryParse(value) == null) {
+                            return 'Invalid price';
+                          }
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Inventory section
+                    Text(
+                      'Inventory',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    
+                    // Stock & Minimum Stock in same row
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
                             controller: _stockController,
                             decoration: InputDecoration(
-                              labelText: 'Stock',
+                              labelText: 'Current Stock',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            keyboardType: TextInputType.number,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Required';
+                              }
+                              if (int.tryParse(value) == null) {
+                                return 'Invalid number';
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _minimumStockController,
+                            decoration: InputDecoration(
+                              labelText: 'Minimum Stock',
+                              hintText: 'Low stock alert level',
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),
@@ -461,12 +636,11 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                             safeSetState(() {
                               if (selected) {
                                 _selectedMainCategory = category;
+                                // Reset subcategory when main category changes
+                                _selectedSubcategory = '';
                               } else {
                                 _selectedMainCategory = '';
-                                // Clear subcategories if main category is deselected
-                                _selectedSubcategories.removeWhere((subcat) {
-                                  return _categoryMap[category]?.contains(subcat) ?? false;
-                                });
+                                _selectedSubcategory = '';
                               }
                             });
                           },
@@ -478,7 +652,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                     if (_selectedMainCategory.isNotEmpty) ...[
                       const SizedBox(height: 16),
                       Text(
-                        'Subcategories',
+                        'Subcategory',
                         style: GoogleFonts.poppins(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
@@ -489,16 +663,16 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                         spacing: 8,
                         runSpacing: 8,
                         children: (_categoryMap[_selectedMainCategory] ?? []).map((subcategory) {
-                          final isSelected = _selectedSubcategories.contains(subcategory);
+                          final isSelected = _selectedSubcategory == subcategory;
                           return FilterChip(
                             label: Text(subcategory),
                             selected: isSelected,
                             onSelected: (selected) {
                               safeSetState(() {
                                 if (selected) {
-                                  _selectedSubcategories.add(subcategory);
+                                  _selectedSubcategory = subcategory;
                                 } else {
-                                  _selectedSubcategories.remove(subcategory);
+                                  _selectedSubcategory = '';
                                 }
                               });
                             },
@@ -599,6 +773,12 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                       ),
                     );
                   },
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      color: Colors.grey[300],
+                      child: Icon(Icons.error, color: Colors.red),
+                    );
+                  },
                 )
               : Image.file(
                   imageSource as File,
@@ -611,7 +791,10 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
               onTap: onRemove,
               child: Container(
                 padding: const EdgeInsets.all(4),
-                color: Colors.black54,
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(2),
+                ),
                 child: const Icon(
                   Icons.close,
                   size: 16,

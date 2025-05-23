@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '/models/product_model.dart';
+import '../../models/product.dart';
 import '/models/cart_model.dart';
 import '/models/wishlist_model.dart';
 import '/providers/cart_providers.dart';
 import '/providers/wishlist_providers.dart';
 import '/utils/snackbar_helper.dart';
+import '/utils/currency_formatter.dart';
 import 'seller_public_profile_screen.dart';
 
 class ProductDetailsScreen extends StatefulWidget {
@@ -106,8 +107,11 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           child: Stack(
             fit: StackFit.expand,
             children: [
+              // Updated to use images array instead of imageUrl
               Image.network(
-                widget.product.imageUrl,
+                widget.product.images.isNotEmpty 
+                    ? widget.product.images.first 
+                    : '', // Use first image or empty string
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stackTrace) {
                   return Container(
@@ -160,23 +164,82 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                     ),
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.black,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Text(
-                    '\$${widget.product.price.toStringAsFixed(2)}',
-                    style: GoogleFonts.poppins(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    // Show sale price if available, otherwise regular price
+                    if (widget.product.salePrice != null) ...[
+                      Text(
+                        '₱${widget.product.sellingPrice.toStringAsFixed(2)}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                          decoration: TextDecoration.lineThrough,
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Text(
+                          '₱${widget.product.salePrice!.toStringAsFixed(2)}',
+                          style: GoogleFonts.poppins(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ] else ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.black,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Text(
+                          '₱${widget.product.sellingPrice.toStringAsFixed(2)}', // Updated from price to sellingPrice
+                          style: GoogleFonts.poppins(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+            
+            // Stock status indicator
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: _getStockColor().withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: _getStockColor()),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(_getStockIcon(), size: 16, color: _getStockColor()),
+                  const SizedBox(width: 4),
+                  Text(
+                    _getStockText(),
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: _getStockColor(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
             const SizedBox(height: 16),
             Text(
               'Description',
@@ -210,7 +273,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Specifications',
+              'Product Information',
               style: GoogleFonts.poppins(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -218,9 +281,22 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
             ),
             const SizedBox(height: 16),
             _buildSpecificationItem(Icons.category_outlined, 'Category', widget.product.category),
-            _buildSpecificationItem(Icons.straighten, 'Size', widget.product.size),
-            _buildSpecificationItem(Icons.inventory_2_outlined, 'Condition', widget.product.condition),
+            _buildSpecificationItem(Icons.inventory_outlined, 'Subcategory', widget.product.subcategory),
             _buildSpecificationItem(Icons.branding_watermark_outlined, 'Brand', widget.product.brand),
+            _buildSpecificationItem(Icons.qr_code, 'SKU', widget.product.sku),
+            if (widget.product.variants.isNotEmpty) ...[
+              _buildSpecificationItem(Icons.tune, 'Variants', '${widget.product.variants.length} available'),
+            ],
+            if (widget.product.weight > 0) ...[
+              _buildSpecificationItem(Icons.scale, 'Weight', '${widget.product.weight} kg'),
+            ],
+            if (widget.product.dimensions.length > 0 || widget.product.dimensions.width > 0 || widget.product.dimensions.height > 0) ...[
+              _buildSpecificationItem(
+                Icons.straighten, 
+                'Dimensions', 
+                '${widget.product.dimensions.length} x ${widget.product.dimensions.width} x ${widget.product.dimensions.height} ${widget.product.dimensions.unit}'
+              ),
+            ],
           ],
         ),
       ),
@@ -271,37 +347,50 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         margin: const EdgeInsets.symmetric(vertical: 8),
         padding: const EdgeInsets.all(16),
         color: Colors.white,
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(12),
+            Text(
+              'Delivery Information',
+              style: GoogleFonts.poppins(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
               ),
-              child: const Icon(Icons.local_shipping_outlined, color: Colors.black),
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Free Delivery',
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  Text(
-                    'Free delivery for orders above \$50',
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                    ),
+                  child: const Icon(Icons.local_shipping_outlined, color: Colors.black),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Stored at ${widget.product.location}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        'Contact seller for delivery arrangements',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ],
         ),
@@ -310,7 +399,6 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   }
 
   Widget _buildSellerSection(BuildContext context) {
-    // Instead of relying on limited product data, fetch full seller information
     return FutureBuilder<DocumentSnapshot>(
       future: FirebaseFirestore.instance
           .collection('sellers')
@@ -318,20 +406,23 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           .get(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const ListTile(
-            leading: CircleAvatar(
-              child: CircularProgressIndicator(strokeWidth: 2),
+          return Container(
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            padding: const EdgeInsets.all(16),
+            color: Colors.white,
+            child: const ListTile(
+              leading: CircleAvatar(
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              title: Text('Loading seller information...'),
             ),
-            title: Text('Loading seller information...'),
           );
         }
 
-        // Get seller data or use fallback
         final Map<String, dynamic> sellerData = 
             snapshot.data?.data() as Map<String, dynamic>? ?? {};
         
-        // Extract basic info
-        final String businessName = sellerData['businessName'] ?? 'Seller';
+        final String businessName = sellerData['businessName'] ?? widget.product.brand;
         final String? profileImageUrl = sellerData['profileImageUrl'];
         final String location = sellerData['address'] ?? 'No location';
         final bool isVerified = sellerData['isVerified'] ?? false;
@@ -357,12 +448,12 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               const SizedBox(height: 12),
               GestureDetector(
                 onTap: () {
-                  if (widget.product.sellerId != null && widget.product.sellerId.isNotEmpty) {
+                  if (widget.product.sellerId.isNotEmpty) {
                     Navigator.push(
                       context, 
                       MaterialPageRoute(
                         builder: (_) => SellerPublicProfileScreen(
-                          sellerId: widget.product.sellerId!
+                          sellerId: widget.product.sellerId
                         ),
                       ),
                     );
@@ -478,6 +569,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
   Widget _buildBottomButtons(BuildContext context, WishlistProvider wishlistProvider, CartProvider cartProvider, bool isInWishlist, bool isInCart) {
     final theme = Theme.of(context);
+    final isOutOfStock = widget.product.currentStock <= 0;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -504,7 +596,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 if (widget.userId == null) {
                   SnackBarHelper.showSnackBar(
                     context,
-                    'Please log in to add items to your wishlist.', isError: true,
+                    'Please log in to add items to your wishlist.', 
+                    isError: true,
                   );
                   return;
                 }
@@ -516,8 +609,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                     productId: widget.product.id,
                     userId: widget.userId!,
                     productName: widget.product.name,
-                    productImage: widget.product.imageUrl,
-                    productPrice: widget.product.price,
+                    productImage: widget.product.images.isNotEmpty ? widget.product.images.first : '', // Updated
+                    productPrice: widget.product.effectivePrice, // Use effective price (sale or regular)
                     addedAt: DateTime.now(),
                   ),
                   isInWishlist: isInWishlist,
@@ -539,11 +632,12 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           // Add/Remove Cart Button
           Expanded(
             child: ElevatedButton(
-              onPressed: () {
+              onPressed: isOutOfStock ? null : () {
                 if (widget.userId == null) {
                   SnackBarHelper.showSnackBar(
                     context,
-                    'Please log in to manage your cart.', isError: true,
+                    'Please log in to manage your cart.', 
+                    isError: true,
                   );
                   return;
                 }
@@ -556,16 +650,18 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                     userId: widget.userId!,
                     sellerId: widget.product.sellerId,
                     productName: widget.product.name,
-                    imageURL: widget.product.imageUrl,
-                    productPrice: widget.product.price,
+                    imageURL: widget.product.images.isNotEmpty ? widget.product.images.first : '', // Updated
+                    productPrice: widget.product.effectivePrice, // Use effective price
                     addedAt: DateTime.now(),
                   ),
                 );
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: isInCart 
-                    ? theme.colorScheme.error 
-                    : theme.colorScheme.primary,
+                backgroundColor: isOutOfStock 
+                    ? Colors.grey 
+                    : (isInCart 
+                        ? theme.colorScheme.error 
+                        : theme.colorScheme.primary),
                 foregroundColor: theme.colorScheme.onPrimary,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -573,7 +669,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
               child: Text(
-                isInCart ? 'Remove from Cart' : 'Add to Cart',
+                isOutOfStock 
+                    ? 'Out of Stock'
+                    : (isInCart ? 'Remove from Cart' : 'Add to Cart'),
                 style: GoogleFonts.poppins(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -584,5 +682,24 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         ],
       ),
     );
+  }
+
+  // Helper methods for stock status
+  Color _getStockColor() {
+    if (widget.product.currentStock <= 0) return Colors.red;
+    if (widget.product.isLowStock) return Colors.orange;
+    return Colors.green;
+  }
+
+  IconData _getStockIcon() {
+    if (widget.product.currentStock <= 0) return Icons.error;
+    if (widget.product.isLowStock) return Icons.warning;
+    return Icons.check_circle;
+  }
+
+  String _getStockText() {
+    if (widget.product.currentStock <= 0) return 'Out of Stock';
+    if (widget.product.isLowStock) return 'Low Stock (${widget.product.currentStock} left)';
+    return 'In Stock (${widget.product.currentStock} available)';
   }
 }

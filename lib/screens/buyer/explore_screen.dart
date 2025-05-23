@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:haul/widgets/product_card.dart';
-import '../../models/product_model.dart';
+import '../../models/product.dart'; // Changed from product_model.dart
 
 class ExploreScreen extends StatefulWidget {
   const ExploreScreen({Key? key}) : super(key: key);
@@ -17,7 +17,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   String _selectedCategory = 'All';
   RangeValues _priceRange = const RangeValues(0, 200);
   String _sortBy = 'newest';
-  String _selectedCondition = 'All';
+  String _selectedBrand = 'All'; // Changed from condition to brand
   bool _showFilterPanel = false;
 
   @override
@@ -36,7 +36,16 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
       setState(() {
         _featuredProducts = result.docs
-            .map((doc) => Product.fromMap(doc.id, doc.data() as Map<String, dynamic>))
+            .map((doc) {
+              try {
+                return Product.fromMap(doc.data() as Map<String, dynamic>);
+              } catch (e) {
+                print('Error parsing product ${doc.id}: $e');
+                return null;
+              }
+            })
+            .where((product) => product != null)
+            .cast<Product>()
             .toList();
         _isLoading = false;
       });
@@ -66,21 +75,27 @@ class _ExploreScreenState extends State<ExploreScreen> {
       QuerySnapshot result = await query.limit(20).get();
       
       List<Product> products = result.docs
-          .map((doc) => Product.fromMap(doc.id, doc.data() as Map<String, dynamic>))
+          .map((doc) {
+            try {
+              return Product.fromMap(doc.data() as Map<String, dynamic>);
+            } catch (e) {
+              print('Error parsing product ${doc.id}: $e');
+              return null;
+            }
+          })
+          .where((product) => product != null)
+          .cast<Product>()
           .toList();
       
       // Apply price range filter locally
       products = products.where((product) => 
-          product.price >= _priceRange.start && 
-          product.price <= _priceRange.end
+          product.sellingPrice >= _priceRange.start && 
+          product.sellingPrice <= _priceRange.end
       ).toList();
       
-      // Apply condition filter locally
-      if (_selectedCondition != 'All') {
-        products = products.where((product) => 
-            product.condition.toLowerCase() == _selectedCondition.toLowerCase()
-        ).toList();
-      }
+      // Apply brand filter locally (if you have a brand field)
+      // Note: Your enhanced Product model doesn't have a brand field
+      // You might want to add this or remove brand filtering
       
       // Apply sorting
       _applySorting(products);
@@ -95,20 +110,20 @@ class _ExploreScreenState extends State<ExploreScreen> {
     }
   }
 
+  // Update the _applySorting method to use correct field names:
   void _applySorting(List<Product> products) {
     switch (_sortBy) {
       case 'price_low':
-        products.sort((a, b) => a.price.compareTo(b.price));
+        products.sort((a, b) => a.sellingPrice.compareTo(b.sellingPrice));
         break;
       case 'price_high':
-        products.sort((a, b) => b.price.compareTo(a.price));
+        products.sort((a, b) => b.sellingPrice.compareTo(a.sellingPrice));
         break;
       case 'newest':
-        // Assuming you have a createdAt field
-        products.sort((a, b) => b.id.compareTo(a.id)); // Fallback to ID
+        products.sort((a, b) => b.createdAt.compareTo(a.createdAt));
         break;
       case 'popular':
-        // You'd need a popularity field or view count
+        products.sort((a, b) => b.viewCount.compareTo(a.viewCount));
         break;
     }
   }
@@ -142,7 +157,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
     // Get active filters count
     int activeFilters = 0;
     if (_selectedCategory != 'All') activeFilters++;
-    if (_selectedCondition != 'All') activeFilters++;
+    if (_selectedBrand != 'All') activeFilters++;
     if (_priceRange.start != 0 || _priceRange.end != 200) activeFilters++;
     
     return Scaffold(
@@ -257,7 +272,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                           onPressed: () {
                             setState(() {
                               _selectedCategory = 'All';
-                              _selectedCondition = 'All';
+                              _selectedBrand = 'All';
                               _priceRange = RangeValues(0, 200);
                               _sortBy = 'newest';
                               _showFilterPanel = false;
@@ -378,7 +393,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                     onPressed: () {
                                       setState(() {
                                         _selectedCategory = 'All';
-                                        _selectedCondition = 'All';
+                                        _selectedBrand = 'All';
                                         _priceRange = RangeValues(0, 200);
                                       });
                                       _loadFeaturedProducts();
@@ -463,9 +478,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         ),
                         Divider(),
                         
-                        // Condition Section
+                        // Brand Section
                         Text(
-                          'Condition',
+                          'Brand',
                           style: GoogleFonts.poppins(
                             fontSize: 16,
                             fontWeight: FontWeight.w500,
@@ -476,15 +491,15 @@ class _ExploreScreenState extends State<ExploreScreen> {
                           spacing: 8,
                           runSpacing: 8,
                           children: [
-                            'All', 'Like New', 'Good', 'Fair', 'Vintage'
-                          ].map((condition) {
-                            final isSelected = _selectedCondition == condition;
+                            'All', 'Nike', 'Adidas', 'Zara', 'H&M', 'Uniqlo'
+                          ].map((brand) {
+                            final isSelected = _selectedBrand == brand;
                             return FilterChip(
-                              label: Text(condition),
+                              label: Text(brand),
                               selected: isSelected,
                               onSelected: (selected) {
                                 setState(() {
-                                  _selectedCondition = condition;
+                                  _selectedBrand = brand;
                                 });
                                 _applyFilters();
                               },
@@ -551,7 +566,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                 onPressed: () {
                                   setState(() {
                                     _selectedCategory = 'All';
-                                    _selectedCondition = 'All';
+                                    _selectedBrand = 'All';
                                     _priceRange = RangeValues(0, 200);
                                     _sortBy = 'newest';
                                   });
