@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../models/product.dart';
 import '../../providers/product_provider.dart';
 import '../../utils/safe_state.dart';
+import '../../utils/currency_formatter.dart';
 
 class ProductFormScreen extends StatefulWidget {
   final Product? product; // Null for new products
@@ -476,7 +477,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                             controller: _costPriceController,
                             decoration: InputDecoration(
                               labelText: 'Cost Price',
-                              prefixText: '₱ ',
+                              prefixText: '${CurrencyFormatter.symbol} ', // Using the utility
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),

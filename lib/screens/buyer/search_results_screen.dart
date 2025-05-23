@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/product.dart';
 import 'product_details_screen.dart';
 import '../../widgets/product_card.dart';
+import '../../utils/currency_formatter.dart';
 
 class SearchResultsScreen extends StatefulWidget {
   final String query;
@@ -39,21 +40,28 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
       String lowercaseQuery = widget.query.trim().toLowerCase();
       print('🔍 SearchResultsScreen searching for: "$lowercaseQuery"');
       
-      // Use the SAME logic as your working home screen search
       final QuerySnapshot result = await FirebaseFirestore.instance
           .collection('products')
           .where('isActive', isEqualTo: true)
-          .get(); // Remove the problematic .where() clauses that require indexes
+          .get();
           
       print('📦 SearchResults fetched: ${result.docs.length} products');
       
-      // Fixed Product.fromMap() call - Use client-side filtering (same as home screen)
       final List<Product> allProducts = result.docs
           .map((doc) {
             try {
               final data = doc.data() as Map<String, dynamic>;
-              data['id'] = doc.id; // Add document ID to data
-              return Product.fromMap(data); // Fixed: Use single parameter
+              data['id'] = doc.id;
+              
+              // FIXED: Handle Timestamp conversion here
+              if (data['createdAt'] is Timestamp) {
+                data['createdAt'] = (data['createdAt'] as Timestamp).toDate();
+              }
+              if (data['updatedAt'] is Timestamp) {
+                data['updatedAt'] = (data['updatedAt'] as Timestamp).toDate();
+              }
+              
+              return Product.fromMap(data);
             } catch (e) {
               print('❌ Error parsing product ${doc.id}: $e');
               return null;
@@ -63,10 +71,9 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
           .cast<Product>()
           .toList();
           
-      // Apply the same filtering logic as your working search
       final List<Product> filteredProducts = allProducts
           .where((product) {
-            final name = product.name.toLowerCase(); // Removed null check since enhanced model has non-nullable fields
+            final name = product.name.toLowerCase();
             final brand = product.brand.toLowerCase();
             final category = product.category.toLowerCase();
             final description = product.description.toLowerCase();
@@ -189,15 +196,15 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                       ),
                     ),
                   ),
-                  // Products grid
+                  // FIXED: Products grid with more conservative aspect ratio
                   Expanded(
                     child: GridView.builder(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(12), // FIXED: Reduced padding
                       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 2,
-                        childAspectRatio: 0.7,
-                        mainAxisSpacing: 16,
-                        crossAxisSpacing: 16,
+                        childAspectRatio: 0.8, // FIXED: Increased to 0.8 for more height
+                        mainAxisSpacing: 12, // FIXED: Reduced spacing
+                        crossAxisSpacing: 12, // FIXED: Reduced spacing
                       ),
                       itemCount: _searchResults.length,
                       itemBuilder: (context, index) {
@@ -210,8 +217,8 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     );
   }
 
+  // FIXED: Completely overflow-proof product card
   Widget _buildProductCard(Product product) {
-    // Get current user ID for product details screen
     final currentUser = FirebaseAuth.instance.currentUser;
     final userId = currentUser?.uid;
 
@@ -227,119 +234,174 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
           ),
         );
       },
-      child: Card(
-        clipBehavior: Clip.antiAlias,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        elevation: 2,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.1),
+              spreadRadius: 0,
+              blurRadius: 4,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Product image - Fixed to use images array
-            Expanded(
-              flex: 3,
-              child: Container(
-                width: double.infinity,
+            // Image section - keep same
+            SizedBox(
+              height: 110,
+              width: double.infinity,
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
                 child: product.images.isNotEmpty
                   ? Image.network(
-                      product.images.first, // Use first image from array
+                      product.images.first,
                       fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: 110, // FIXED: Reduced height
                       errorBuilder: (context, error, stackTrace) {
                         return Container(
-                          color: Colors.grey[300],
-                          child: Icon(
-                            Icons.image_not_supported, 
-                            size: 50, 
-                            color: Colors.grey[500]
+                          color: Colors.grey[200],
+                          child: Center(
+                            child: Icon(
+                              Icons.image_not_supported, 
+                              size: 24,
+                              color: Colors.grey[400],
+                            ),
+                          ),
+                        );
+                      },
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          color: Colors.grey[200],
+                          child: const Center(
+                            child: CircularProgressIndicator(strokeWidth: 2),
                           ),
                         );
                       },
                     )
                   : Container(
-                      color: Colors.grey[300],
-                      child: Icon(
-                        Icons.image_not_supported, 
-                        size: 50, 
-                        color: Colors.grey[500]
+                      color: Colors.grey[200],
+                      child: Center(
+                        child: Icon(
+                          Icons.image_not_supported, 
+                          size: 24,
+                          color: Colors.grey[400],
+                        ),
                       ),
                     ),
               ),
             ),
-            // Product info
+            
+            // FIXED: Use Expanded instead of SizedBox for flexible height
             Expanded(
-              flex: 2,
               child: Padding(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(4.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      product.name,
-                      style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.w500,
-                        fontSize: 14,
+                    // Product name - flexible
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        product.name,
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w500,
+                          fontSize: 10,
+                          height: 1.2,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                     ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Show effective price (sale price if available, otherwise selling price)
-                        Row(
-                          children: [
-                            if (product.salePrice != null) ...[
-                              // Show original price with strikethrough
-                              Text(
-                                '₱${product.sellingPrice.toStringAsFixed(2)}',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 12,
-                                  color: Colors.grey[600],
-                                  decoration: TextDecoration.lineThrough,
-                                ),
+                    
+                    // Price section - fixed height
+                    SizedBox(
+                      height: 14,
+                      child: Row(
+                        children: [
+                          if (product.salePrice != null) ...[
+                            // Original price with strikethrough
+                            Text(
+                              product.displaySellingPrice, // Using the new getter
+                              style: GoogleFonts.poppins(
+                                fontSize: 8,
+                                color: Colors.grey[600],
+                                decoration: TextDecoration.lineThrough,
                               ),
-                              const SizedBox(width: 8),
-                              // Show sale price
-                              Text(
-                                '₱${product.salePrice!.toStringAsFixed(2)}',
+                            ),
+                            const SizedBox(width: 2),
+                            // Sale price
+                            Expanded(
+                              child: Text(
+                                product.displaySalePrice, // Using the new getter
                                 style: GoogleFonts.poppins(
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 16,
+                                  fontSize: 11,
                                   color: Colors.red,
                                 ),
+                                overflow: TextOverflow.ellipsis,
                               ),
-                            ] else ...[
-                              // Show regular selling price
-                              Text(
-                                '₱${product.sellingPrice.toStringAsFixed(2)}', // Fixed: Changed from 'price' to 'sellingPrice'
+                            ),
+                          ] else ...[
+                            // Regular price
+                            Expanded(
+                              child: Text(
+                                product.displayPrice, // Using the new getter
                                 style: GoogleFonts.poppins(
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 16,
+                                  fontSize: 11,
                                   color: Theme.of(context).primaryColor,
                                 ),
+                                overflow: TextOverflow.ellipsis,
                               ),
-                            ],
+                            ),
                           ],
-                        ),
-                        
-                        // Stock indicator
-                        const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: _getStockColor(product).withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            _getStockText(product),
-                            style: GoogleFonts.poppins(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w500,
-                              color: _getStockColor(product),
+                        ],
+                      ),
+                    ),
+                    
+                    // Stock indicator - fixed height
+                    SizedBox(
+                      height: 12,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          // Category (truncated)
+                          Expanded(
+                            child: Text(
+                              product.category.length > 6 
+                                ? '${product.category.substring(0, 6)}...' // FIXED: Even shorter truncation
+                                : product.category,
+                              style: GoogleFonts.poppins(
+                                fontSize: 7,
+                                color: Colors.grey[600],
+                              ),
+                              overflow: TextOverflow.clip,
                             ),
                           ),
-                        ),
-                      ],
+                          // Stock indicator
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 0), // FIXED: Minimal padding
+                            decoration: BoxDecoration(
+                              color: _getStockColor(product).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                            child: Text(
+                              _getStockText(product),
+                              style: GoogleFonts.poppins(
+                                fontSize: 6, // FIXED: Reduced from 7 to 6
+                                fontWeight: FontWeight.w500,
+                                color: _getStockColor(product),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -359,8 +421,8 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   }
 
   String _getStockText(Product product) {
-    if (product.currentStock <= 0) return 'Out of Stock';
-    if (product.isLowStock) return 'Low Stock';
-    return 'In Stock';
+    if (product.currentStock <= 0) return 'Out';
+    if (product.isLowStock) return 'Low';
+    return 'Stock';
   }
 }

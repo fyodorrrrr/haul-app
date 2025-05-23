@@ -8,6 +8,7 @@ import '/models/wishlist_model.dart';
 import '/providers/cart_providers.dart';
 import '/providers/wishlist_providers.dart';
 import '/utils/snackbar_helper.dart';
+import '/utils/currency_formatter.dart';
 import 'seller_public_profile_screen.dart';
 
 class ProductDetailsScreen extends StatefulWidget {

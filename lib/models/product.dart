@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../utils/currency_formatter.dart';
 
-// Update your existing lib/models/product.dart
 class Product {
   final String id;
   final String name;
@@ -20,9 +20,9 @@ class Product {
   final int reorderPoint;
   final int reorderQuantity;
   final String location;
-  final int reservedStock; // For pending orders
+  final int reservedStock;
   
-  // Pricing
+  // Pricing (in Philippine Peso)
   final double costPrice;
   final double sellingPrice;
   final double? salePrice;
@@ -79,23 +79,26 @@ class Product {
     required this.createdAt,
     required this.updatedAt,
     required this.sellerId,
-    this.condition = 'new', // Default condition
+    this.condition = 'new',
   });
 
-  // Calculate available stock (current - reserved)
+  // Calculate available stock
   int get availableStock => currentStock - reservedStock;
-  
-  // Check if product is low on stock
   bool get isLowStock => currentStock <= minimumStock;
-  
-  // Check if product is out of stock
   bool get isOutOfStock => currentStock <= 0;
-  
-  // Calculate profit margin
   double get profitMargin => ((sellingPrice - costPrice) / costPrice) * 100;
-  
-  // Get effective selling price (sale price if available, otherwise regular price)
   double get effectivePrice => salePrice ?? sellingPrice;
+
+  // FIXED: Currency formatting getters using the utility
+  String get formattedCostPrice => CurrencyFormatter.format(costPrice);
+  String get formattedSellingPrice => CurrencyFormatter.format(sellingPrice);
+  String get formattedSalePrice => salePrice != null ? CurrencyFormatter.format(salePrice!) : '';
+  String get formattedEffectivePrice => CurrencyFormatter.format(effectivePrice);
+  
+  // For display in cards (no decimals)
+  String get displayPrice => CurrencyFormatter.formatWhole(effectivePrice);
+  String get displaySellingPrice => CurrencyFormatter.formatWhole(sellingPrice);
+  String get displaySalePrice => salePrice != null ? CurrencyFormatter.formatWhole(salePrice!) : '';
 
   factory Product.fromMap(Map<String, dynamic> map) {
     return Product(
@@ -108,13 +111,9 @@ class Product {
       subcategory: map['subcategory']?.toString() ?? map['category']?.toString() ?? '',
       brand: map['brand']?.toString() ?? '',
       
-      // Handle both old and new image fields
       images: _toStringList(map['images'] ?? (map['imageUrl'] != null ? [map['imageUrl']] : [])),
-      
-      // FIXED: Add missing required parameters with defaults
       variants: _toVariantsList(map['variants'] ?? []),
       
-      // Handle both old and new stock fields
       currentStock: _toInt(map['currentStock'] ?? map['stock'] ?? 0),
       minimumStock: _toInt(map['minimumStock'] ?? 5),
       maximumStock: _toInt(map['maximumStock'] ?? 1000),
@@ -123,26 +122,22 @@ class Product {
       location: map['location']?.toString() ?? 'Main Warehouse',
       reservedStock: _toInt(map['reservedStock'] ?? 0),
       
-      // Handle both old and new price fields
       costPrice: _toDouble(map['costPrice'] ?? (map['sellingPrice'] ?? map['price'] ?? 0.0) * 0.7),
       sellingPrice: _toDouble(map['sellingPrice'] ?? map['price'] ?? 0.0),
       salePrice: map['salePrice'] != null ? _toDouble(map['salePrice']) : null,
       taxRate: _toDouble(map['taxRate'] ?? 0.0),
       bulkPricing: _toBulkPricingList(map['bulkPricing'] ?? []),
       
-      // Product details
       weight: _toDouble(map['weight'] ?? 0.0),
-      dimensions: _toDimensions(map['dimensions']), // FIXED: Add dimensions parameter
-      status: _toProductStatus(map['status']), // FIXED: Add status parameter
+      dimensions: _toDimensions(map['dimensions']),
+      status: _toProductStatus(map['status']),
       isActive: map['isActive'] == true,
       expiryDate: _toOptionalDateTime(map['expiryDate']),
       
-      // Analytics
       totalSold: _toInt(map['totalSold'] ?? 0),
       viewCount: _toInt(map['viewCount'] ?? 0),
       turnoverRate: _toDouble(map['turnoverRate'] ?? 0.0),
       
-      // Dates
       createdAt: _toDateTime(map['createdAt']),
       updatedAt: _toDateTime(map['updatedAt']),
       
@@ -151,7 +146,7 @@ class Product {
     );
   }
 
-  // FIXED: Add missing helper methods
+  // Helper methods (keep all existing helper methods)
   static List<ProductVariant> _toVariantsList(dynamic value) {
     if (value == null) return [];
     if (value is List) {
@@ -159,12 +154,7 @@ class Product {
         if (v is Map<String, dynamic>) {
           return ProductVariant.fromMap(v);
         }
-        return ProductVariant(
-          id: '',
-          name: '',
-          value: '',
-          stock: 0,
-        );
+        return ProductVariant(id: '', name: '', value: '', stock: 0);
       }).toList();
     }
     return [];
@@ -175,25 +165,19 @@ class Product {
     if (value is Map<String, dynamic>) {
       return ProductDimensions.fromMap(value);
     }
-    return ProductDimensions(); // Return default dimensions
+    return ProductDimensions();
   }
 
   static ProductStatus _toProductStatus(dynamic value) {
     if (value == null) return ProductStatus.active;
     if (value is String) {
       switch (value.toLowerCase()) {
-        case 'active':
-          return ProductStatus.active;
-        case 'inactive':
-          return ProductStatus.inactive;
-        case 'discontinued':
-          return ProductStatus.discontinued;
-        case 'outofstock':
-          return ProductStatus.outOfStock;
-        case 'lowstock':
-          return ProductStatus.lowStock;
-        default:
-          return ProductStatus.active;
+        case 'active': return ProductStatus.active;
+        case 'inactive': return ProductStatus.inactive;
+        case 'discontinued': return ProductStatus.discontinued;
+        case 'outofstock': return ProductStatus.outOfStock;
+        case 'lowstock': return ProductStatus.lowStock;
+        default: return ProductStatus.active;
       }
     }
     return ProductStatus.active;
@@ -206,11 +190,7 @@ class Product {
         if (b is Map<String, dynamic>) {
           return BulkPricing.fromMap(b);
         }
-        return BulkPricing(
-          minQuantity: 1,
-          price: 0.0,
-          discountPercentage: 0.0,
-        );
+        return BulkPricing(minQuantity: 1, price: 0.0, discountPercentage: 0.0);
       }).toList();
     }
     return [];
@@ -230,7 +210,6 @@ class Product {
     return null;
   }
 
-  // Existing helper methods (keep these)
   static double _toDouble(dynamic value) {
     if (value == null) return 0.0;
     if (value is double) return value;
@@ -305,7 +284,7 @@ class Product {
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
       'sellerId': sellerId,
-      'condition': condition, // Include condition in the map
+      'condition': condition,
     };
   }
 }
@@ -317,7 +296,7 @@ class ProductVariant {
   final String id;
   final String name;
   final String value;
-  final double? priceAdjustment;
+  final double? priceAdjustment; // In Philippine Peso
   final int stock;
 
   ProductVariant({
@@ -327,6 +306,10 @@ class ProductVariant {
     this.priceAdjustment,
     required this.stock,
   });
+
+  // FIXED: Currency formatting for variant price adjustment
+  String get formattedPriceAdjustment => 
+    priceAdjustment != null ? '₱${priceAdjustment!.toStringAsFixed(2)}' : '';
 
   factory ProductVariant.fromMap(Map<String, dynamic> map) {
     return ProductVariant(
@@ -351,7 +334,7 @@ class ProductVariant {
 
 class BulkPricing {
   final int minQuantity;
-  final double price;
+  final double price; // In Philippine Peso
   final double discountPercentage;
 
   BulkPricing({
@@ -359,6 +342,9 @@ class BulkPricing {
     required this.price,
     required this.discountPercentage,
   });
+
+  // FIXED: Currency formatting for bulk pricing
+  String get formattedPrice => '₱${price.toStringAsFixed(2)}';
 
   factory BulkPricing.fromMap(Map<String, dynamic> map) {
     return BulkPricing(

@@ -3,10 +3,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/product.dart';
 import '../screens/buyer/product_details_screen.dart';
+import '../utils/currency_formatter.dart';
 
 class ProductCard extends StatelessWidget {
   final Product product;
-  final String? userId; // Add optional userId parameter
+  final String? userId;
   
   const ProductCard({
     Key? key,
@@ -16,7 +17,6 @@ class ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Get current user ID if not provided
     final currentUserId = userId ?? FirebaseAuth.instance.currentUser?.uid;
     
     return GestureDetector(
@@ -26,7 +26,7 @@ class ProductCard extends StatelessWidget {
           MaterialPageRoute(
             builder: (context) => ProductDetailsScreen(
               product: product,
-              userId: currentUserId, // Pass userId to ProductDetailsScreen
+              userId: currentUserId,
             ),
           ),
         );
@@ -47,20 +47,20 @@ class ProductCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Product Image - Fixed to use images array
+            // Product Image
             Expanded(
               flex: 3,
               child: Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-                  color: Colors.grey[100], // Add background color for better loading state
+                  color: Colors.grey[100],
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
                   child: product.images.isNotEmpty
                       ? Image.network(
-                          product.images.first, // Fixed: Changed from imageUrl to images.first
+                          product.images.first,
                           fit: BoxFit.cover,
                           width: double.infinity,
                           errorBuilder: (context, error, stackTrace) {
@@ -105,7 +105,7 @@ class ProductCard extends StatelessWidget {
               ),
             ),
             
-            // Product Info - Fixed with proper constraints
+            // Product Info
             Expanded(
               flex: 2,
               child: Padding(
@@ -113,7 +113,7 @@ class ProductCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Product Name - Fixed overflow
+                    // Product Name
                     Flexible(
                       child: Text(
                         product.name,
@@ -128,7 +128,7 @@ class ProductCard extends StatelessWidget {
                     
                     const SizedBox(height: 2),
                     
-                    // Brand if available - Fixed overflow
+                    // Brand if available
                     if (product.brand.isNotEmpty) 
                       Flexible(
                         child: Text(
@@ -144,52 +144,106 @@ class ProductCard extends StatelessWidget {
                     
                     const SizedBox(height: 4),
                     
-                    // Enhanced Price Display - Fixed: Changed from 'price' to 'sellingPrice'
-                    Row(
-                      children: [
-                        if (product.salePrice != null) ...[
-                          // Show original price with strikethrough
-                          Text(
-                            '₱${product.sellingPrice.toStringAsFixed(2)}',
-                            style: GoogleFonts.poppins(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                              decoration: TextDecoration.lineThrough,
+                    // Enhanced price display section in ProductCard
+                    // FIXED: Enhanced Price Display with better formatting
+                    Container(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(
+                        children: [
+                          if (product.salePrice != null) ...[
+                            // Original price with strikethrough
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[100],
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                '₱${product.sellingPrice.toStringAsFixed(2)}',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 11,
+                                  color: Colors.grey[600],
+                                  decoration: TextDecoration.lineThrough,
+                                  decorationColor: Colors.grey[600],
+                                  decorationThickness: 2,
+                                ),
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 4),
-                          // Show sale price
-                          Text(
-                            '₱${product.salePrice!.toStringAsFixed(2)}',
-                            style: GoogleFonts.poppins(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.red,
+                            const SizedBox(width: 6),
+                            // Sale price with highlight
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.red[50],
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: Colors.red[200]!, width: 1),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '₱',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.red[700],
+                                    ),
+                                  ),
+                                  Text(
+                                    product.salePrice!.toStringAsFixed(2),
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.red[700],
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                        ] else ...[
-                          // Show regular selling price
-                          Text(
-                            '₱${product.sellingPrice.toStringAsFixed(2)}', // Fixed: Changed from 'price' to 'sellingPrice'
-                            style: GoogleFonts.poppins(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: Theme.of(context).primaryColor,
+                          ] else ...[
+                            // Regular price with peso highlight
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).primaryColor.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    '₱',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: Theme.of(context).primaryColor,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 2),
+                                Text(
+                                  product.sellingPrice.toStringAsFixed(2),
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    color: Theme.of(context).primaryColor,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                     
                     const SizedBox(height: 2),
                     
-                    // Enhanced Stock and Category Display - Fixed: Changed from 'stock' to 'currentStock'
+                    // Stock and Category Display
                     Flexible(
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          // Category instead of condition (more relevant for thrift shopping)
+                          // Category
                           Flexible(
                             child: Text(
                               product.category,
@@ -202,7 +256,7 @@ class ProductCard extends StatelessWidget {
                             ),
                           ),
                           
-                          // Enhanced stock status indicator
+                          // Stock status indicator
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                             decoration: BoxDecoration(
@@ -247,15 +301,15 @@ class ProductCard extends StatelessWidget {
 
   // Helper method to get stock status color
   Color _getStockColor(Product product) {
-    if (product.currentStock <= 0) return Colors.red; // Fixed: Changed from 'stock' to 'currentStock'
-    if (product.isLowStock) return Colors.orange; // Use the enhanced model's isLowStock property
+    if (product.currentStock <= 0) return Colors.red;
+    if (product.isLowStock) return Colors.orange;
     return Colors.green;
   }
 
   // Helper method to get stock status text
   String _getStockText(Product product) {
-    if (product.currentStock <= 0) return 'Out'; // Fixed: Changed from 'stock' to 'currentStock'
-    if (product.isLowStock) return 'Low'; // Use the enhanced model's isLowStock property
+    if (product.currentStock <= 0) return 'Out';
+    if (product.isLowStock) return 'Low';
     return 'Stock';
   }
 }
