@@ -2,14 +2,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:haul/providers/cart_providers.dart';
-import '/models/product_model.dart';
+import '../../models/product.dart';
 import '/providers/wishlist_providers.dart';
 import 'package:provider/provider.dart';
 import '/models/wishlist_model.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'product_details_screen.dart';
 import '/utils/snackbar_helper.dart';
-//import '/providers/product_provider.dart';
 import '/main.dart';
 
 class MainHomeScreen extends StatefulWidget {
@@ -79,9 +78,16 @@ class _MainHomeScreenState extends State<MainHomeScreen> with RouteAware {
           .get();
 
       final fetchedProducts = snapshot.docs.map((doc) {
-        // Pass both the document ID and the data map
-        return Product.fromMap(doc.id, doc.data());
-      }).toList();
+        try {
+          // Updated to use enhanced Product model
+          final data = doc.data() as Map<String, dynamic>;
+          data['id'] = doc.id; // Add document ID to data
+          return Product.fromMap(data);
+        } catch (e) {
+          print('Error parsing product ${doc.id}: $e');
+          return null;
+        }
+      }).where((product) => product != null).cast<Product>().toList();
 
       setState(() {
         products = fetchedProducts;
@@ -111,76 +117,189 @@ class _MainHomeScreenState extends State<MainHomeScreen> with RouteAware {
     }
   }
 
+  Future<void> addDummyProducts() async {
+    final firestore = FirebaseFirestore.instance;
 
-Future<void> addDummyProducts() async {
-  final firestore = FirebaseFirestore.instance;
+    final dummyProducts = [
+      {
+        'name': 'Vintage Denim Jacket',
+        'description': 'Classic denim jacket with retro vibes.',
+        'sellingPrice': 49.99,
+        'costPrice': 35.00,
+        'category': 'outerwear',
+        'subcategory': 'jackets',
+        'brand': 'Levi\'s',
+        'sku': 'LEV-DJ-001',
+        'images': [imageUrl],
+        'variants': [],
+        'currentStock': 10,
+        'minimumStock': 2,
+        'maximumStock': 50,
+        'reorderPoint': 5,
+        'reorderQuantity': 20,
+        'location': 'Main Warehouse',
+        'reservedStock': 0,
+        'weight': 0.8,
+        'dimensions': {
+          'length': 65.0,
+          'width': 50.0,
+          'height': 2.0,
+          'unit': 'cm'
+        },
+        'status': 'active',
+        'isActive': true,
+        'totalSold': 0,
+        'viewCount': 0,
+        'turnoverRate': 0.0,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+        'sellerId': 'dummy_seller_1',
+      },
+      {
+        'name': 'Retro Leather Boots',
+        'description': 'Brown leather boots perfect for a rugged look.',
+        'sellingPrice': 65.50,
+        'costPrice': 45.00,
+        'category': 'footwear',
+        'subcategory': 'boots',
+        'brand': 'Dr. Martens',
+        'sku': 'DM-LB-002',
+        'images': [imageUrl],
+        'variants': [],
+        'currentStock': 5,
+        'minimumStock': 1,
+        'maximumStock': 30,
+        'reorderPoint': 3,
+        'reorderQuantity': 15,
+        'location': 'Main Warehouse',
+        'reservedStock': 0,
+        'weight': 1.2,
+        'dimensions': {
+          'length': 30.0,
+          'width': 15.0,
+          'height': 12.0,
+          'unit': 'cm'
+        },
+        'status': 'active',
+        'isActive': true,
+        'totalSold': 0,
+        'viewCount': 0,
+        'turnoverRate': 0.0,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+        'sellerId': 'dummy_seller_2',
+      },
+      {
+        'name': 'Graphic Band Tee',
+        'description': 'Vintage band tee from 90s rock tour.',
+        'sellingPrice': 25.00,
+        'costPrice': 15.00,
+        'category': 'tops',
+        'subcategory': 'tshirts',
+        'brand': 'Hanes',
+        'sku': 'HAN-BT-003',
+        'images': [imageUrl],
+        'variants': [],
+        'currentStock': 15,
+        'minimumStock': 3,
+        'maximumStock': 100,
+        'reorderPoint': 8,
+        'reorderQuantity': 50,
+        'location': 'Main Warehouse',
+        'reservedStock': 0,
+        'weight': 0.2,
+        'dimensions': {
+          'length': 70.0,
+          'width': 50.0,
+          'height': 1.0,
+          'unit': 'cm'
+        },
+        'status': 'active',
+        'isActive': true,
+        'totalSold': 0,
+        'viewCount': 0,
+        'turnoverRate': 0.0,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+        'sellerId': 'dummy_seller_3',
+      },
+      {
+        'name': 'Plaid Mini Skirt',
+        'description': 'Preppy red plaid skirt, perfect for layering.',
+        'sellingPrice': 22.00,
+        'costPrice': 12.00,
+        'category': 'bottoms',
+        'subcategory': 'skirts',
+        'brand': 'Zara',
+        'sku': 'ZAR-PS-004',
+        'images': [imageUrl],
+        'variants': [],
+        'currentStock': 8,
+        'minimumStock': 2,
+        'maximumStock': 40,
+        'reorderPoint': 5,
+        'reorderQuantity': 20,
+        'location': 'Main Warehouse',
+        'reservedStock': 0,
+        'weight': 0.3,
+        'dimensions': {
+          'length': 35.0,
+          'width': 30.0,
+          'height': 1.5,
+          'unit': 'cm'
+        },
+        'status': 'active',
+        'isActive': true,
+        'totalSold': 0,
+        'viewCount': 0,
+        'turnoverRate': 0.0,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+        'sellerId': 'dummy_seller_4',
+      },
+      {
+        'name': 'Oversized Hoodie',
+        'description': 'Comfy and cozy oversized hoodie.',
+        'sellingPrice': 30.00,
+        'costPrice': 20.00,
+        'category': 'outerwear',
+        'subcategory': 'hoodies',
+        'brand': 'Champion',
+        'sku': 'CHA-OH-005',
+        'images': [imageUrl],
+        'variants': [],
+        'currentStock': 12,
+        'minimumStock': 3,
+        'maximumStock': 60,
+        'reorderPoint': 7,
+        'reorderQuantity': 30,
+        'location': 'Main Warehouse',
+        'reservedStock': 0,
+        'weight': 0.6,
+        'dimensions': {
+          'length': 75.0,
+          'width': 60.0,
+          'height': 2.5,
+          'unit': 'cm'
+        },
+        'status': 'active',
+        'isActive': true,
+        'totalSold': 0,
+        'viewCount': 0,
+        'turnoverRate': 0.0,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+        'sellerId': 'dummy_seller_5',
+      },
+    ];
 
-  final dummyProducts = [
-    {
-      'id': firestore.collection('products').doc().id,
-      'name': 'Vintage Denim Jacket',
-      'description': 'Classic denim jacket with retro vibes.',
-      'price': 49.99,
-      'category': 'Outerwear',
-      'condition': 'Used - Like New',
-      'size': 'M',
-      'imageUrl': imageUrl, // Placeholder image URL
-      'brand': 'Levi\'s',
-    },
-    {
-      'id': firestore.collection('products').doc().id,
-      'name': 'Retro Leather Boots',
-      'description': 'Brown leather boots perfect for a rugged look.',
-      'price': 65.50,
-      'category': 'Footwear',
-      'condition': 'Used - Good',
-      'size': '9',
-      'imageUrl': imageUrl, // Placeholder image URL
-      'brand': 'Dr. Martens',
-    },
-    {
-      'id': firestore.collection('products').doc().id,
-      'name': 'Graphic Band Tee',
-      'description': 'Vintage band tee from 90s rock tour.',
-      'price': 25.00,
-      'category': 'Tops',
-      'condition': 'Used - Fair',
-      'size': 'L',
-      'imageUrl': imageUrl, // Placeholder image URL
-      'brand': 'Hanes',
-    },
-    {
-      'id': firestore.collection('products').doc().id,
-      'name': 'Plaid Mini Skirt',
-      'description': 'Preppy red plaid skirt, perfect for layering.',
-      'price': 22.00,
-      'category': 'Bottoms',
-      'condition': 'Used - Good',
-      'size': 'S',
-      'imageUrl': imageUrl, // Placeholder image URL
-      'brand': 'Zara',
-    },
-    {
-      'id': firestore.collection('products').doc().id,
-      'name': 'Oversized Hoodie',
-      'description': 'Comfy and cozy oversized hoodie.',
-      'price': 30.00,
-      'category': 'Outerwear',
-      'condition': 'Used - Excellent',
-      'size': 'XL',
-      'imageUrl': imageUrl, // Placeholder image URL
-      'brand': 'Champion',
-    },
-  ];
+    for (final product in dummyProducts) {
+      await firestore.collection('products').add(product);
+    }
 
-  for (final product in dummyProducts) {
-    await firestore.collection('products').doc(product['id'] as String).set(product);
+    print("Dummy products added.");
   }
 
-  print("Dummy products added.");
-}
-
-  
   Set<String> extractUniqueBrands(List<Product> products) {
     if (products.isEmpty) {
       return {};
@@ -188,15 +307,13 @@ Future<void> addDummyProducts() async {
     return products.map((product) => product.brand).toSet();
   }
 
-
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final bool isSmallScreen = size.width < 350;
 
     return SingleChildScrollView(
-      child: Expanded(
-        child: Padding(
+      child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -225,7 +342,6 @@ Future<void> addDummyProducts() async {
           ],
         ),
       ),
-      )
     );
   }
 
@@ -323,10 +439,10 @@ Future<void> addDummyProducts() async {
     final wishlistProvider = Provider.of<WishlistProvider>(context);
 
     if (products.isEmpty) {
-    return const Center(
-      child: CircularProgressIndicator(), // Show a loader if no products are available
-    );
-  }
+      return const Center(
+        child: CircularProgressIndicator(), // Show a loader if no products are available
+      );
+    }
 
     return GridView.builder(
       shrinkWrap: true,
@@ -372,15 +488,15 @@ Future<void> addDummyProducts() async {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Product Image
+                    // Product Image - Updated to use images array
                     ClipRRect(
                       borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
                       child: SizedBox(
                         height: itemHeight * 0.6, // Image takes 60% of card height
                         width: double.infinity,
-                        child: product.imageUrl.isNotEmpty
+                        child: product.images.isNotEmpty
                             ? Image.network(
-                                product.imageUrl,
+                                product.images.first, // Use first image from array
                                 fit: BoxFit.cover,
                                 errorBuilder: (context, error, stackTrace) {
                                   return Container(
@@ -421,8 +537,9 @@ Future<void> addDummyProducts() async {
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                             ),
+                            // Updated to use effectivePrice (shows sale price if available, otherwise selling price)
                             Text(
-                              '\$${product.price.toStringAsFixed(2)}',
+                              '₱${product.effectivePrice.toStringAsFixed(2)}',
                               style: GoogleFonts.poppins(
                                 fontSize: isSmallScreen ? 14 : 16,
                                 fontWeight: FontWeight.bold,
@@ -465,7 +582,8 @@ Future<void> addDummyProducts() async {
                         if (userId == null) {
                           SnackBarHelper.showSnackBar(
                             context,
-                            'Please log in to add items to your wishlist.', isError: true,
+                            'Please log in to add items to your wishlist.', 
+                            isError: true,
                           );
                           return;
                         }
@@ -483,14 +601,15 @@ Future<void> addDummyProducts() async {
                                 productId: product.id,
                                 userId: userId!,
                                 productName: product.name,
-                                productImage: product.imageUrl,
-                                productPrice: product.price,
+                                productImage: product.images.isNotEmpty ? product.images.first : '', // Updated
+                                productPrice: product.effectivePrice, // Updated to use effective price
                                 addedAt: DateTime.now(),
                               ),
                             );
                             SnackBarHelper.showSnackBar(
                               context,
-                              'Added to wishlist', isSuccess: true,
+                              'Added to wishlist', 
+                              isSuccess: true,
                             );
                           }
                         } catch (e) {

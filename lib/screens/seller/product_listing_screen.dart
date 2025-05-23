@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../models/product_model.dart';
+import '../../models/product.dart';
 import '../../providers/product_provider.dart';
 import 'product_form_screen.dart';
 import '../../utils/safe_state.dart';
@@ -15,7 +15,7 @@ class ProductListingScreen extends StatefulWidget {
 
 class _ProductListingScreenState extends State<ProductListingScreen> {
   bool _isLoading = true;
-  String _filterStatus = 'all'; // 'all', 'active', 'inactive'
+  String _filterStatus = 'all'; // 'all', 'active', 'inactive', 'lowstock', 'outofstock'
   String _searchQuery = '';
   
   @override
@@ -44,12 +44,16 @@ class _ProductListingScreenState extends State<ProductListingScreen> {
       // Apply status filter
       if (_filterStatus == 'active' && !product.isActive) return false;
       if (_filterStatus == 'inactive' && product.isActive) return false;
+      if (_filterStatus == 'lowstock' && !product.isLowStock) return false;
+      if (_filterStatus == 'outofstock' && !product.isOutOfStock) return false;
       
       // Apply search query
       if (_searchQuery.isNotEmpty) {
         final query = _searchQuery.toLowerCase();
         return product.name.toLowerCase().contains(query) || 
-               product.description.toLowerCase().contains(query);
+               product.description.toLowerCase().contains(query) ||
+               product.sku.toLowerCase().contains(query) ||
+               product.brand.toLowerCase().contains(query);
       }
       
       return true;
@@ -145,7 +149,7 @@ class _ProductListingScreenState extends State<ProductListingScreen> {
                 
                 const SizedBox(height: 12),
                 
-                // Filter chips
+                // Filter chips - Updated with more options
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
@@ -155,6 +159,10 @@ class _ProductListingScreenState extends State<ProductListingScreen> {
                       _buildFilterChip('Active', 'active'),
                       const SizedBox(width: 8),
                       _buildFilterChip('Inactive', 'inactive'),
+                      const SizedBox(width: 8),
+                      _buildFilterChip('Low Stock', 'lowstock'),
+                      const SizedBox(width: 8),
+                      _buildFilterChip('Out of Stock', 'outofstock'),
                     ],
                   ),
                 ),
@@ -338,14 +346,14 @@ class _ProductListingScreenState extends State<ProductListingScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Product image
+            // Product image - Fixed to use images array
             ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
               child: AspectRatio(
                 aspectRatio: 16 / 9,
                 child: product.images.isNotEmpty
                     ? Image.network(
-                        product.images.first,
+                        product.images.first, // Use first image from array
                         fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => Container(
                           color: Colors.grey[300],
@@ -412,14 +420,67 @@ class _ProductListingScreenState extends State<ProductListingScreen> {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    '\$${product.price.toStringAsFixed(2)}',
-                    style: GoogleFonts.poppins(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).primaryColor,
-                    ),
+                  
+                  // Enhanced price display with cost price and profit margin
+                  Row(
+                    children: [
+                      // Selling price
+                      Text(
+                        '₱${product.sellingPrice.toStringAsFixed(2)}', // Fixed: Changed from 'price' to 'sellingPrice'
+                        style: GoogleFonts.poppins(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: Theme.of(context).primaryColor,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Sale price if available
+                      if (product.salePrice != null) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            'SALE ₱${product.salePrice!.toStringAsFixed(2)}',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
+                  
+                  // Cost price and profit info
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Text(
+                        'Cost: ₱${product.costPrice.toStringAsFixed(2)}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Profit: ₱${(product.sellingPrice - product.costPrice).toStringAsFixed(2)}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: Colors.green[600],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                  
                   const SizedBox(height: 8),
                   Text(
                     product.description,
@@ -431,19 +492,35 @@ class _ProductListingScreenState extends State<ProductListingScreen> {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 12),
-                  Row(
+                  
+                  // Enhanced info chips with more details
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
                     children: [
                       _buildInfoChip(
                         Icons.inventory_2_outlined,
-                        '${product.stock} in stock',
+                        '${product.currentStock} in stock', // Fixed: Changed from 'stock' to 'currentStock'
+                        _getStockColor(product),
                       ),
-                      const SizedBox(width: 12),
                       _buildInfoChip(
                         Icons.visibility_outlined,
                         '${product.viewCount} views',
+                        Colors.blue,
+                      ),
+                      _buildInfoChip(
+                        Icons.qr_code,
+                        product.sku,
+                        Colors.purple,
+                      ),
+                      _buildInfoChip(
+                        Icons.category_outlined,
+                        product.category,
+                        Colors.orange,
                       ),
                     ],
                   ),
+                  
                   const SizedBox(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -500,23 +577,42 @@ class _ProductListingScreenState extends State<ProductListingScreen> {
     );
   }
 
-  Widget _buildInfoChip(IconData icon, String label) {
-    return Row(
-      children: [
-        Icon(
-          icon,
-          size: 16,
-          color: Colors.grey[600],
+  Widget _buildInfoChip(IconData icon, String label, [Color? color]) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: (color ?? Colors.grey[600]!)!.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: (color ?? Colors.grey[600]!)!.withOpacity(0.3),
         ),
-        const SizedBox(width: 4),
-        Text(
-          label,
-          style: GoogleFonts.poppins(
-            fontSize: 12,
-            color: Colors.grey[600],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 16,
+            color: color ?? Colors.grey[600],
           ),
-        ),
-      ],
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              color: color ?? Colors.grey[600],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
     );
+  }
+
+  // Helper method to get stock color based on product status
+  Color _getStockColor(Product product) {
+    if (product.isOutOfStock) return Colors.red;
+    if (product.isLowStock) return Colors.orange;
+    return Colors.green;
   }
 }

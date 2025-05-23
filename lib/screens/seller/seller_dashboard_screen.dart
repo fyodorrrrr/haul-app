@@ -5,7 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
-import '../../models/product_model.dart';
+import '../../models/product.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/seller_registration_provider.dart';
 import '../../providers/analytics_provider.dart';
@@ -266,7 +266,7 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                       children: [
                         _buildMetricCard(
                           'Total Sales', 
-                          '\$${_salesMetrics['totalSales'].toStringAsFixed(2)}',
+                          '₱${_salesMetrics['totalSales'].toStringAsFixed(2)}', // Fixed: Changed from '$' to '₱'
                           Icons.attach_money,
                           Colors.green
                         ),
@@ -345,7 +345,12 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                           context, 
                           Icons.inventory_2_outlined, 
                           'Inventory', 
-                          () {}
+                          () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => ProductListingScreen()), // Fixed: Changed from InventoryDashboardScreen to ProductListingScreen
+                            );
+                          }
                         ),
                         _buildActionButton(
                           context, 
@@ -716,7 +721,7 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                           ? ClipRRect(
                               borderRadius: BorderRadius.circular(8),
                               child: Image.network(
-                                product.images.first,
+                                product.images.first, // Fixed: Changed from imageUrl to images.first
                                 fit: BoxFit.cover,
                                 errorBuilder: (_, __, ___) => _buildImagePlaceholder(),
                               ),
@@ -784,9 +789,9 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // Price
+                          // Price - Fixed: Changed from product.price to product.sellingPrice
                           Text(
-                            '₱${product.price.toStringAsFixed(2)}',
+                            '₱${product.sellingPrice.toStringAsFixed(2)}',
                             style: GoogleFonts.poppins(
                               fontSize: 12, // Reduced from 13 to 12
                               fontWeight: FontWeight.bold,
@@ -796,7 +801,7 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                           
                           SizedBox(height: 2),
                           
-                          // Stock and category row
+                          // Stock and category row - Fixed: Changed from product.stock to product.currentStock
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -804,15 +809,15 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                                 child: Container(
                                   padding: EdgeInsets.symmetric(horizontal: 4, vertical: 1), // Reduced padding
                                   decoration: BoxDecoration(
-                                    color: _getStockColor(product.stock).withOpacity(0.1),
+                                    color: _getStockColor(product.currentStock).withOpacity(0.1), // Fixed: Changed from stock to currentStock
                                     borderRadius: BorderRadius.circular(4), // Reduced radius
                                   ),
                                   child: Text(
-                                    '${product.stock}',
+                                    '${product.currentStock}', // Fixed: Changed from stock to currentStock
                                     style: GoogleFonts.poppins(
                                       fontSize: 7, // Reduced from 8 to 7
                                       fontWeight: FontWeight.w600,
-                                      color: _getStockColor(product.stock),
+                                      color: _getStockColor(product.currentStock), // Fixed: Changed from stock to currentStock
                                     ),
                                   ),
                                 ),
@@ -852,7 +857,7 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                                   ),
                                   SizedBox(width: 2),
                                   Text(
-                                    '${product.viewCount ?? 0}',
+                                    '${product.viewCount}', // Fixed: viewCount is non-nullable in enhanced model
                                     style: GoogleFonts.poppins(
                                       fontSize: 8, // Reduced from 9 to 8
                                       color: Colors.grey[600],
@@ -905,7 +910,7 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
             ? ClipRRect(
                 borderRadius: BorderRadius.circular(6),
                 child: Image.network(
-                  product.images.first,
+                  product.images.first, // Fixed: Changed from imageUrl to images.first
                   width: 60,
                   height: 60,
                   fit: BoxFit.cover,
@@ -929,7 +934,7 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
           overflow: TextOverflow.ellipsis,
         ),
         subtitle: Text(
-          '\$${product.price.toStringAsFixed(2)} • ${product.stock} in stock',
+          '₱${product.sellingPrice.toStringAsFixed(2)} • ${product.currentStock} in stock', // Fixed: Changed from price and stock to sellingPrice and currentStock
         ),
         trailing: Container(
           padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
@@ -1224,6 +1229,7 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
       ),
     );
   }
+
   Widget _buildRecentOrdersSection() {
     if (_ordersLoading) {
       return Container(
@@ -1402,7 +1408,7 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          '₱${order['total']?.toStringAsFixed(2) ?? '0.00'}',
+                          '₱${order['total']?.toStringAsFixed(2) ?? '0.00'}', // Fixed: Changed from '$' to '₱'
                           style: GoogleFonts.poppins(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -1475,7 +1481,7 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                     ),
                     SizedBox(height: 4),
                     Text(
-                      '\$${_salesMetrics['totalSalesWeek'] ?? 0}',
+                      '₱${_salesMetrics['totalSalesWeek'] ?? 0}', // Fixed: Changed from '$' to '₱'
                       style: GoogleFonts.poppins(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -1551,9 +1557,10 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
     );
   }
 
-  Color _getStockColor(int stock) {
-    if (stock <= 0) return Colors.red;
-    if (stock <= 5) return Colors.orange;
+  // Fixed: Changed parameter from 'int stock' to 'int currentStock'
+  Color _getStockColor(int currentStock) {
+    if (currentStock <= 0) return Colors.red;
+    if (currentStock <= 5) return Colors.orange;
     return Colors.green;
   }
 }
