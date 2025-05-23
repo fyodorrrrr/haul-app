@@ -99,41 +99,175 @@ class Product {
 
   factory Product.fromMap(Map<String, dynamic> map) {
     return Product(
-      id: map['id'] ?? '',
-      name: map['name'] ?? '',
-      description: map['description'] ?? '',
-      sku: map['sku'] ?? '',
-      barcode: map['barcode'],
-      category: map['category'] ?? '',
-      subcategory: map['subcategory'] ?? '',
-      brand: map['brand'] ?? '',
-      images: List<String>.from(map['images'] ?? []),
-      variants: (map['variants'] as List?)?.map((v) => ProductVariant.fromMap(v)).toList() ?? [],
-      currentStock: map['currentStock'] ?? 0,
-      minimumStock: map['minimumStock'] ?? 5,
-      maximumStock: map['maximumStock'] ?? 1000,
-      reorderPoint: map['reorderPoint'] ?? 10,
-      reorderQuantity: map['reorderQuantity'] ?? 50,
-      location: map['location'] ?? 'Main Warehouse',
-      reservedStock: map['reservedStock'] ?? 0,
-      costPrice: (map['costPrice'] ?? 0.0).toDouble(),
-      sellingPrice: (map['sellingPrice'] ?? 0.0).toDouble(),
-      salePrice: map['salePrice']?.toDouble(),
-      taxRate: (map['taxRate'] ?? 0.0).toDouble(),
-      bulkPricing: (map['bulkPricing'] as List?)?.map((b) => BulkPricing.fromMap(b)).toList() ?? [],
-      weight: (map['weight'] ?? 0.0).toDouble(),
-      dimensions: ProductDimensions.fromMap(map['dimensions'] ?? {}),
-      status: ProductStatus.values.firstWhere((s) => s.name == map['status'], orElse: () => ProductStatus.active),
-      isActive: map['isActive'] ?? true,
-      expiryDate: map['expiryDate'] != null ? DateTime.parse(map['expiryDate']) : null,
-      totalSold: map['totalSold'] ?? 0,
-      viewCount: map['viewCount'] ?? 0,
-      turnoverRate: (map['turnoverRate'] ?? 0.0).toDouble(),
-      createdAt: DateTime.parse(map['createdAt']),
-      updatedAt: DateTime.parse(map['updatedAt']),
-      sellerId: map['sellerId'] ?? '',
-      condition: map['condition'] ?? 'new', // Default to 'new' if not provided
+      id: map['id']?.toString() ?? '',
+      name: map['name']?.toString() ?? '',
+      description: map['description']?.toString() ?? '',
+      sku: map['sku']?.toString() ?? 'SKU-${DateTime.now().millisecondsSinceEpoch}',
+      barcode: map['barcode']?.toString(),
+      category: map['category']?.toString() ?? '',
+      subcategory: map['subcategory']?.toString() ?? map['category']?.toString() ?? '',
+      brand: map['brand']?.toString() ?? '',
+      
+      // Handle both old and new image fields
+      images: _toStringList(map['images'] ?? (map['imageUrl'] != null ? [map['imageUrl']] : [])),
+      
+      // FIXED: Add missing required parameters with defaults
+      variants: _toVariantsList(map['variants'] ?? []),
+      
+      // Handle both old and new stock fields
+      currentStock: _toInt(map['currentStock'] ?? map['stock'] ?? 0),
+      minimumStock: _toInt(map['minimumStock'] ?? 5),
+      maximumStock: _toInt(map['maximumStock'] ?? 1000),
+      reorderPoint: _toInt(map['reorderPoint'] ?? 10),
+      reorderQuantity: _toInt(map['reorderQuantity'] ?? 50),
+      location: map['location']?.toString() ?? 'Main Warehouse',
+      reservedStock: _toInt(map['reservedStock'] ?? 0),
+      
+      // Handle both old and new price fields
+      costPrice: _toDouble(map['costPrice'] ?? (map['sellingPrice'] ?? map['price'] ?? 0.0) * 0.7),
+      sellingPrice: _toDouble(map['sellingPrice'] ?? map['price'] ?? 0.0),
+      salePrice: map['salePrice'] != null ? _toDouble(map['salePrice']) : null,
+      taxRate: _toDouble(map['taxRate'] ?? 0.0),
+      bulkPricing: _toBulkPricingList(map['bulkPricing'] ?? []),
+      
+      // Product details
+      weight: _toDouble(map['weight'] ?? 0.0),
+      dimensions: _toDimensions(map['dimensions']), // FIXED: Add dimensions parameter
+      status: _toProductStatus(map['status']), // FIXED: Add status parameter
+      isActive: map['isActive'] == true,
+      expiryDate: _toOptionalDateTime(map['expiryDate']),
+      
+      // Analytics
+      totalSold: _toInt(map['totalSold'] ?? 0),
+      viewCount: _toInt(map['viewCount'] ?? 0),
+      turnoverRate: _toDouble(map['turnoverRate'] ?? 0.0),
+      
+      // Dates
+      createdAt: _toDateTime(map['createdAt']),
+      updatedAt: _toDateTime(map['updatedAt']),
+      
+      sellerId: map['sellerId']?.toString() ?? '',
+      condition: map['condition']?.toString() ?? 'new',
     );
+  }
+
+  // FIXED: Add missing helper methods
+  static List<ProductVariant> _toVariantsList(dynamic value) {
+    if (value == null) return [];
+    if (value is List) {
+      return value.map((v) {
+        if (v is Map<String, dynamic>) {
+          return ProductVariant.fromMap(v);
+        }
+        return ProductVariant(
+          id: '',
+          name: '',
+          value: '',
+          stock: 0,
+        );
+      }).toList();
+    }
+    return [];
+  }
+
+  static ProductDimensions _toDimensions(dynamic value) {
+    if (value == null) return ProductDimensions();
+    if (value is Map<String, dynamic>) {
+      return ProductDimensions.fromMap(value);
+    }
+    return ProductDimensions(); // Return default dimensions
+  }
+
+  static ProductStatus _toProductStatus(dynamic value) {
+    if (value == null) return ProductStatus.active;
+    if (value is String) {
+      switch (value.toLowerCase()) {
+        case 'active':
+          return ProductStatus.active;
+        case 'inactive':
+          return ProductStatus.inactive;
+        case 'discontinued':
+          return ProductStatus.discontinued;
+        case 'outofstock':
+          return ProductStatus.outOfStock;
+        case 'lowstock':
+          return ProductStatus.lowStock;
+        default:
+          return ProductStatus.active;
+      }
+    }
+    return ProductStatus.active;
+  }
+
+  static List<BulkPricing> _toBulkPricingList(dynamic value) {
+    if (value == null) return [];
+    if (value is List) {
+      return value.map((b) {
+        if (b is Map<String, dynamic>) {
+          return BulkPricing.fromMap(b);
+        }
+        return BulkPricing(
+          minQuantity: 1,
+          price: 0.0,
+          discountPercentage: 0.0,
+        );
+      }).toList();
+    }
+    return [];
+  }
+
+  static DateTime? _toOptionalDateTime(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    if (value is Timestamp) return value.toDate();
+    if (value is String) {
+      try {
+        return DateTime.parse(value);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  // Existing helper methods (keep these)
+  static double _toDouble(dynamic value) {
+    if (value == null) return 0.0;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? 0.0;
+    return 0.0;
+  }
+
+  static int _toInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is double) return value.round();
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
+  }
+
+  static List<String> _toStringList(dynamic value) {
+    if (value == null) return [];
+    if (value is List) {
+      return value.map((e) => e?.toString() ?? '').where((s) => s.isNotEmpty).toList();
+    }
+    if (value is String && value.isNotEmpty) return [value];
+    return [];
+  }
+
+  static DateTime _toDateTime(dynamic value) {
+    if (value == null) return DateTime.now();
+    if (value is DateTime) return value;
+    if (value is Timestamp) return value.toDate();
+    if (value is String) {
+      try {
+        return DateTime.parse(value);
+      } catch (e) {
+        return DateTime.now();
+      }
+    }
+    return DateTime.now();
   }
 
   Map<String, dynamic> toMap() {

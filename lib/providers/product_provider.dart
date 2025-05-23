@@ -48,6 +48,22 @@ class ProductProvider extends ChangeNotifier {
               print("Processing product: ${doc.id}"); // Debug log
               final data = doc.data() as Map<String, dynamic>;
               data['id'] = doc.id; // Add document ID to data
+              
+              // FIXED: Convert Timestamps to proper format before creating Product
+              if (data['createdAt'] is Timestamp) {
+                data['createdAt'] = (data['createdAt'] as Timestamp).toDate();
+              }
+              if (data['updatedAt'] is Timestamp) {
+                data['updatedAt'] = (data['updatedAt'] as Timestamp).toDate();
+              }
+              
+              // Handle other potential Timestamp fields
+              data.forEach((key, value) {
+                if (value is Timestamp) {
+                  data[key] = value.toDate();
+                }
+              });
+              
               return Product.fromMap(data);
             } catch (e) {
               print("Error processing product ${doc.id}: $e"); // Debug log
