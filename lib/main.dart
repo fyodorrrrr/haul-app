@@ -20,6 +20,7 @@ import 'providers/address_provider.dart';
 import 'providers/order_provider.dart';
 import 'providers/analytics_provider.dart';
 import 'providers/inventory_provider.dart';
+import 'screens/buyer/login_screen.dart';
 
 final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
 
@@ -74,6 +75,9 @@ class MainApp extends StatelessWidget {
         title: 'Haul',
         theme: AppTheme.lightTheme(),
         home: const WelcomeScreen(),
+        routes: {
+          '/login': (context) => LoginScreen(), // Add this line
+        },
         debugShowCheckedModeBanner: false,
         navigatorObservers: [routeObserver],
       ),
