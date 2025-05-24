@@ -23,18 +23,27 @@ class _ExploreScreenState extends State<ExploreScreen> {
   bool _isLoading = true;
   String? userId;
   Set<String> _wishlistProductIds = {};
+  bool _isDisposed = false; // ✅ Add disposal tracking
 
   @override
   void initState() {
     super.initState();
-    controller = CardSwiperController();
+    _initializeController();
     _fetchUserId();
     _loadFeaturedProducts();
   }
 
+  // ✅ Add controller initialization method
+  void _initializeController() {
+    controller?.dispose();
+    controller = CardSwiperController();
+  }
+
   @override
   void dispose() {
+    _isDisposed = true; // ✅ Mark as disposed
     controller?.dispose();
+    controller = null; // ✅ Set to null after disposal
     super.dispose();
   }
 
@@ -66,6 +75,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   Future<void> _loadFeaturedProducts() async {
+    if (_isDisposed) return; // ✅ Check if disposed
+
     setState(() {
       _isLoading = true;
       _featuredProducts.clear();
@@ -95,17 +106,22 @@ class _ExploreScreenState extends State<ExploreScreen> {
           .where((product) => !_wishlistProductIds.contains(product.id))
           .toList();
 
-      setState(() {
-        _featuredProducts = products;
-        _isLoading = false;
-      });
+      if (!_isDisposed && mounted) { // ✅ Check before setState
+        setState(() {
+          _featuredProducts = products;
+          _isLoading = false;
+        });
 
-      if (products.isNotEmpty && controller == null) {
-        controller = CardSwiperController();
+        // ✅ Safely initialize controller if needed
+        if (products.isNotEmpty && controller == null) {
+          _initializeController();
+        }
       }
     } catch (e) {
       print('Error loading products: $e');
-      setState(() => _isLoading = false);
+      if (!_isDisposed && mounted) { // ✅ Check before setState
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -146,6 +162,40 @@ class _ExploreScreenState extends State<ExploreScreen> {
       }
     } catch (e) {
       print('Error loading more products: $e');
+    }
+  }
+
+  // ✅ Add refresh method for pull-to-refresh
+  Future<void> _refreshProducts() async {
+    if (_isDisposed) return; // ✅ Check if disposed
+    
+    print('Refreshing products...');
+    
+    // Safely dispose and recreate controller
+    try {
+      controller?.dispose();
+    } catch (e) {
+      print('Error disposing controller: $e');
+    }
+    
+    setState(() {
+      _cardSwiperKey = UniqueKey();
+      controller = CardSwiperController(); // ✅ Create new controller
+    });
+    
+    // Reload wishlist first
+    await _loadWishlistItems();
+    
+    // Then reload products
+    await _loadFeaturedProducts();
+    
+    // Show success message
+    if (mounted && !_isDisposed) {
+      SnackBarHelper.showSnackBar(
+        context,
+        '🔄 Fresh products loaded!',
+        isSuccess: true,
+      );
     }
   }
 
@@ -247,7 +297,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
             Expanded(
               child: Stack(
                 children: [
-                  // Main Content - Card Swiper
+                  // Main Content - Card Swiper with Pull-to-Refresh
                   Positioned.fill(
                     child: _isLoading 
                       ? Center(
@@ -274,28 +324,54 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         )
                       : _featuredProducts.isEmpty
                         ? _buildEmptyState()
-                        : Padding(
-                            padding: EdgeInsets.only(
-                              left: 4, // ✅ Reduced from 16 for maximum card size
-                              right: 4, // ✅ Reduced from 16 for maximum card size
-                              top: 4, // ✅ Reduced from 16 for maximum card size
-                              bottom: 70, // ✅ Reduced from 100 for maximum card size
-                            ),
-                            child: CardSwiper(
-                              key: _cardSwiperKey,
-                              controller: controller,
-                              cardsCount: _featuredProducts.length,
-                              cardBuilder: (BuildContext context, int index) {
-                                return _buildImprovedProductCard(context, _featuredProducts[index]);
-                              },
-                              onSwipe: (previousIndex, currentIndex, direction) {
-                                _handleSwipe(previousIndex, currentIndex, direction);
-                                return true;
-                              },
-                              threshold: 50,
-                              maxAngle: 12,
-                              isLoop: false,
-                              scale: 0.98, // ✅ Increased from 0.92 for maximum card size
+                        : RefreshIndicator( // ✅ Add RefreshIndicator wrapper
+                            onRefresh: _refreshProducts, // ✅ Add refresh method
+                            color: Theme.of(context).primaryColor,
+                            backgroundColor: Colors.white,
+                            strokeWidth: 3,
+                            displacement: 40,
+                            child: Stack(
+                              children: [
+                                // ✅ Add invisible ListView for pull-to-refresh to work
+                                ListView(
+                                  children: [
+                                    Container(
+                                      height: MediaQuery.of(context).size.height - 200,
+                                      child: Text(''), // Empty container to enable pull gesture
+                                    ),
+                                  ],
+                                ),
+                                // ✅ Card Swiper on top
+                                Padding(
+                                  padding: EdgeInsets.only(
+                                    left: 4,
+                                    right: 4,
+                                    top: 4,
+                                    bottom: 70,
+                                  ),
+                                  child: GestureDetector( // ✅ Add tap-to-refresh for empty state
+                                    onTap: _featuredProducts.isEmpty ? _refreshProducts : null,
+                                    child: CardSwiper(
+                                      key: _cardSwiperKey,
+                                      controller: controller, // ✅ Can be null safely
+                                      cardsCount: _featuredProducts.length,
+                                      cardBuilder: (BuildContext context, int index) {
+                                        return _buildImprovedProductCard(context, _featuredProducts[index]);
+                                      },
+                                      onSwipe: (previousIndex, currentIndex, direction) {
+                                        if (!_isDisposed) { // ✅ Check if not disposed
+                                          _handleSwipe(previousIndex, currentIndex, direction);
+                                        }
+                                        return true;
+                                      },
+                                      threshold: 50,
+                                      maxAngle: 12,
+                                      isLoop: false,
+                                      scale: 0.98,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                   ),
@@ -308,40 +384,22 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        // Pass/Dislike button - Even smaller
+                        // Pass/Dislike button - Fixed
                         _buildActionButton(
                           icon: Icons.close,
                           color: Colors.red,
-                          size: 44, // ✅ Reduced from 64 to 44
+                          size: 44,
                           onPressed: () {
-                            if (!_isLoading && _featuredProducts.isNotEmpty && controller != null) {
-                              try {
-                                controller!.swipeLeft();
-                              } catch (e) {
-                                print('Error swiping left: $e');
-                                if (_featuredProducts.isNotEmpty) {
-                                  _handleSwipe(0, 1, CardSwiperDirection.left);
-                                }
-                              }
-                            }
+                            _safeSwipeLeft(); // ✅ Use safe swipe method
                           },
                         ),
-                        // Like/Add to wishlist button - Even smaller
+                        // Like/Add to wishlist button - Fixed
                         _buildActionButton(
                           icon: Icons.favorite,
                           color: Colors.green,
-                          size: 44, // ✅ Reduced from 64 to 44
+                          size: 44,
                           onPressed: () {
-                            if (!_isLoading && _featuredProducts.isNotEmpty && controller != null) {
-                              try {
-                                controller!.swipeRight();
-                              } catch (e) {
-                                print('Error swiping right: $e');
-                                if (_featuredProducts.isNotEmpty) {
-                                  _handleSwipe(0, 1, CardSwiperDirection.right);
-                                }
-                              }
-                            }
+                            _safeSwipeRight(); // ✅ Use safe swipe method
                           },
                         ),
                       ],
@@ -867,7 +925,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   // Handle card swipe actions
   bool _handleSwipe(int previousIndex, int? currentIndex, CardSwiperDirection direction) {
-    if (previousIndex >= _featuredProducts.length || previousIndex < 0) {
+    if (_isDisposed || previousIndex >= _featuredProducts.length || previousIndex < 0) {
       return false;
     }
     
@@ -877,6 +935,20 @@ class _ExploreScreenState extends State<ExploreScreen> {
       _addToWishlist(product);
     } else if (direction == CardSwiperDirection.left) {
       print('Passed on: ${product.name}');
+    }
+    
+    // ✅ Check if this was the last card
+    if (currentIndex != null && currentIndex >= _featuredProducts.length) {
+      // Show end message and allow refresh
+      Future.delayed(Duration(milliseconds: 500), () {
+        if (mounted && !_isDisposed) { // ✅ Check both mounted and disposed
+          SnackBarHelper.showSnackBar(
+            context,
+            '🎉 All done! Pull down to refresh for more items.',
+            isSuccess: true,
+          );
+        }
+      });
     }
     
     // Load more products when running low
@@ -935,62 +1007,140 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   // Enhanced empty state
   Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+    return RefreshIndicator( // ✅ Add RefreshIndicator to empty state
+      onRefresh: _refreshProducts,
+      color: Theme.of(context).primaryColor,
+      child: ListView( // ✅ Wrap in ListView for RefreshIndicator
         children: [
           Container(
-            padding: EdgeInsets.all(32),
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.explore_outlined,
-              size: 80,
-              color: Colors.grey[400],
-            ),
-          ),
-          
-          SizedBox(height: 32),
-          
-          Text(
-            'No more discoveries!',
-            style: GoogleFonts.poppins(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey[800],
-            ),
-          ),
-          
-          SizedBox(height: 12),
-          
-          Text(
-            'You\'ve seen all available items.\nCheck back later for new finds.',
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              color: Colors.grey[600],
-              height: 1.5,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          
-          SizedBox(height: 40),
-          
-          ElevatedButton.icon(
-            onPressed: () {
-              _loadFeaturedProducts();
-            },
-            icon: Icon(Icons.refresh),
-            label: Text('Refresh'),
-            style: ElevatedButton.styleFrom(
-              padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-              backgroundColor: Theme.of(context).primaryColor,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(25),
+            height: MediaQuery.of(context).size.height - 200,
+            child: GestureDetector( // ✅ Add tap-to-refresh gesture
+              onTap: _refreshProducts,
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(32),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.explore_outlined,
+                        size: 80,
+                        color: Colors.grey[400],
+                      ),
+                    ),
+                    
+                    SizedBox(height: 32),
+                    
+                    Text(
+                      'No more discoveries!',
+                      style: GoogleFonts.poppins(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[800],
+                      ),
+                    ),
+                    
+                    SizedBox(height: 12),
+                    
+                    Text(
+                      'You\'ve seen all available items.\nPull down or tap to refresh for new finds.',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        color: Colors.grey[600],
+                        height: 1.5,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    
+                    SizedBox(height: 24), // ✅ Reduced space
+                    
+                    // ✅ Add pull down hint
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).primaryColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: Theme.of(context).primaryColor.withOpacity(0.2),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.swipe_down,
+                            color: Theme.of(context).primaryColor,
+                            size: 16,
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'Pull down to refresh',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: Theme.of(context).primaryColor,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    SizedBox(height: 16),
+                    
+                    // ✅ Add tap hint
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: Colors.orange.withOpacity(0.2),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.touch_app,
+                            color: Colors.orange,
+                            size: 16,
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'Tap anywhere to refresh',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: Colors.orange,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    SizedBox(height: 32),
+                    
+                    ElevatedButton.icon(
+                      onPressed: _refreshProducts, // ✅ Use the new refresh method
+                      icon: Icon(Icons.refresh),
+                      label: Text('Refresh Now'),
+                      style: ElevatedButton.styleFrom(
+                        padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                        backgroundColor: Theme.of(context).primaryColor,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(25),
+                        ),
+                        elevation: 4,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              elevation: 4,
             ),
           ),
         ],
@@ -1000,16 +1150,55 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   // Helper method to update wishlist IDs when changed
   void _updateWishlistIds(WishlistProvider provider) {
+    if (_isDisposed) return; // ✅ Check if disposed
+
     final newIds = provider.wishlist.map((item) => item.productId).toSet();
     
     if (_wishlistProductIds.length != newIds.length || 
         !_wishlistProductIds.containsAll(newIds)) {
-      setState(() {
-        _wishlistProductIds = newIds;
-      });
       
-      if (_wishlistProductIds.length < newIds.length) {
-        _loadFeaturedProducts();
+      if (mounted) { // ✅ Check if mounted
+        setState(() {
+          _wishlistProductIds = newIds;
+        });
+        
+        if (_wishlistProductIds.length < newIds.length) {
+          _loadFeaturedProducts();
+        }
+      }
+    }
+  }
+
+  // Safe swipe left method
+  void _safeSwipeLeft() {
+    if (_isDisposed || _isLoading || _featuredProducts.isEmpty) return;
+    
+    if (controller != null) {
+      try {
+        controller!.swipeLeft();
+      } catch (e) {
+        print('Error swiping left: $e');
+        // Fallback: manually handle swipe
+        if (_featuredProducts.isNotEmpty) {
+          _handleSwipe(0, 1, CardSwiperDirection.left);
+        }
+      }
+    }
+  }
+
+  // Safe swipe right method
+  void _safeSwipeRight() {
+    if (_isDisposed || _isLoading || _featuredProducts.isEmpty) return;
+    
+    if (controller != null) {
+      try {
+        controller!.swipeRight();
+      } catch (e) {
+        print('Error swiping right: $e');
+        // Fallback: manually handle swipe
+        if (_featuredProducts.isNotEmpty) {
+          _handleSwipe(0, 1, CardSwiperDirection.right);
+        }
       }
     }
   }
