@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:haul/screens/seller/inventory_dashboard_screen.dart';
+import 'package:haul/screens/seller/inventory_list_screen.dart';
 import 'package:haul/screens/seller/seller_profile_navigation_screen.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
@@ -67,6 +69,15 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
           print('Analytics loading completed');
         }).catchError((error) {
           print('Analytics loading failed: $error');
+        });
+        
+        // ADD THIS: Load products when dashboard opens
+        final productProvider = Provider.of<ProductProvider>(context, listen: false);
+        print('Loading products from dashboard...');
+        productProvider.loadProducts().then((_) {
+          print('Products loading completed');
+        }).catchError((error) {
+          print('Products loading failed: $error');
         });
       }
     });
@@ -349,7 +360,7 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                           () {
                             Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (_) => ProductListingScreen()), // Fixed: Changed from InventoryDashboardScreen to ProductListingScreen
+                              MaterialPageRoute(builder: (_) => InventoryDashboardScreen()),
                             );
                           }
                         ),
@@ -383,16 +394,6 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
               ),
             ),
           ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => ProductFormScreen()),
-          );
-        },
-        icon: Icon(Icons.add),
-        label: Text('Add Product'),
-      ),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         currentIndex: 0,
@@ -620,22 +621,6 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
             textAlign: TextAlign.center,
           ),
           SizedBox(height: 20),
-          ElevatedButton.icon(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => ProductFormScreen()),
-              );
-            },
-            icon: Icon(Icons.add, size: 18),
-            label: Text('Add Your First Product'),
-            style: ElevatedButton.styleFrom(
-              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -660,29 +645,6 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
             },
           ),
         ),
-        if (products.length > 6)
-          Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => ProductListingScreen()),
-                  );
-                },
-                icon: Icon(Icons.visibility_outlined, size: 16),
-                label: Text('View All ${products.length} Products'),
-                style: OutlinedButton.styleFrom(
-                  padding: EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
-            ),
-          ),
       ],
     );
   }
