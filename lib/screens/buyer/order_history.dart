@@ -315,6 +315,9 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
     final createdAt = (order['createdAt'] as Timestamp?)?.toDate();
     final shippingAddress = order['shippingAddress'] as Map<String, dynamic>?;
     final status = order['status'] ?? 'pending';
+    
+    // Only allow cancellation for orders that aren't delivered or already cancelled
+    final bool canCancel = !['delivered', 'cancelled'].contains(status.toLowerCase());
 
     showDialog(
       context: context,
@@ -514,28 +517,144 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                   ],
                 ),
                 SizedBox(height: 24),
-                // Close button
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).primaryColor,
-                      foregroundColor: Colors.white,
-                      padding: EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                
+                // Action buttons row
+                Row(
+                  children: [
+                    // Cancel Order button - only show if order can be cancelled
+                    if (canCancel)
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => _showCancelConfirmation(context, order),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.red,
+                            side: BorderSide(color: Colors.red),
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: Text('Cancel Order'),
+                        ),
+                      ),
+                  
+                    // Add spacing between buttons if we have both
+                    if (canCancel)
+                      SizedBox(width: 12),
+                  
+                    // Close button
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Theme.of(context).primaryColor,
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: Text('Close'),
                       ),
                     ),
-                    child: Text('Close'),
-                  ),
+                  ],
                 ),
               ],
             ),
           ),
         ),
+        ),
+      );
+  }
+
+  // Add this new method to show a confirmation dialog before cancelling
+  void _showCancelConfirmation(BuildContext context, Map<String, dynamic> order) {
+    final orderId = order['documentId'];
+    final orderNumber = order['orderNumber'] ?? orderId.substring(0, 8);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Cancel Order'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Are you sure you want to cancel this order?'),
+            SizedBox(height: 12),
+            Text(
+              'Order #$orderNumber',
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'This action cannot be undone.',
+              style: TextStyle(
+                color: Colors.red[700],
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('No, Keep Order'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              // Close the confirmation dialog
+              Navigator.pop(context);
+              // Close the order details dialog
+              Navigator.pop(context);
+              // Cancel the order
+              _cancelOrder(orderId);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: Text('Yes, Cancel Order'),
+          ),
+        ],
       ),
     );
+  }
+
+  // Add this method to handle the actual order cancellation
+  Future<void> _cancelOrder(String orderId) async {
+    try {
+      setState(() => _isLoading = true);
+      
+      // Update order status to cancelled in Firestore
+      await FirebaseFirestore.instance
+          .collection('orders')
+          .doc(orderId)
+          .update({'status': 'cancelled'});
+      
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Order cancelled successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      
+      // Refresh orders list
+      await _fetchBuyerOrders();
+      // _fetchBuyerOrders already sets _isLoading = false when it completes
+    } catch (e) {
+      print('Error cancelling order: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to cancel order: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      setState(() => _isLoading = false);
+    }
   }
 
   void _copyOrderId(String orderId) {
