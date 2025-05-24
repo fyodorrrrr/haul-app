@@ -15,6 +15,7 @@ import '/screens/seller/seller_verification_screen.dart';
 import '/screens/buyer/saved_addresses_screen.dart';
 import '/screens/seller/seller_dashboard_screen.dart';
 import '/screens/buyer/order_history.dart';
+import '/screens/buyer/package_tracking_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final UserProfile userProfile;
@@ -123,7 +124,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _buildMenuItem(
               icon: Icons.local_shipping_outlined, 
               title: 'Track Package',
-              onTap: () {},
+              subtitle: 'Monitor your order deliveries',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PackageTrackingScreen()),
+                );
+              },
             ),
             _buildMenuItem(
               icon: Icons.undo, 

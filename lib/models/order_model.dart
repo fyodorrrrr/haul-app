@@ -12,6 +12,10 @@ class OrderModel {
   final String? paymentMethod;
   final String? trackingNumber;
   
+  // ADD THESE NEW OPTIONAL FIELDS:
+  final String? orderNumber;    // For display purposes
+  final String? sellerName;     // For easier display
+  
   OrderModel({
     required this.id,
     required this.buyerId,
@@ -23,8 +27,11 @@ class OrderModel {
     this.shippingAddress,
     this.paymentMethod,
     this.trackingNumber,
+    this.orderNumber,           // ADD THIS
+    this.sellerName,           // ADD THIS
   });
   
+  // UPDATE your fromMap method:
   factory OrderModel.fromMap(String id, Map<String, dynamic> data) {
     // Extract items
     List<OrderItem> orderItems = [];
@@ -59,9 +66,12 @@ class OrderModel {
       shippingAddress: data['shippingAddress'],
       paymentMethod: data['paymentMethod'],
       trackingNumber: data['trackingNumber'],
+      orderNumber: data['orderNumber'] ?? 'ORD-${id.substring(0, 8)}', // ADD THIS
+      sellerName: data['sellerName'] ?? 'Unknown Seller',              // ADD THIS
     );
   }
   
+  // UPDATE your toMap method:
   Map<String, dynamic> toMap() {
     return {
       'buyerId': buyerId,
@@ -73,8 +83,15 @@ class OrderModel {
       'shippingAddress': shippingAddress,
       'paymentMethod': paymentMethod,
       'trackingNumber': trackingNumber,
+      'orderNumber': orderNumber,     // ADD THIS
+      'sellerName': sellerName,       // ADD THIS
     };
   }
+  
+  // ADD THESE HELPER METHODS:
+  String get displayOrderNumber => orderNumber ?? 'ORD-${id.substring(0, 8)}';
+  String get displaySellerName => sellerName ?? (sellerIds.isNotEmpty ? 'Seller ${sellerIds.first.substring(0, 8)}' : 'Unknown Seller');
+  double get effectivePrice => total; // For compatibility with the package tracking screen
 }
 
 class OrderItem {
