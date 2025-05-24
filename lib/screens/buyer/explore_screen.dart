@@ -129,9 +129,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
               final data = doc.data() as Map<String, dynamic>;
               data['id'] = doc.id;
               return Product.fromMap(data);
-              final data = doc.data() as Map<String, dynamic>;
-              data['id'] = doc.id;
-              return Product.fromMap(data);
             } catch (e) {
               print('Error parsing product ${doc.id}: $e');
               return null;
@@ -165,31 +162,81 @@ class _ExploreScreenState extends State<ExploreScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Clean Header
+            // Enhanced Header with better styling
             Container(
-              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              color: Colors.white,
+              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
               child: Row(
                 children: [
-                  Text(
-                    'Discover',
-                    style: GoogleFonts.poppins(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Discover',
+                        style: GoogleFonts.poppins(
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      Text(
+                        'Swipe to explore items',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
                   Spacer(),
                   Container(
-                    padding: EdgeInsets.all(8),
+                    padding: EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.grey[100],
-                      borderRadius: BorderRadius.circular(12),
+                      color: Colors.grey[50],
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Colors.grey[200]!,
+                        width: 1,
+                      ),
                     ),
-                    child: Icon(
-                      Icons.favorite_border,
-                      color: Colors.grey[600],
-                      size: 24,
+                    child: Stack(
+                      children: [
+                        Icon(
+                          Icons.favorite_border,
+                          color: Colors.grey[600],
+                          size: 28,
+                        ),
+                        if (_wishlistProductIds.isNotEmpty)
+                          Positioned(
+                            right: -2,
+                            top: -2,
+                            child: Container(
+                              padding: EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Text(
+                                '${_wishlistProductIds.length}',
+                                style: GoogleFonts.poppins(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ],
@@ -318,90 +365,188 @@ class _ExploreScreenState extends State<ExploreScreen> {
     );
   }
 
-  // Enhanced Action Button Widget
+  // Enhanced Action Button with better animations
   Widget _buildActionButton({
     required IconData icon,
     required Color color,
     required VoidCallback onPressed,
     double size = 64,
   }) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.15),
-            blurRadius: 20,
-            offset: Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(size / 2),
-          onTap: onPressed,
-          child: Center(
-            child: Icon(
-              icon,
-              color: color,
-              size: size * 0.4,
+    return TweenAnimationBuilder(
+      tween: Tween<double>(begin: 0, end: 1),
+      duration: Duration(milliseconds: 600),
+      curve: Curves.elasticOut,
+      builder: (context, double value, child) {
+        return Transform.scale(
+          scale: value,
+          child: Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: color.withOpacity(0.2),
+                  blurRadius: 20,
+                  offset: Offset(0, 8),
+                  spreadRadius: 2,
+                ),
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: Offset(0, 4),
+                ),
+              ],
+              border: Border.all(
+                color: color.withOpacity(0.1),
+                width: 2,
+              ),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(size / 2),
+                onTap: onPressed,
+                splashColor: color.withOpacity(0.2),
+                highlightColor: color.withOpacity(0.1),
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Icon(
+                      icon,
+                      color: color,
+                      size: size * 0.4,
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
-  // Improved Product Card Design
+  // Enhanced Product Card Design with better animations and layout
   Widget _buildImprovedProductCard(BuildContext context, Product product) {
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 20,
-            offset: Offset(0, 10),
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 25,
+            offset: Offset(0, 12),
+            spreadRadius: 2,
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: Offset(0, 4),
           ),
         ],
       ),
       clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
-          // Product Image with improved loading
+          // Main Product Image with Hero animation
           Positioned.fill(
-            child: product.images.isNotEmpty
-              ? Image.network(
-                  product.images.first,
-                  fit: BoxFit.cover,
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return Container(
+            child: Hero(
+              tag: 'product_${product.id}',
+              child: product.images.isNotEmpty
+                ? Image.network(
+                    product.images.first,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.grey[200]!,
+                              Colors.grey[100]!,
+                              Colors.grey[50]!,
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                        ),
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              SizedBox(
+                                width: 40,
+                                height: 40,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 3,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Theme.of(context).primaryColor,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(height: 16),
+                              Text(
+                                'Loading...',
+                                style: GoogleFonts.poppins(
+                                  color: Colors.grey[500],
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                    errorBuilder: (_, __, ___) => Container(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [Colors.grey[200]!, Colors.grey[100]!],
+                          colors: [Colors.grey[300]!, Colors.grey[200]!],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
                       ),
                       child: Center(
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Theme.of(context).primaryColor,
-                          ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              padding: EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.8),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.image_not_supported_outlined,
+                                size: 48,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                            SizedBox(height: 16),
+                            Text(
+                              'Image not available',
+                              style: GoogleFonts.poppins(
+                                color: Colors.grey[600],
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    );
-                  },
-                  errorBuilder: (_, __, ___) => Container(
+                    ),
+                  )
+                : Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [Colors.grey[300]!, Colors.grey[200]!],
+                        colors: [
+                          Theme.of(context).primaryColor.withOpacity(0.1),
+                          Theme.of(context).primaryColor.withOpacity(0.05),
+                        ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
@@ -410,51 +555,51 @@ class _ExploreScreenState extends State<ExploreScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.image_not_supported, 
-                               size: 64, 
-                               color: Colors.grey[500]),
-                          SizedBox(height: 8),
-                          Text(
-                            'Image not available',
-                            style: GoogleFonts.poppins(
-                              color: Colors.grey[600],
-                              fontSize: 14,
+                          Container(
+                            padding: EdgeInsets.all(24),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.9),
+                              shape: BoxShape.circle,
                             ),
+                            child: Icon(
+                              Icons.shopping_bag_outlined,
+                              size: 64,
+                              color: Theme.of(context).primaryColor,
+                            ),
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            product.name,
+                            style: GoogleFonts.poppins(
+                              color: Colors.grey[700],
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
                     ),
                   ),
-                )
-              : Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Colors.grey[300]!, Colors.grey[200]!],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
-                  child: Center(
-                    child: Icon(Icons.shopping_bag_outlined, 
-                         size: 80, 
-                         color: Colors.grey[500]),
-                  ),
-                ),
+            ),
           ),
           
-          // Top gradient overlay
+          // Animated top gradient overlay
           Positioned(
             top: 0,
             left: 0,
             right: 0,
-            height: 100,
+            height: 120,
             child: Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.black.withOpacity(0.4),
+                    Colors.black.withOpacity(0.6),
+                    Colors.black.withOpacity(0.3),
                     Colors.transparent,
                   ],
                 ),
@@ -462,170 +607,266 @@ class _ExploreScreenState extends State<ExploreScreen> {
             ),
           ),
           
-          // Stock indicator
+          // Enhanced stock indicator with animation
           if (product.currentStock <= 5 && product.currentStock > 0)
             Positioned(
-              top: 20,
-              left: 20,
-              child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.9),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Text(
-                  'Only ${product.currentStock} left!',
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
+              top: 24,
+              left: 24,
+              child: TweenAnimationBuilder(
+                tween: Tween<double>(begin: 0, end: 1),
+                duration: Duration(milliseconds: 800),
+                builder: (context, double value, child) {
+                  return Transform.scale(
+                    scale: value,
+                    child: Container(
+                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.orange,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.orange.withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.local_fire_department,
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                          SizedBox(width: 4),
+                          Text(
+                            'Only ${product.currentStock} left!',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
           
-          // Price tag (top right)
+          // Enhanced price tag with better styling
           Positioned(
-            top: 20,
-            right: 20,
+            top: 24,
+            right: 24,
             child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.95),
-                borderRadius: BorderRadius.circular(20),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(25),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 8,
-                    offset: Offset(0, 2),
+                    color: Colors.black.withOpacity(0.15),
+                    blurRadius: 12,
+                    offset: Offset(0, 4),
                   ),
                 ],
               ),
-              child: Text(
-                '₱${product.effectivePrice.toStringAsFixed(2)}',
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.attach_money,
+                    color: Colors.green[600],
+                    size: 18,
+                  ),
+                  Text(
+                    '${product.effectivePrice.toStringAsFixed(0)}',
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
           
-          // Enhanced bottom overlay with product details
+          // Enhanced bottom information panel
           Positioned(
             bottom: 0,
             left: 0,
             right: 0,
             child: Container(
-              padding: EdgeInsets.all(24),
+              padding: EdgeInsets.all(28),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.bottomCenter,
                   end: Alignment.topCenter,
                   colors: [
-                    Colors.black.withOpacity(0.9),
-                    Colors.black.withOpacity(0.7),
-                    Colors.black.withOpacity(0.3),
+                    Colors.black.withOpacity(0.95),
+                    Colors.black.withOpacity(0.8),
+                    Colors.black.withOpacity(0.4),
                     Colors.transparent,
                   ],
-                  stops: [0.0, 0.4, 0.7, 1.0],
+                  stops: [0.0, 0.3, 0.7, 1.0],
                 ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Brand badge
+                  // Brand badge with better styling
                   if (product.brand.isNotEmpty)
                     Container(
-                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                      margin: EdgeInsets.only(bottom: 8),
+                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                      margin: EdgeInsets.only(bottom: 12),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(12),
+                        color: Theme.of(context).primaryColor.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: Colors.white.withOpacity(0.3),
+                          color: Colors.white.withOpacity(0.2),
+                          width: 1,
                         ),
                       ),
                       child: Text(
                         product.brand.toUpperCase(),
                         style: GoogleFonts.poppins(
                           fontSize: 11,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.bold,
                           color: Colors.white,
-                          letterSpacing: 1,
+                          letterSpacing: 1.2,
                         ),
                       ),
                     ),
                   
-                  // Product name
+                  // Enhanced product name
                   Text(
                     product.name,
                     style: GoogleFonts.poppins(
-                      fontSize: 24,
+                      fontSize: 26,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
-                      height: 1.2,
+                      height: 1.1,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                   
-                  SizedBox(height: 8),
+                  SizedBox(height: 12),
                   
-                  // Category and features row
-                  Row(
+                  // Enhanced category and features row
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
                     children: [
                       // Category chip
-                      Container(
-                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).primaryColor.withOpacity(0.8),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          product.category,
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.white,
-                          ),
-                        ),
+                      _buildInfoChip(
+                        icon: Icons.category_outlined,
+                        label: product.category,
+                        color: Colors.blue,
                       ),
                       
-                      SizedBox(width: 8),
-                      
-                      // Stock status
-                      Container(
-                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: product.currentStock > 0 
-                            ? Colors.green.withOpacity(0.8)
-                            : Colors.red.withOpacity(0.8),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          product.currentStock > 0 ? 'In Stock' : 'Out of Stock',
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.white,
-                          ),
-                        ),
+                      // Stock status chip
+                      _buildInfoChip(
+                        icon: product.currentStock > 0 
+                          ? Icons.check_circle_outline 
+                          : Icons.cancel_outlined,
+                        label: product.currentStock > 0 ? 'Available' : 'Sold Out',
+                        color: product.currentStock > 0 ? Colors.green : Colors.red,
                       ),
                       
-                      Spacer(),
-                      
-                      // Heart icon
-                      Icon(
-                        Icons.favorite_border,
-                        color: Colors.white.withOpacity(0.8),
-                        size: 20,
+                      // Rating chip (if you have ratings)
+                      _buildInfoChip(
+                        icon: Icons.star_outline,
+                        label: '4.5', // Replace with actual rating
+                        color: Colors.amber,
+                      ),
+                    ],
+                  ),
+                  
+                  SizedBox(height: 16),
+                  
+                  // Swipe hint with animation
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      TweenAnimationBuilder(
+                        tween: Tween<double>(begin: 0, end: 1),
+                        duration: Duration(milliseconds: 1500),
+                        builder: (context, double value, child) {
+                          return Opacity(
+                            opacity: 0.7,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.swipe_left,
+                                  color: Colors.red.withOpacity(value),
+                                  size: 20,
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Swipe to explore',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 12,
+                                    color: Colors.white70,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                SizedBox(width: 8),
+                                Icon(
+                                  Icons.swipe_right,
+                                  color: Colors.green.withOpacity(value),
+                                  size: 20,
+                                ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),
                 ],
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Helper method for info chips
+  Widget _buildInfoChip({
+    required IconData icon,
+    required String label,
+    required Color color,
+  }) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            color: Colors.white,
+            size: 14,
+          ),
+          SizedBox(width: 4),
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
             ),
           ),
         ],
@@ -908,40 +1149,5 @@ class _ExploreScreenState extends State<ExploreScreen> {
         _loadFeaturedProducts();
       }
     }
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // This ensures we listen to wishlist changes
-    if (userId != null) {
-      final wishlistProvider = Provider.of<WishlistProvider>(context);
-      _updateWishlistIds(wishlistProvider);
-    }
-  }
-  
-  // Helper method to update wishlist IDs when changed
-  void _updateWishlistIds(WishlistProvider provider) {
-    final newIds = provider.wishlist.map((item) => item.productId).toSet();
-    
-    // If wishlist has changed, update our set and refresh products
-    if (!setEquals(newIds, _wishlistProductIds)) {
-      setState(() {
-        _wishlistProductIds = newIds;
-      });
-      
-      // Check if we need to reload products (e.g., something was removed from wishlist)
-      if (_wishlistProductIds.length < newIds.length) {
-        _loadFeaturedProducts(); // Reload to show newly unwishlisted items
-      }
-    }
-  }
-
-  // Add this method to handle reloading products when a wishlist item is removed
-  void _refreshAfterWishlistRemoval(String productId) {
-    setState(() {
-      _wishlistProductIds.remove(productId);
-    });
-    _loadFeaturedProducts();
   }
 }
