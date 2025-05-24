@@ -383,16 +383,6 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
               ),
             ),
           ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => ProductFormScreen()),
-          );
-        },
-        icon: Icon(Icons.add),
-        label: Text('Add Product'),
-      ),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         currentIndex: 0,
@@ -620,22 +610,6 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
             textAlign: TextAlign.center,
           ),
           SizedBox(height: 20),
-          ElevatedButton.icon(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => ProductFormScreen()),
-              );
-            },
-            icon: Icon(Icons.add, size: 18),
-            label: Text('Add Your First Product'),
-            style: ElevatedButton.styleFrom(
-              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -660,29 +634,6 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
             },
           ),
         ),
-        if (products.length > 6)
-          Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => ProductListingScreen()),
-                  );
-                },
-                icon: Icon(Icons.visibility_outlined, size: 16),
-                label: Text('View All ${products.length} Products'),
-                style: OutlinedButton.styleFrom(
-                  padding: EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
-            ),
-          ),
       ],
     );
   }
