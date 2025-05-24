@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:haul/screens/buyer/payment_methods_screen.dart';
 import '/models/payment_method.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class PaymentMethodForm extends StatefulWidget {
   final Function(PaymentMethod) onContinue;
@@ -17,16 +20,74 @@ class PaymentMethodForm extends StatefulWidget {
 }
 
 class _PaymentMethodFormState extends State<PaymentMethodForm> {
-  String _selectedMethod = 'Cash on Delivery';
-  final List<String> _paymentMethods = [
+  String? _selectedMethod;
+  List<Map<String, dynamic>> _savedPaymentMethods = [];
+  final List<String> _defaultPaymentMethods = [
     'Cash on Delivery',
     'Credit/Debit Card',
     'PayPal',
     'GCash',
+    'Maya (PayMaya)',
   ];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedPaymentMethods();
+  }
+
+  Future<void> _loadSavedPaymentMethods() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final snapshot = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('payment_methods')
+            .get();
+        
+        setState(() {
+          _savedPaymentMethods = snapshot.docs.map((doc) => {
+            'id': doc.id,
+            ...doc.data(),
+          }).toList();
+          
+          // Set default payment method
+          final defaultMethod = _savedPaymentMethods.firstWhere(
+            (method) => method['isDefault'] == true,
+            orElse: () => {},
+          );
+          
+          if (defaultMethod.isNotEmpty) {
+            _selectedMethod = '${defaultMethod['name']} (${defaultMethod['type']})';
+          } else {
+            _selectedMethod = 'Cash on Delivery';
+          }
+          
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _selectedMethod = 'Cash on Delivery';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _selectedMethod = 'Cash on Delivery';
+        _isLoading = false;
+      });
+      print('Error loading payment methods: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Center(child: CircularProgressIndicator());
+    }
+
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -44,9 +105,66 @@ class _PaymentMethodFormState extends State<PaymentMethodForm> {
           Expanded(
             child: SingleChildScrollView(
               child: Column(
-                children: _paymentMethods.map((method) {
-                  return _buildPaymentOption(method);
-                }).toList(),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ✅ Show saved payment methods first
+                  if (_savedPaymentMethods.isNotEmpty) ...[
+                    Text(
+                      'Saved Payment Methods',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                    SizedBox(height: 12),
+                    ..._savedPaymentMethods.map((method) {
+                      return _buildSavedPaymentOption(method);
+                    }).toList(),
+                    SizedBox(height: 20),
+                  ],
+                  
+                  // ✅ Show default options
+                  Text(
+                    'Other Payment Options',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey[700],
+                    ),
+                  ),
+                  SizedBox(height: 12),
+                  ..._defaultPaymentMethods.map((method) {
+                    return _buildPaymentOption(method);
+                  }).toList(),
+                  
+                  // ✅ Add this after the default payment methods
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: ListTile(
+                      leading: Icon(Icons.add, color: Colors.grey.shade600),
+                      title: Text(
+                        'Add New Payment Method',
+                        style: GoogleFonts.poppins(
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => PaymentMethodsScreen()),
+                        ).then((_) {
+                          // Reload payment methods when returning
+                          _loadSavedPaymentMethods();
+                        });
+                      },
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -78,14 +196,13 @@ class _PaymentMethodFormState extends State<PaymentMethodForm> {
               const SizedBox(width: 16),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: () {
+                  onPressed: _selectedMethod != null ? () {
                     final paymentMethod = PaymentMethod(
-                      type: _selectedMethod,
-                      details: _selectedMethod == 'Credit/Debit Card' ? 
-                        {'cardType': 'Visa', 'last4': '1234'} : null,
+                      type: _selectedMethod!,
+                      details: _getPaymentDetails(),
                     );
                     widget.onContinue(paymentMethod);
-                  },
+                  } : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.black,
                     foregroundColor: Colors.white,
@@ -110,10 +227,96 @@ class _PaymentMethodFormState extends State<PaymentMethodForm> {
     );
   }
 
+  Widget _buildSavedPaymentOption(Map<String, dynamic> method) {
+    final displayName = '${method['name']} (${method['type']})';
+    final bool isSelected = _selectedMethod == displayName;
+    
+    IconData getIcon() {
+      switch (method['type']) {
+        case 'gcash':
+          return Icons.monetization_on;
+        case 'maya':
+          return Icons.credit_card;
+        case 'paypal':
+          return Icons.account_balance_wallet;
+        case 'bank':
+          return Icons.account_balance;
+        case 'cod':
+          return Icons.money;
+        default:
+          return Icons.payment;
+      }
+    }
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: isSelected ? Colors.black : Colors.grey.shade300,
+          width: isSelected ? 2 : 1,
+        ),
+        borderRadius: BorderRadius.circular(8),
+        color: isSelected ? Colors.black.withOpacity(0.05) : null,
+      ),
+      child: RadioListTile<String>(
+        title: Row(
+          children: [
+            Icon(getIcon(), color: isSelected ? Colors.black : Colors.grey.shade600),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    method['name'],
+                    style: GoogleFonts.poppins(
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                    ),
+                  ),
+                  Text(
+                    method['details'] ?? '',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (method['isDefault'] == true)
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Default',
+                  style: GoogleFonts.poppins(
+                    fontSize: 10,
+                    color: Colors.green[700],
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        value: displayName,
+        groupValue: _selectedMethod,
+        activeColor: Colors.black,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        onChanged: (value) {
+          setState(() {
+            _selectedMethod = value!;
+          });
+        },
+      ),
+    );
+  }
+
   Widget _buildPaymentOption(String method) {
     final bool isSelected = _selectedMethod == method;
     
-    // Define icon based on payment method
     IconData getIcon() {
       switch (method) {
         case 'Cash on Delivery':
@@ -124,6 +327,8 @@ class _PaymentMethodFormState extends State<PaymentMethodForm> {
           return Icons.account_balance_wallet;
         case 'GCash':
           return Icons.monetization_on;
+        case 'Maya (PayMaya)':
+          return Icons.credit_card;
         default:
           return Icons.payment;
       }
@@ -162,5 +367,29 @@ class _PaymentMethodFormState extends State<PaymentMethodForm> {
         },
       ),
     );
+  }
+
+  Map<String, dynamic>? _getPaymentDetails() {
+    if (_selectedMethod == null) return null;
+    
+    // Check if it's a saved payment method
+    for (var method in _savedPaymentMethods) {
+      final displayName = '${method['name']} (${method['type']})';
+      if (_selectedMethod == displayName) {
+        return {
+          'savedMethodId': method['id'],
+          'type': method['type'],
+          'details': method['details'],
+        };
+      }
+    }
+    
+    // Default payment method
+    switch (_selectedMethod) {
+      case 'Credit/Debit Card':
+        return {'cardType': 'Visa', 'last4': '1234'};
+      default:
+        return null;
+    }
   }
 }
