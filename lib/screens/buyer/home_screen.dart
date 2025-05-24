@@ -202,28 +202,36 @@ class _HomeScreenState extends State<HomeScreen> {
     
     final List<String> titles = ['Home', 'Explore', 'Wishlist', 'Cart', 'Profile'];
     final String title = titles[_selectedIndex];
-    final bool showSearch = _selectedIndex == 0 || _selectedIndex == 1;
+    final bool showSearch = _selectedIndex == 0; // Only show search on Home (index 0)
     
     return Scaffold(
-      appBar: showSearch 
-          ? CustomAppBar(
-              title: title,
-              searchController: searchController,
-              onSearchChanged: handleSearchAdvanced,
-              showSearchBar: true,
-              searchSuggestions: _searchSuggestions,
-              onSearchSubmitted: () {
-                if (searchController.text.isNotEmpty) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => SearchResultsScreen(query: searchController.text),
-                    ),
-                  );
-                }
-              },
-            )
-          : null,
+      appBar: _selectedIndex == 1 // If it's Explore screen (index 1)
+          ? null // No AppBar for Explore
+          : showSearch 
+              ? CustomAppBar(
+                  title: title,
+                  searchController: searchController,
+                  onSearchChanged: handleSearchAdvanced,
+                  showSearchBar: true,
+                  searchSuggestions: _searchSuggestions,
+                  onSearchSubmitted: () {
+                    if (searchController.text.isNotEmpty) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => SearchResultsScreen(query: searchController.text),
+                        ),
+                      );
+                    }
+                  },
+                )
+              : CustomAppBar(
+                  title: title,
+                  searchController: searchController,
+                  onSearchChanged: handleSearchAdvanced,
+                  showSearchBar: false, // No search bar for other screens
+                  searchSuggestions: [],
+                ),
       backgroundColor: Colors.white,
       body: Stack(
         children: [
