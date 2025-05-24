@@ -49,19 +49,26 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
+        coreLibraryDesugaringEnabled true // ✅ Enable core library desugaring
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_1_8
+        jvmTarget = '1.8'
+    }
+
+    sourceSets {
+        main.java.srcDirs += 'src/main/kotlin'
     }
 
     defaultConfig {
-        applicationId = "com.example.haul"  // Same for both debug and release
-        minSdk = 21
-        targetSdk = 34
-        versionCode = flutterVersionCode.toInteger()
-        versionName = flutterVersionName
-        multiDexEnabled = true
+        applicationId "com.example.haul" // Your app ID
+        minSdkVersion 21 // ✅ Make sure this is 21 or higher
+        targetSdkVersion 34 // ✅ Make sure this is 34 or higher
+        versionCode flutterVersionCode.toInteger()
+        versionName flutterVersionName
+        
+        // ✅ Add multidex support if needed
+        multiDexEnabled true
     }
 
     signingConfigs {
@@ -97,7 +104,11 @@ flutter {
 }
 
 dependencies {
-    implementation "androidx.multidex:multidex:2.0.1"
+    // ✅ Add core library desugaring dependency
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
+    
+    // ✅ Add multidex if you enabled it above
+    implementation 'androidx.multidex:multidex:2.0.1'
     implementation 'com.google.android.gms:play-services-auth:20.7.0'
     implementation platform('com.google.firebase:firebase-bom:32.7.0')
     implementation 'com.google.firebase:firebase-analytics'
