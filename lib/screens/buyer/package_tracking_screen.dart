@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import '../../models/order_model.dart';
+import 'dart:math' as math;
 
 class PackageTrackingScreen extends StatefulWidget {
   const PackageTrackingScreen({Key? key}) : super(key: key);
@@ -24,26 +25,79 @@ class _PackageTrackingScreenState extends State<PackageTrackingScreen> {
   }
 
   Future<void> _loadActiveOrders() async {
+    setState(() => _isLoading = true);
+    
+    // First run the debug query
+    await _debugDatabaseQuery();
+    
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
+      if (user == null) {
+        print('❌ No user logged in for package tracking');
+        setState(() => _isLoading = false);
+        return;
+      }
 
-      final querySnapshot = await FirebaseFirestore.instance
-          .collection('orders')
-          .where('buyerId', isEqualTo: user.uid)
-          .where('status', whereIn: ['confirmed', 'processing', 'shipped', 'out_for_delivery'])
-          .orderBy('createdAt', descending: true)
-          .get();
+      print('\n🔍 Loading orders for package tracking...');
+      print('User ID: ${user.uid}');
+
+      // Try both field names
+      QuerySnapshot querySnapshot;
+      
+      // First try userId (most likely correct based on order history)
+      try {
+        querySnapshot = await FirebaseFirestore.instance
+            .collection('orders')
+            .where('userId', isEqualTo: user.uid)
+            .orderBy('createdAt', descending: true)
+            .get();
+        
+        print('✅ Query with userId returned ${querySnapshot.docs.length} orders');
+        
+        if (querySnapshot.docs.isEmpty) {
+          // Try buyerId as fallback
+          querySnapshot = await FirebaseFirestore.instance
+              .collection('orders')
+              .where('buyerId', isEqualTo: user.uid)
+              .orderBy('createdAt', descending: true)
+              .get();
+          
+          print('🔄 Fallback query with buyerId returned ${querySnapshot.docs.length} orders');
+        }
+        
+      } catch (e) {
+        print('❌ Query error: $e');
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      List<OrderModel> orders = [];
+      for (var doc in querySnapshot.docs) {
+        try {
+          final order = OrderModel.fromMap(doc.id, doc.data() as Map<String, dynamic>);
+          orders.add(order);
+          print('✅ Successfully parsed order: ${order.id}');
+        } catch (e) {
+          print('❌ Error parsing order ${doc.id}: $e');
+          print('Order data: ${doc.data()}');
+        }
+      }
 
       setState(() {
-        _activeOrders = querySnapshot.docs
-            .map((doc) => OrderModel.fromMap(doc.id, doc.data()))
-            .toList();
+        _activeOrders = orders;
         _isLoading = false;
       });
+      
+      print('\n📊 Final results:');
+      print('Total orders loaded: ${_activeOrders.length}');
+      for (int i = 0; i < _activeOrders.length; i++) {
+        final order = _activeOrders[i];
+        print('Order $i: ${order.id} - Status: ${order.status}');
+      }
+      
     } catch (e) {
+      print('❌ Load orders error: $e');
       setState(() => _isLoading = false);
-      print('Error loading orders: $e');
     }
   }
 
@@ -515,27 +569,68 @@ class _PackageTrackingScreenState extends State<PackageTrackingScreen> {
     if (orderNumber.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Please enter an order ID'),
+          content: Text('Please enter an order number'),
           backgroundColor: Colors.red,
         ),
       );
       return;
     }
 
+    // Debug: Print what we're searching for and what orders we have
+    print('=== SEARCH DEBUG ===');
+    print('Searching for: $orderNumber');
+    print('Active orders count: ${_activeOrders.length}');
+    
+    for (int i = 0; i < _activeOrders.length; i++) {
+      final order = _activeOrders[i];
+      print('Order $i:');
+      print('  ID: ${order.id}');
+      print('  Status: ${order.status}');
+      print('  Created: ${order.createdAt}');
+      print('---');
+    }
+    print('=== END DEBUG ===');
+
     try {
-      // Find order by ID (since you're using order.id instead of orderNumber)
-      final order = _activeOrders.firstWhere(
-        (order) => order.id.startsWith(orderNumber) || order.id == orderNumber,
-      );
+      // Remove "ORD-" prefix if user includes it
+      String searchId = orderNumber.replaceAll('ORD-', '').replaceAll('#', '');
       
-      _showTrackingDetails(order);
+      // Try multiple search patterns
+      OrderModel? foundOrder;
+      
+      // 1. Try exact match with full ID
+      try {
+        foundOrder = _activeOrders.firstWhere((order) => order.id == searchId);
+      } catch (e) {
+        // 2. Try partial match (starts with)
+        try {
+          foundOrder = _activeOrders.firstWhere((order) => order.id.startsWith(searchId));
+        } catch (e) {
+          // 3. Try contains
+          try {
+            foundOrder = _activeOrders.firstWhere((order) => order.id.contains(searchId));
+          } catch (e) {
+            // 4. Try timestamp match (the number part: 1748074593939)
+            try {
+              foundOrder = _activeOrders.firstWhere((order) => 
+                order.createdAt.millisecondsSinceEpoch.toString().contains(searchId) ||
+                order.id.contains(searchId.substring(0, math.min(10, searchId.length)))
+              );
+            } catch (e) {
+              foundOrder = null;
+            }
+          }
+        }
+      }
+      
+      if (foundOrder != null) {
+        _showTrackingDetails(foundOrder);
+      } else {
+        _showOrderNotFoundDialog(orderNumber);
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Order not found or not trackable'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      print('Search error: $e');
+      _showOrderNotFoundDialog(orderNumber);
     }
   }
 
@@ -623,6 +718,152 @@ class _PackageTrackingScreenState extends State<PackageTrackingScreen> {
       ),
     );
   }
+
+  void _showOrderNotFoundDialog(String searchTerm) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Order Not Found'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Order "$searchTerm" was not found.'),
+              SizedBox(height: 16),
+              
+              if (_activeOrders.isNotEmpty) ...[
+                Text('Available orders:', style: TextStyle(fontWeight: FontWeight.bold)),
+                SizedBox(height: 8),
+                Container(
+                  height: 200,
+                  child: ListView.builder(
+                    itemCount: _activeOrders.length,
+                    itemBuilder: (context, index) {
+                      final order = _activeOrders[index];
+                      return Card(
+                        child: ListTile(
+                          title: Text('Order #${order.id.substring(0, 12)}...'),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Status: ${order.status}'),
+                              Text('Date: ${DateFormat('MMM d, yyyy').format(order.createdAt)}'),
+                              Text('Full ID: ${order.id}'),
+                            ],
+                          ),
+                          trailing: TextButton(
+                            onPressed: () {
+                              Navigator.pop(context);
+                              _showTrackingDetails(order);
+                            },
+                            child: Text('Track'),
+                          ),
+                          isThreeLine: true,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ] else ...[
+                Text('You have no orders in the system.'),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Add this method to your package tracking screen for testing
+  void _testOrderParsing() {
+    print('🧪 Testing order parsing...');
+    for (var order in _activeOrders) {
+      print('Order: ${order.id}');
+      print('  buyerId: ${order.buyerId}');
+      print('  items count: ${order.items.length}');
+      print('  total: ${order.total}');
+      print('  status: ${order.status}');
+    }
+  }
+
+  Future<void> _debugDatabaseQuery() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('❌ No user logged in');
+        return;
+      }
+
+      print('🔍 Current user ID: ${user.uid}');
+      
+      // Try different query combinations
+      print('\n=== Testing different queries ===');
+      
+      // Query 1: All orders (no filters)
+      final allOrders = await FirebaseFirestore.instance
+          .collection('orders')
+          .get();
+      print('📊 Total orders in database: ${allOrders.docs.length}');
+      
+      // Query 2: Orders with userId field
+      final userIdOrders = await FirebaseFirestore.instance
+          .collection('orders')
+          .where('userId', isEqualTo: user.uid)
+          .get();
+      print('👤 Orders with userId=${user.uid}: ${userIdOrders.docs.length}');
+      
+      // Query 3: Orders with buyerId field
+      final buyerIdOrders = await FirebaseFirestore.instance
+          .collection('orders')
+          .where('buyerId', isEqualTo: user.uid)
+          .get();
+      print('🛒 Orders with buyerId=${user.uid}: ${buyerIdOrders.docs.length}');
+      
+      // Print sample order data
+      if (allOrders.docs.isNotEmpty) {
+        print('\n=== Sample order structure ===');
+        final sampleOrder = allOrders.docs.first;
+        print('📄 Order ID: ${sampleOrder.id}');
+        print('📋 Order data keys: ${sampleOrder.data().keys.toList()}');
+        print('📝 Full order data: ${sampleOrder.data()}');
+      }
+      
+      // Print user ID orders if any
+      if (userIdOrders.docs.isNotEmpty) {
+        print('\n=== Your orders (userId) ===');
+        for (int i = 0; i < userIdOrders.docs.length; i++) {
+          final doc = userIdOrders.docs[i];
+          final data = doc.data();
+          print('Order $i: ${doc.id}');
+          print('  Status: ${data['status']}');
+          print('  Created: ${data['createdAt']}');
+          print('  User ID: ${data['userId']}');
+        }
+      }
+      
+      if (buyerIdOrders.docs.isNotEmpty) {
+        print('\n=== Your orders (buyerId) ===');
+        for (int i = 0; i < buyerIdOrders.docs.length; i++) {
+          final doc = buyerIdOrders.docs[i];
+          final data = doc.data();
+          print('Order $i: ${doc.id}');
+          print('  Status: ${data['status']}');
+          print('  Created: ${data['createdAt']}');
+          print('  Buyer ID: ${data['buyerId']}');
+        }
+      }
+      
+    } catch (e) {
+      print('❌ Debug query error: $e');
+    }
+  }
 }
 
 // Live Tracking Screen for detailed tracking
@@ -665,7 +906,7 @@ class LiveTrackingScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Order #${order.orderNumber}',
+                    'Order #${order.id.substring(0, 12)}', // Use order.id
                     style: GoogleFonts.poppins(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
