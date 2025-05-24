@@ -15,6 +15,7 @@ class PackageTrackingScreen extends StatefulWidget {
 
 class _PackageTrackingScreenState extends State<PackageTrackingScreen> {
   bool _isLoading = true;
+  bool _isSearching = false;
   List<OrderModel> _activeOrders = [];
   final TextEditingController _trackingController = TextEditingController();
 
@@ -294,12 +295,12 @@ class _PackageTrackingScreenState extends State<PackageTrackingScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Order Header
+          // Order Header - CHANGED TO USE ORDER NUMBER
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Order #${order.id.substring(0, 8)}', // FIXED: Use order.id
+                order.orderNumber ?? 'Order #${order.id}', // SHOW ORDER NUMBER
                 style: GoogleFonts.poppins(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -337,7 +338,7 @@ class _PackageTrackingScreenState extends State<PackageTrackingScreen> {
               Text(
                 order.sellerIds.isNotEmpty 
                   ? 'Seller ${order.sellerIds.first.substring(0, 8)}' 
-                  : 'Unknown Seller', // FIXED: Use sellerIds
+                  : 'Unknown Seller',
                 style: GoogleFonts.poppins(
                   fontSize: 14,
                   color: Colors.grey[600],
@@ -568,68 +569,82 @@ class _PackageTrackingScreenState extends State<PackageTrackingScreen> {
     final orderNumber = _trackingController.text.trim();
     if (orderNumber.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Please enter an order number'),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text('Please enter an order number')),
       );
       return;
     }
 
-    // Debug: Print what we're searching for and what orders we have
-    print('=== SEARCH DEBUG ===');
-    print('Searching for: $orderNumber');
-    print('Active orders count: ${_activeOrders.length}');
+    setState(() => _isSearching = true);
+
+    print('🔍 Searching for: $orderNumber');
+    print('Available orders: ${_activeOrders.length}');
+    
+    // Remove prefixes and clean the search term
+    String searchTerm = orderNumber
+        .replaceAll('ORD-', '')
+        .replaceAll('#', '')
+        .trim();
+    
+    print('🔍 Cleaned search term: $searchTerm');
+    
+    // Search through all orders
+    OrderModel? foundOrder;
     
     for (int i = 0; i < _activeOrders.length; i++) {
       final order = _activeOrders[i];
-      print('Order $i:');
-      print('  ID: ${order.id}');
-      print('  Status: ${order.status}');
-      print('  Created: ${order.createdAt}');
-      print('---');
+      print('Checking order $i: ${order.id}');
+      
+      // Get the timestamp for this order
+      final orderTimestamp = order.createdAt.millisecondsSinceEpoch.toString();
+      final orderTimestampSeconds = (order.createdAt.millisecondsSinceEpoch ~/ 1000).toString();
+      
+      print('  Order ID: ${order.id}');
+      print('  Order Number: ${order.orderNumber}');
+      print('  Order timestamp (ms): $orderTimestamp');
+      print('  Order timestamp (seconds): $orderTimestampSeconds');
+      print('  Order created at: ${order.createdAt}');
+      
+      // Try different matching strategies including ORDER NUMBER
+      if (
+        // Order ID matches
+        order.id == searchTerm ||                                    
+        order.id.startsWith(searchTerm) ||                          
+        order.id.contains(searchTerm) ||                            
+        order.id.substring(0, math.min(8, order.id.length)) == searchTerm || 
+        
+        // ORDER NUMBER matches (NEW!)
+        (order.orderNumber != null && order.orderNumber == orderNumber) ||           // Exact order number match with prefix
+        (order.orderNumber != null && order.orderNumber?.replaceAll('ORD-', '') == searchTerm) || // Order number without prefix
+        (order.orderNumber != null && order.orderNumber!.contains(searchTerm)) ||    // Order number contains search term
+        
+        // Timestamp matches
+        orderTimestamp.contains(searchTerm) ||                      
+        orderTimestampSeconds.contains(searchTerm) ||               
+        orderTimestampSeconds.startsWith(searchTerm.substring(0, math.min(10, searchTerm.length)))
+      ) {
+        foundOrder = order;
+        print('✅ Found matching order: ${order.id}');
+        print('✅ Order Number: ${order.orderNumber}');
+        print('✅ Match type: Order number or ID match');
+        break;
+      }
     }
-    print('=== END DEBUG ===');
-
-    try {
-      // Remove "ORD-" prefix if user includes it
-      String searchId = orderNumber.replaceAll('ORD-', '').replaceAll('#', '');
-      
-      // Try multiple search patterns
-      OrderModel? foundOrder;
-      
-      // 1. Try exact match with full ID
-      try {
-        foundOrder = _activeOrders.firstWhere((order) => order.id == searchId);
-      } catch (e) {
-        // 2. Try partial match (starts with)
-        try {
-          foundOrder = _activeOrders.firstWhere((order) => order.id.startsWith(searchId));
-        } catch (e) {
-          // 3. Try contains
-          try {
-            foundOrder = _activeOrders.firstWhere((order) => order.id.contains(searchId));
-          } catch (e) {
-            // 4. Try timestamp match (the number part: 1748074593939)
-            try {
-              foundOrder = _activeOrders.firstWhere((order) => 
-                order.createdAt.millisecondsSinceEpoch.toString().contains(searchId) ||
-                order.id.contains(searchId.substring(0, math.min(10, searchId.length)))
-              );
-            } catch (e) {
-              foundOrder = null;
-            }
-          }
-        }
+    
+    setState(() => _isSearching = false);
+    
+    if (foundOrder != null) {
+      print('🎯 Navigating to order: ${foundOrder.id}');
+      _showTrackingDetails(foundOrder);
+    } else {
+      print('❌ No order found for: $orderNumber');
+      print('💡 Available order numbers for reference:');
+      for (var order in _activeOrders) {
+        final timestamp = (order.createdAt.millisecondsSinceEpoch ~/ 1000).toString();
+        print('   Order ID: ${order.id}');
+        print('   Order Number: ${order.orderNumber}');
+        print('   Timestamp: $timestamp');
+        print('   ---');
       }
-      
-      if (foundOrder != null) {
-        _showTrackingDetails(foundOrder);
-      } else {
-        _showOrderNotFoundDialog(orderNumber);
-      }
-    } catch (e) {
-      print('Search error: $e');
       _showOrderNotFoundDialog(orderNumber);
     }
   }
