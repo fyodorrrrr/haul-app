@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:haul/screens/seller/seller_profile_navigation_screen.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
 import '../../models/product.dart';
@@ -423,6 +424,11 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => SellerOrdersScreen()),
+            );
+          } else if (index == 3) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => SellerProfileNavigationScreen()),
             );
           }
         },
