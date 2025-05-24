@@ -1,4 +1,3 @@
-// Create lib/screens/seller/inventory_dashboard_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -115,7 +114,7 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
           physics: NeverScrollableScrollPhysics(),
           mainAxisSpacing: 12,
           crossAxisSpacing: 12,
-          childAspectRatio: 1.5,
+          childAspectRatio: 1.8,
           children: [
             _buildStatCard(
               'Total Products',
@@ -174,7 +173,7 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Container(
-        padding: EdgeInsets.all(16),
+        padding: EdgeInsets.all(12), // Reduced padding
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           gradient: LinearGradient(
@@ -188,23 +187,33 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          mainAxisAlignment: MainAxisAlignment.center, // Center content
+          mainAxisSize: MainAxisSize.min, // Minimize height
           children: [
-            Icon(icon, color: color, size: 24),
-            SizedBox(height: 8),
-            Text(
-              value,
-              style: GoogleFonts.poppins(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: color,
+            Icon(icon, color: color, size: 20), // Reduced icon size
+            SizedBox(height: 6), // Reduced spacing
+            Flexible( // Make text flexible
+              child: Text(
+                value,
+                style: GoogleFonts.poppins(
+                  fontSize: 18, // Reduced font size
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-            Text(
-              title,
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                color: Colors.grey[600],
+            SizedBox(height: 2), // Reduced spacing
+            Flexible( // Make text flexible
+              child: Text(
+                title,
+                style: GoogleFonts.poppins(
+                  fontSize: 11, // Reduced font size
+                  color: Colors.grey[600],
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
@@ -218,13 +227,14 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Container(
-        padding: EdgeInsets.all(16),
+        padding: EdgeInsets.all(14), // Slightly reduced padding
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min, // Minimize height
           children: [
             Row(
               children: [
-                Icon(icon, color: color, size: 20),
+                Icon(icon, color: color, size: 18), // Slightly smaller icon
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -233,6 +243,8 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
                       fontSize: 12,
                       color: Colors.grey[600],
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
@@ -241,10 +253,12 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
             Text(
               value,
               style: GoogleFonts.poppins(
-                fontSize: 16,
+                fontSize: 15, // Slightly reduced font size
                 fontWeight: FontWeight.bold,
                 color: color,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
@@ -510,66 +524,91 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
     return Card(
       elevation: 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      child: Padding(
+      child: Container(
+        height: 110, // Fixed height to prevent overflow
         padding: EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
+            // Product name and stock
+            Expanded(
+              flex: 2,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      product.name,
+                      style: GoogleFonts.poppins(
+                        fontSize: 13, // Slightly smaller
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: _getStockColor(product.currentStock).withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '${product.currentStock}',
+                      style: GoogleFonts.poppins(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: _getStockColor(product.currentStock),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            SizedBox(height: 6),
+            
+            // SKU
+            Text(
+              'SKU: ${product.sku}',
+              style: GoogleFonts.poppins(
+                fontSize: 9, // Smaller text
+                color: Colors.grey[600],
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            
+            SizedBox(height: 6),
+            
+            // Price and category
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
                   child: Text(
-                    product.name,
+                    '₱${product.sellingPrice.toStringAsFixed(2)}',
                     style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green[700],
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: _getStockColor(product.currentStock).withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+                SizedBox(width: 8),
+                Expanded(
                   child: Text(
-                    '${product.currentStock}',
+                    product.category,
                     style: GoogleFonts.poppins(
                       fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      color: _getStockColor(product.currentStock),
+                      color: Colors.blue[600],
                     ),
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: 8),
-            Text(
-              'SKU: ${product.sku}',
-              style: GoogleFonts.poppins(
-                fontSize: 10,
-                color: Colors.grey[600],
-              ),
-            ),
-            SizedBox(height: 4),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '₱${product.sellingPrice.toStringAsFixed(2)}',
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green[700],
-                  ),
-                ),
-                Text(
-                  product.category,
-                  style: GoogleFonts.poppins(
-                    fontSize: 10,
-                    color: Colors.blue[600],
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.right,
                   ),
                 ),
               ],

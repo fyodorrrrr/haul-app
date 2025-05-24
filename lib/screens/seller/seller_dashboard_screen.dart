@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:haul/screens/seller/inventory_dashboard_screen.dart';
+import 'package:haul/screens/seller/inventory_list_screen.dart';
 import 'package:haul/screens/seller/seller_profile_navigation_screen.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
@@ -349,7 +351,7 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                           () {
                             Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (_) => ProductListingScreen()), // Fixed: Changed from InventoryDashboardScreen to ProductListingScreen
+                              MaterialPageRoute(builder: (_) => InventoryDashboardScreen()),
                             );
                           }
                         ),
