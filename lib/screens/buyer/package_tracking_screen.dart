@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../../models/order_model.dart';
 import 'dart:math' as math;
@@ -199,7 +200,7 @@ class _PackageTrackingScreenState extends State<PackageTrackingScreen> {
                 child: TextField(
                   controller: _trackingController,
                   decoration: InputDecoration(
-                    hintText: 'Enter order number (e.g., ORD-123456)',
+                    hintText: 'Enter complete order number (e.g., ORD-1748091978310)',
                     hintStyle: GoogleFonts.poppins(color: Colors.grey[500]),
                     prefixIcon: Icon(Icons.receipt_long, color: Colors.grey[500]),
                     border: OutlineInputBorder(
@@ -215,7 +216,14 @@ class _PackageTrackingScreenState extends State<PackageTrackingScreen> {
                       borderSide: BorderSide(color: Theme.of(context).primaryColor),
                     ),
                     contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    // ADD THESE VALIDATION HELPERS
+                    helperText: 'Must be complete order number',
+                    helperStyle: TextStyle(fontSize: 11, color: Colors.grey[600]),
                   ),
+                  // ADD INPUT VALIDATION
+                  inputFormatters: [
+                    LengthLimitingTextInputFormatter(50), // Reasonable max length
+                  ],
                 ),
               ),
               SizedBox(width: 12),
@@ -569,14 +577,26 @@ class _PackageTrackingScreenState extends State<PackageTrackingScreen> {
     final orderNumber = _trackingController.text.trim();
     if (orderNumber.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please enter an order number')),
+        SnackBar(
+          content: Text('Please enter an order number'),
+          backgroundColor: Colors.red,
+        ),
       );
+      return;
+    }
+
+    // IMMEDIATE STRICT VALIDATION
+    if (!_isValidOrderNumberFormat(orderNumber)) {
+      print('❌ STRICT VALIDATION FAILED for: "$orderNumber"');
+      print('   Length: ${orderNumber.length}');
+      print('   Clean length: ${orderNumber.replaceAll('ORD-', '').replaceAll('#', '').trim().length}');
+      _showInvalidFormatDialog(orderNumber);
       return;
     }
 
     setState(() => _isSearching = true);
 
-    print('🔍 Searching for: $orderNumber');
+    print('🔍 STRICT SEARCH - Looking for exact match: $orderNumber');
     print('Available orders: ${_activeOrders.length}');
     
     // Remove prefixes and clean the search term
@@ -587,46 +607,40 @@ class _PackageTrackingScreenState extends State<PackageTrackingScreen> {
     
     print('🔍 Cleaned search term: $searchTerm');
     
-    // Search through all orders
+    // ULTRA STRICT SEARCH: Only EXACT matches allowed
     OrderModel? foundOrder;
     
     for (int i = 0; i < _activeOrders.length; i++) {
       final order = _activeOrders[i];
       print('Checking order $i: ${order.id}');
-      
-      // Get the timestamp for this order
-      final orderTimestamp = order.createdAt.millisecondsSinceEpoch.toString();
-      final orderTimestampSeconds = (order.createdAt.millisecondsSinceEpoch ~/ 1000).toString();
-      
-      print('  Order ID: ${order.id}');
       print('  Order Number: ${order.orderNumber}');
-      print('  Order timestamp (ms): $orderTimestamp');
-      print('  Order timestamp (seconds): $orderTimestampSeconds');
-      print('  Order created at: ${order.createdAt}');
       
-      // Try different matching strategies including ORDER NUMBER
-      if (
-        // Order ID matches
-        order.id == searchTerm ||                                    
-        order.id.startsWith(searchTerm) ||                          
-        order.id.contains(searchTerm) ||                            
-        order.id.substring(0, math.min(8, order.id.length)) == searchTerm || 
-        
-        // ORDER NUMBER matches (NEW!)
-        (order.orderNumber != null && order.orderNumber == orderNumber) ||           // Exact order number match with prefix
-        (order.orderNumber != null && order.orderNumber?.replaceAll('ORD-', '') == searchTerm) || // Order number without prefix
-        (order.orderNumber != null && order.orderNumber!.contains(searchTerm)) ||    // Order number contains search term
-        
-        // Timestamp matches
-        orderTimestamp.contains(searchTerm) ||                      
-        orderTimestampSeconds.contains(searchTerm) ||               
-        orderTimestampSeconds.startsWith(searchTerm.substring(0, math.min(10, searchTerm.length)))
-      ) {
+      // ULTRA STRICT MATCHING: Only EXACT matches, no partial matches
+      bool isExactMatch = false;
+      
+      if (order.orderNumber != null) {
+        // Exact order number match (with or without ORD- prefix)
+        if (order.orderNumber == orderNumber ||
+            order.orderNumber == 'ORD-$searchTerm' ||
+            order.orderNumber?.replaceAll('ORD-', '') == searchTerm) {
+          isExactMatch = true;
+          print('✅ EXACT ORDER NUMBER MATCH');
+        }
+      }
+      
+      // Exact Order ID match (for backward compatibility)
+      if (order.id == searchTerm) {
+        isExactMatch = true;
+        print('✅ EXACT ORDER ID MATCH');
+      }
+      
+      if (isExactMatch) {
         foundOrder = order;
-        print('✅ Found matching order: ${order.id}');
+        print('✅ Found EXACT matching order: ${order.id}');
         print('✅ Order Number: ${order.orderNumber}');
-        print('✅ Match type: Order number or ID match');
         break;
+      } else {
+        print('❌ No exact match for this order');
       }
     }
     
@@ -636,17 +650,455 @@ class _PackageTrackingScreenState extends State<PackageTrackingScreen> {
       print('🎯 Navigating to order: ${foundOrder.id}');
       _showTrackingDetails(foundOrder);
     } else {
-      print('❌ No order found for: $orderNumber');
-      print('💡 Available order numbers for reference:');
-      for (var order in _activeOrders) {
-        final timestamp = (order.createdAt.millisecondsSinceEpoch ~/ 1000).toString();
-        print('   Order ID: ${order.id}');
-        print('   Order Number: ${order.orderNumber}');
-        print('   Timestamp: $timestamp');
-        print('   ---');
-      }
+      print('❌ NO EXACT MATCH found for: $orderNumber');
       _showOrderNotFoundDialog(orderNumber);
     }
+  }
+
+  // MUCH STRICTER VALIDATION - REQUIRES EXACT MATCHES ONLY
+  bool _isValidOrderNumberFormat(String orderNumber) {
+    // Remove common prefixes for validation
+    String cleanNumber = orderNumber
+        .replaceAll('ORD-', '')
+        .replaceAll('#', '')
+        .trim();
+    
+    // STRICT: Must be exact length and format
+    return _isValidCompleteOrderId(cleanNumber) || 
+           _isValidCompleteTimestamp(cleanNumber) ||
+           _isValidCompleteOrderNumber(orderNumber);
+  }
+
+  bool _isValidCompleteOrderId(String id) {
+    // STRICT: Must be exactly 20 characters (Firestore document ID format)
+    // No partial matches allowed
+    return id.length == 20 && RegExp(r'^[a-zA-Z0-9]{20}$').hasMatch(id);
+  }
+
+  bool _isValidCompleteTimestamp(String timestamp) {
+    // STRICT: Must be exactly 13 digits (Unix timestamp in milliseconds)
+    // OR exactly 10 digits (Unix timestamp in seconds)
+    return (timestamp.length == 13 && RegExp(r'^\d{13}$').hasMatch(timestamp)) ||
+           (timestamp.length == 10 && RegExp(r'^\d{10}$').hasMatch(timestamp));
+  }
+
+  bool _isValidCompleteOrderNumber(String orderNumber) {
+    // STRICT: Must match exact patterns only
+    if (orderNumber.startsWith('ORD-')) {
+      String numberPart = orderNumber.substring(4);
+      // Must be exactly 13 digits after ORD-
+      return numberPart.length == 13 && RegExp(r'^\d{13}$').hasMatch(numberPart);
+    }
+    
+    if (orderNumber.startsWith('#')) {
+      String numberPart = orderNumber.substring(1);
+      // Must be exactly 13 digits after #
+      return numberPart.length == 13 && RegExp(r'^\d{13}$').hasMatch(numberPart);
+    }
+    
+    // Without prefix, must be exactly 13 digits
+    return orderNumber.length == 13 && RegExp(r'^\d{13}$').hasMatch(orderNumber);
+  }
+
+  // ADD THIS NEW VALIDATION METHOD
+  void _showInvalidFormatDialog(String invalidInput) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        insetPadding: EdgeInsets.all(16), // Add padding from screen edges
+        child: Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.8, // Max 80% of screen height
+            maxWidth: MediaQuery.of(context).size.width * 0.9,   // Max 90% of screen width
+          ),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            color: Colors.white,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header with error icon
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.red[50],
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(16),
+                    topRight: Radius.circular(16),
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 50,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        color: Colors.red[100],
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.error_outline_rounded,
+                        color: Colors.red[600],
+                        size: 24,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Invalid Order Number',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red[800],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Scrollable Content
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Error message
+                      Container(
+                        width: double.infinity,
+                        padding: EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey[300]!),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '"$invalidInput" is not a valid order number.',
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.grey[800],
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            SizedBox(height: 8),
+                            Container(
+                              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.red[100],
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                _getValidationErrorMessage(invalidInput),
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  color: Colors.red[700],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      
+                      SizedBox(height: 16),
+                      
+                      // Valid formats section
+                      Text(
+                        'Required Format:',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      
+                      SizedBox(height: 8),
+                      
+                      // Format examples - more compact
+                      _buildFormatExampleCard('ORD-1748091978310', '13 digits after ORD-'),
+                      _buildFormatExampleCard('1748091978310', '13 digits (no prefix)'),
+                      _buildFormatExampleCard('k1GrzEceRFpa2GCa9hz7', '20 characters (document ID)'),
+                      
+                      SizedBox(height: 12),
+                      
+                      // Warning about partial numbers - more compact
+                      Container(
+                        width: double.infinity,
+                        padding: EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.orange[50],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.orange[200]!),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.warning_amber, color: Colors.orange[600], size: 16),
+                            SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Partial order numbers are not accepted.',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 11,
+                                  color: Colors.orange[800],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      
+                      SizedBox(height: 12),
+                      
+                      // Info tip - more compact
+                      Container(
+                        width: double.infinity,
+                        padding: EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.blue[50],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.blue[200]!),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              Icons.lightbulb_outline,
+                              color: Colors.blue[600],
+                              size: 16,
+                            ),
+                            SizedBox(width: 6),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'Tip:',
+                                    style: GoogleFonts.poppins(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.blue[800],
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  SizedBox(height: 2),
+                                  Text(
+                                    'Copy the complete order number from your order confirmation email.',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 11,
+                                      color: Colors.blue[700],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              
+              // Action button - fixed at bottom
+              Container(
+                padding: EdgeInsets.all(16),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 44,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text(
+                      'Got it',
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).primaryColor,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      elevation: 0,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFormatExampleCard(String example, String description) {
+    return Container(
+      width: double.infinity,
+      margin: EdgeInsets.only(bottom: 8),
+      padding: EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.green[50],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.green[200]!),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              color: Colors.green[600],
+              shape: BoxShape.circle,
+            ),
+          ),
+          SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  example,
+                  style: TextStyle( // ✅ FIXED: Use TextStyle for monospace
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: Colors.green[800],
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  description,
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    color: Colors.green[600],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Icon(
+            Icons.check_circle_outline,
+            color: Colors.green[600],
+            size: 18,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ADD THIS NEW METHOD TO SHOW AVAILABLE ORDERS
+  void _showAvailableOrdersDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Your Orders'),
+        content: Container(
+          width: double.maxFinite,
+          height: 300,
+          child: _activeOrders.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.inbox_outlined, size: 48, color: Colors.grey),
+                      SizedBox(height: 16),
+                      Text('No orders found'),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  itemCount: _activeOrders.length,
+                  itemBuilder: (context, index) {
+                    final order = _activeOrders[index];
+                    return Card(
+                      child: ListTile(
+                        title: Text(
+                          order.orderNumber ?? 'Order #${order.id.substring(0, 12)}',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Status: ${_getStatusText(order.status)}'),
+                            Text('Date: ${DateFormat('MMM d, yyyy').format(order.createdAt)}'),
+                            if (order.orderNumber != null)
+                              Container(
+                                margin: EdgeInsets.only(top: 4),
+                                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue[50],
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  'Copy: ${order.orderNumber}',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.blue[700],
+                                    fontFamily: 'monospace',
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        trailing: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            IconButton(
+                              icon: Icon(Icons.copy, size: 16),
+                              onPressed: () {
+                                // Copy to clipboard
+                                _copyToClipboard(order.orderNumber ?? order.id);
+                              },
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.pop(context);
+                                _showTrackingDetails(order);
+                              },
+                              child: Text('Track', style: TextStyle(fontSize: 12)),
+                            ),
+                          ],
+                        ),
+                        isThreeLine: true,
+                      ),
+                    );
+                  },
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ADD COPY TO CLIPBOARD FUNCTIONALITY
+  void _copyToClipboard(String text) {
+    // You'll need to add this import: import 'package:flutter/services.dart';
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Order number copied to clipboard'),
+        duration: Duration(seconds: 2),
+      ),
+    );
   }
 
   void _showOrderDetails(OrderModel order) {
@@ -1130,4 +1582,44 @@ class LiveTrackingScreen extends StatelessWidget {
     final estimatedDate = order.createdAt.add(Duration(days: 3));
     return DateFormat('EEEE, MMMM d').format(estimatedDate);
   }
+}
+
+String _getValidationErrorMessage(String input) {
+  String cleanInput = input.replaceAll('ORD-', '').replaceAll('#', '').trim();
+  
+  if (input.isEmpty) {
+    return 'Order number cannot be empty';
+  }
+  
+  if (cleanInput.length < 10) {
+    return 'Too short - needs at least 10 digits';
+  }
+  
+  if (cleanInput.length > 20) {
+    return 'Too long - maximum 20 characters';
+  }
+  
+  if (input.startsWith('ORD-')) {
+    String numberPart = input.substring(4);
+    if (numberPart.length != 13) {
+      return 'ORD- format needs exactly 13 digits';
+    }
+    if (!RegExp(r'^\d+$').hasMatch(numberPart)) {
+      return 'ORD- format must contain only numbers';
+    }
+  }
+  
+  if (RegExp(r'^[a-zA-Z0-9]+$').hasMatch(cleanInput)) {
+    if (cleanInput.length != 20) {
+      return 'Document IDs must be exactly 20 characters';
+    }
+  }
+  
+  if (RegExp(r'^\d+$').hasMatch(cleanInput)) {
+    if (cleanInput.length != 10 && cleanInput.length != 13) {
+      return 'Timestamp must be 10 or 13 digits';
+    }
+  }
+  
+  return 'Invalid format - check examples below';
 }
