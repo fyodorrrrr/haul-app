@@ -8,9 +8,6 @@ import '../../models/product.dart';
 import '../../models/wishlist_model.dart';
 import '../../providers/wishlist_providers.dart';
 import '../../utils/snackbar_helper.dart';
-import 'package:collection/collection.dart';
-import 'package:flutter/foundation.dart';
-
 
 class ExploreScreen extends StatefulWidget {
   const ExploreScreen({Key? key}) : super(key: key);
@@ -20,41 +17,37 @@ class ExploreScreen extends StatefulWidget {
 }
 
 class _ExploreScreenState extends State<ExploreScreen> {
-  // Remove late initialization
   CardSwiperController? controller;
-  // Add a key to force widget recreation when filters change
   Key _cardSwiperKey = UniqueKey();
   List<Product> _featuredProducts = [];
   bool _isLoading = true;
-  String _selectedCategory = 'All';
-  RangeValues _priceRange = const RangeValues(0, 200);
-  String _sortBy = 'newest';
-  String _selectedBrand = 'All';
-  bool _showFilterPanel = false;
   String? userId;
-
-  // Add this variable to store wishlist product IDs
   Set<String> _wishlistProductIds = {};
 
   @override
   void initState() {
     super.initState();
-    // Initialize controller
     controller = CardSwiperController();
-    _loadFeaturedProducts();
     _fetchUserId();
-    // Add this line to fetch wishlist on init
-    _loadWishlistItems();
+    _loadFeaturedProducts();
   }
 
   @override
   void dispose() {
-    // Safe disposal with null check
     controller?.dispose();
     super.dispose();
   }
 
-  // 2. Add a method to load wishlist items
+  void _fetchUserId() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      setState(() {
+        userId = user.uid;
+      });
+      _loadWishlistItems();
+    }
+  }
+
   Future<void> _loadWishlistItems() async {
     if (userId == null) return;
 
@@ -67,30 +60,23 @@ class _ExploreScreenState extends State<ExploreScreen> {
             .map((item) => item.productId)
             .toSet();
       });
-
-      print('Loaded ${_wishlistProductIds.length} wishlist items');
     } catch (e) {
       print('Error loading wishlist: $e');
     }
   }
 
-  void _fetchUserId() {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      setState(() {
-        userId = user.uid;
-      });
-      // Load wishlist after getting userId
-      _loadWishlistItems();
-    }
-  }
-
   Future<void> _loadFeaturedProducts() async {
+    setState(() {
+      _isLoading = true;
+      _featuredProducts.clear();
+    });
+
     try {
       QuerySnapshot result = await FirebaseFirestore.instance
           .collection('products')
           .where('isActive', isEqualTo: true)
-          .limit(20)
+          .orderBy('createdAt', descending: true)
+          .limit(50)
           .get();
 
       List<Product> products = result.docs
@@ -106,32 +92,65 @@ class _ExploreScreenState extends State<ExploreScreen> {
           })
           .where((product) => product != null)
           .cast<Product>()
+          .where((product) => !_wishlistProductIds.contains(product.id))
           .toList();
-      
-      // Filter out products already in wishlist
-      products = products.where((product) => 
-          !_wishlistProductIds.contains(product.id)).toList();
 
       setState(() {
         _featuredProducts = products;
         _isLoading = false;
       });
+
+      if (products.isNotEmpty && controller == null) {
+        controller = CardSwiperController();
+      }
     } catch (e) {
       print('Error loading products: $e');
       setState(() => _isLoading = false);
     }
   }
 
-  // Keep your existing filtering and sorting functions
+  Future<void> _loadMoreProducts() async {
+    if (_isLoading || _featuredProducts.isEmpty) return;
+
+    try {
+      final lastProduct = _featuredProducts.last;
+      
+      QuerySnapshot result = await FirebaseFirestore.instance
+          .collection('products')
+          .where('isActive', isEqualTo: true)
+          .where('createdAt', isLessThan: lastProduct.createdAt)
+          .orderBy('createdAt', descending: true)
+          .limit(20)
+          .get();
+
+      List<Product> newProducts = result.docs
+          .map((doc) {
+            try {
+              final data = doc.data() as Map<String, dynamic>;
+              data['id'] = doc.id;
+              return Product.fromMap(data);
+            } catch (e) {
+              print('Error parsing product ${doc.id}: $e');
+              return null;
+            }
+          })
+          .where((product) => product != null)
+          .cast<Product>()
+          .where((product) => !_wishlistProductIds.contains(product.id))
+          .toList();
+
+      if (newProducts.isNotEmpty) {
+        setState(() {
+          _featuredProducts.addAll(newProducts);
+        });
+      }
+    } catch (e) {
+      print('Error loading more products: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Get active filters count
-    int activeFilters = 0;
-    if (_selectedCategory != 'All') activeFilters++;
-    if (_selectedBrand != 'All') activeFilters++;
-    if (_priceRange.start != 0 || _priceRange.end != 200) activeFilters++;
-    
     // Listen for wishlist changes
     if (userId != null) {
       final wishlistProvider = Provider.of<WishlistProvider>(context);
@@ -140,206 +159,625 @@ class _ExploreScreenState extends State<ExploreScreen> {
     
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: Text(
-          'Ukay Section',
-          style: GoogleFonts.poppins(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: Icon(
-              Icons.filter_list,
-              color: Theme.of(context).primaryColor,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Clean Header
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              color: Colors.white,
+              child: Row(
+                children: [
+                  Text(
+                    'Discover',
+                    style: GoogleFonts.poppins(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  Spacer(),
+                  Container(
+                    padding: EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.favorite_border,
+                      color: Colors.grey[600],
+                      size: 24,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            onPressed: () {
-              setState(() {
-                _showFilterPanel = !_showFilterPanel;
-              });
-            },
+            
+            // Main Card Swiper Area
+            Expanded(
+              child: Stack(
+                children: [
+                  // Main Content - Card Swiper
+                  Positioned.fill(
+                    child: _isLoading 
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              CircularProgressIndicator(
+                                strokeWidth: 3,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Theme.of(context).primaryColor,
+                                ),
+                              ),
+                              SizedBox(height: 20),
+                              Text(
+                                'Finding amazing items...',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  color: Colors.grey[600],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : _featuredProducts.isEmpty
+                        ? _buildEmptyState()
+                        : Padding(
+                            padding: EdgeInsets.only(
+                              left: 20,
+                              right: 20,
+                              top: 20,
+                              bottom: 120, // Space for bottom buttons
+                            ),
+                            child: CardSwiper(
+                              key: _cardSwiperKey,
+                              controller: controller,
+                              cardsCount: _featuredProducts.length,
+                              cardBuilder: (BuildContext context, int index) {
+                                return _buildImprovedProductCard(context, _featuredProducts[index]);
+                              },
+                              onSwipe: (previousIndex, currentIndex, direction) {
+                                _handleSwipe(previousIndex, currentIndex, direction);
+                                return true;
+                              },
+                              threshold: 50,
+                              maxAngle: 12,
+                              isLoop: false,
+                              scale: 0.9,
+                            ),
+                          ),
+                  ),
+                  
+                  // Enhanced Bottom Action Buttons
+                  Positioned(
+                    bottom: 30,
+                    left: 20,
+                    right: 20,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        // Pass/Dislike button
+                        _buildActionButton(
+                          icon: Icons.close,
+                          color: Colors.red,
+                          onPressed: () {
+                            if (!_isLoading && _featuredProducts.isNotEmpty && controller != null) {
+                              try {
+                                controller!.swipeLeft();
+                              } catch (e) {
+                                print('Error swiping left: $e');
+                                if (_featuredProducts.isNotEmpty) {
+                                  _handleSwipe(0, 1, CardSwiperDirection.left);
+                                }
+                              }
+                            }
+                          },
+                        ),
+                        
+                        // Info button
+                        _buildActionButton(
+                          icon: Icons.info_outline,
+                          color: Colors.blue,
+                          size: 56,
+                          onPressed: () {
+                            _showProductInfo();
+                          },
+                        ),
+                        
+                        // Like/Add to wishlist button
+                        _buildActionButton(
+                          icon: Icons.favorite,
+                          color: Colors.green,
+                          onPressed: () {
+                            if (!_isLoading && _featuredProducts.isNotEmpty && controller != null) {
+                              try {
+                                controller!.swipeRight();
+                              } catch (e) {
+                                print('Error swiping right: $e');
+                                if (_featuredProducts.isNotEmpty) {
+                                  _handleSwipe(0, 1, CardSwiperDirection.right);
+                                }
+                              }
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Enhanced Action Button Widget
+  Widget _buildActionButton({
+    required IconData icon,
+    required Color color,
+    required VoidCallback onPressed,
+    double size = 64,
+  }) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 20,
+            offset: Offset(0, 8),
           ),
         ],
       ),
-      body: Stack(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(size / 2),
+          onTap: onPressed,
+          child: Center(
+            child: Icon(
+              icon,
+              color: color,
+              size: size * 0.4,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Improved Product Card Design
+  Widget _buildImprovedProductCard(BuildContext context, Product product) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 20,
+            offset: Offset(0, 10),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
         children: [
-          // Top Categories Horizontal List
+          // Product Image with improved loading
+          Positioned.fill(
+            child: product.images.isNotEmpty
+              ? Image.network(
+                  product.images.first,
+                  fit: BoxFit.cover,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Colors.grey[200]!, Colors.grey[100]!],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Theme.of(context).primaryColor,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                  errorBuilder: (_, __, ___) => Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.grey[300]!, Colors.grey[200]!],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.image_not_supported, 
+                               size: 64, 
+                               color: Colors.grey[500]),
+                          SizedBox(height: 8),
+                          Text(
+                            'Image not available',
+                            style: GoogleFonts.poppins(
+                              color: Colors.grey[600],
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                )
+              : Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.grey[300]!, Colors.grey[200]!],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                  child: Center(
+                    child: Icon(Icons.shopping_bag_outlined, 
+                         size: 80, 
+                         color: Colors.grey[500]),
+                  ),
+                ),
+          ),
+          
+          // Top gradient overlay
           Positioned(
             top: 0,
             left: 0,
             right: 0,
-            height: 120,
+            height: 100,
             child: Container(
-              padding: EdgeInsets.symmetric(vertical: 12),
-              color: Colors.white,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: EdgeInsets.symmetric(horizontal: 16),
-                children: [
-                  _buildCategoryItem(context, 'All', Icons.apps),
-                  _buildCategoryItem(context, 'Vintage', Icons.history),
-                  _buildCategoryItem(context, 'Designer', Icons.diamond_outlined),
-                  _buildCategoryItem(context, 'Casual', Icons.checkroom),
-                  _buildCategoryItem(context, 'Formal', Icons.business_center),
-                  _buildCategoryItem(context, 'Shoes', Icons.directions_walk),
-                  _buildCategoryItem(context, 'Bags', Icons.shopping_bag),
-                  _buildCategoryItem(context, 'Jewelry', Icons.star),
-                ],
-              ),
-            ),
-          ),
-          
-          // Filter Indicator Bar
-          if (activeFilters > 0)
-            Positioned(
-              top: 120,
-              left: 0,
-              right: 0,
-              child: Container(
-                margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.filter_list,
-                      size: 16,
-                      color: Theme.of(context).primaryColor,
-                    ),
-                    SizedBox(width: 8),
-                    Text(
-                      '$activeFilters filters applied',
-                      style: GoogleFonts.poppins(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: Theme.of(context).primaryColor,
-                      ),
-                    ),
-                    Spacer(),
-                    TextButton(
-                      onPressed: () {
-                        setState(() {
-                          _selectedCategory = 'All';
-                          _selectedBrand = 'All';
-                          _priceRange = RangeValues(0, 200);
-                          _sortBy = 'newest';
-                        });
-                        _loadFeaturedProducts();
-                      },
-                      child: Text('Clear All', style: TextStyle(fontSize: 12)),
-                      style: TextButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        minimumSize: Size(50, 24),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                    ),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withOpacity(0.4),
+                    Colors.transparent,
                   ],
                 ),
               ),
             ),
+          ),
           
-          // Card Swiper Section
+          // Stock indicator
+          if (product.currentStock <= 5 && product.currentStock > 0)
+            Positioned(
+              top: 20,
+              left: 20,
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.9),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  'Only ${product.currentStock} left!',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          
+          // Price tag (top right)
           Positioned(
-            top: activeFilters > 0 ? 170 : 120,
+            top: 20,
+            right: 20,
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.95),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Text(
+                '₱${product.effectivePrice.toStringAsFixed(2)}',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ),
+          ),
+          
+          // Enhanced bottom overlay with product details
+          Positioned(
+            bottom: 0,
             left: 0,
             right: 0,
-            bottom: 100,
-            child: _isLoading 
-              ? Center(child: CircularProgressIndicator())
-              : Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
-                child: _featuredProducts.isEmpty
-                  ? _buildEmptyState()
-                  : CardSwiper(
-                      key: _cardSwiperKey,
-                      controller: controller,
-                      cards: _featuredProducts
-                          .map((product) => _buildProductCard(context, product, 0))
-                          .toList(),
-                      onSwipe: (index, direction) => _handleSwipe(index, direction),
-                      padding: EdgeInsets.all(24),
+            child: Container(
+              padding: EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [
+                    Colors.black.withOpacity(0.9),
+                    Colors.black.withOpacity(0.7),
+                    Colors.black.withOpacity(0.3),
+                    Colors.transparent,
+                  ],
+                  stops: [0.0, 0.4, 0.7, 1.0],
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Brand badge
+                  if (product.brand.isNotEmpty)
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      margin: EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.3),
+                        ),
+                      ),
+                      child: Text(
+                        product.brand.toUpperCase(),
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                          letterSpacing: 1,
+                        ),
+                      ),
                     ),
+                  
+                  // Product name
+                  Text(
+                    product.name,
+                    style: GoogleFonts.poppins(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      height: 1.2,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  
+                  SizedBox(height: 8),
+                  
+                  // Category and features row
+                  Row(
+                    children: [
+                      // Category chip
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).primaryColor.withOpacity(0.8),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          product.category,
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      
+                      SizedBox(width: 8),
+                      
+                      // Stock status
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: product.currentStock > 0 
+                            ? Colors.green.withOpacity(0.8)
+                            : Colors.red.withOpacity(0.8),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          product.currentStock > 0 ? 'In Stock' : 'Out of Stock',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      
+                      Spacer(),
+                      
+                      // Heart icon
+                      Icon(
+                        Icons.favorite_border,
+                        color: Colors.white.withOpacity(0.8),
+                        size: 20,
+                      ),
+                    ],
+                  ),
+                ],
               ),
-          ),
-          
-          // Bottom Action Buttons
-          Positioned(
-            bottom: 20,
-            left: 0,
-            right: 0,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                FloatingActionButton(
-                  heroTag: 'dislike',
-                  backgroundColor: Colors.white,
-                  child: Icon(Icons.close, color: Colors.red, size: 32),
-                  onPressed: () {
-                    if (!_isLoading && _featuredProducts.isNotEmpty && controller != null) {
-                      try {
-                        controller!.swipeLeft();
-                      } catch (e) {
-                        print('Error swiping left: $e');
-                      }
-                    }
-                  },
-                ),
-                SizedBox(width: 24),
-                FloatingActionButton(
-                  heroTag: 'like',
-                  backgroundColor: Colors.white,
-                  child: Icon(Icons.favorite, color: Colors.green, size: 32),
-                  onPressed: () {
-                    if (!_isLoading && _featuredProducts.isNotEmpty) {
-                      try {
-                        controller!.swipeRight();
-                      } catch (e) {
-                        print('Error swiping right: $e');
-                      }
-                    }
-                  },
-                ),
-              ],
             ),
           ),
-          
-          // Filter Panel
-          if (_showFilterPanel)
-            _buildFilterPanel(),
-          
-          // Loading Overlay
-          if (_isLoading)
-            Container(
-              color: Colors.white.withOpacity(0.7),
-              child: Center(
-                child: CircularProgressIndicator(),
-              ),
-            ),
         ],
       ),
     );
   }
 
-  // Handle card swipe actions
-  bool _handleSwipe(int index, CardSwiperDirection direction) {
-    final product = _featuredProducts[index];
+  // Show product info modal
+  void _showProductInfo() {
+    if (_featuredProducts.isEmpty) return;
     
-    if (direction == CardSwiperDirection.right) {
-      // Add to wishlist on right swipe
-      _addToWishlist(product);
-      return true;
-    } else if (direction == CardSwiperDirection.left) {
-      // Just skip on left swipe
-      return true;
+    final product = _featuredProducts.first;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.7,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Handle bar
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            
+            SizedBox(height: 20),
+            
+            Text(
+              product.name,
+              style: GoogleFonts.poppins(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            
+            SizedBox(height: 8),
+            
+            Text(
+              product.brand,
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                color: Colors.grey[600],
+              ),
+            ),
+            
+            SizedBox(height: 16),
+            
+            Text(
+              'Description',
+              style: GoogleFonts.poppins(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            
+            SizedBox(height: 8),
+            
+            Text(
+              product.description,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: Colors.grey[700],
+                height: 1.5,
+              ),
+            ),
+            
+            Spacer(),
+            
+            // Action buttons
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      // Trigger pass
+                      if (controller != null) {
+                        controller!.swipeLeft();
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.grey[300],
+                      foregroundColor: Colors.black87,
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text('Pass'),
+                  ),
+                ),
+                
+                SizedBox(width: 16),
+                
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      // Trigger like
+                      if (controller != null) {
+                        controller!.swipeRight();
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text('Add to Wishlist'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Handle card swipe actions
+  bool _handleSwipe(int previousIndex, int? currentIndex, CardSwiperDirection direction) {
+    if (previousIndex >= _featuredProducts.length || previousIndex < 0) {
+      return false;
     }
     
-    return false;
+    final product = _featuredProducts[previousIndex];
+    
+    if (direction == CardSwiperDirection.right) {
+      _addToWishlist(product);
+    } else if (direction == CardSwiperDirection.left) {
+      print('Passed on: ${product.name}');
+    }
+    
+    // Load more products when running low
+    if (currentIndex != null && _featuredProducts.length - currentIndex < 5) {
+      _loadMoreProducts();
+    }
+    
+    return true;
   }
 
   // Add product to wishlist
@@ -369,14 +807,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
           ),
         );
         
-        // Add the product ID to our local set too
         setState(() {
           _wishlistProductIds.add(product.id);
         });
         
         SnackBarHelper.showSnackBar(
           context,
-          'Added to wishlist',
+          '❤️ Added to wishlist!',
           isSuccess: true,
         );
       }
@@ -389,188 +826,64 @@ class _ExploreScreenState extends State<ExploreScreen> {
     }
   }
 
-  // Product card for swiping
-  Widget _buildProductCard(BuildContext context, Product product, double percentThresholdX) {
-    // Create swipe indicators
-    final isLiking = percentThresholdX >= 0;
-    final isDisliking = percentThresholdX < 0;
-    final swipeProgress = percentThresholdX.abs();
-    
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Stack(
-        children: [
-          // Product Image
-          Positioned.fill(
-            child: product.images.isNotEmpty
-              ? Image.network(
-                  product.images.first,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    color: Colors.grey[300],
-                    child: Icon(Icons.broken_image, size: 48, color: Colors.grey[500]),
-                  ),
-                )
-              : Container(
-                  color: Colors.grey[300],
-                  child: Icon(Icons.image_not_supported, size: 48, color: Colors.grey[500]),
-                ),
-          ),
-          
-          // Product Details Overlay
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              padding: EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [
-                    Colors.black.withOpacity(0.8),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    product.name,
-                    style: GoogleFonts.poppins(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    product.brand,
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      color: Colors.white.withOpacity(0.9),
-                    ),
-                  ),
-                  SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Container(
-                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Text(
-                          product.category,
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                      Spacer(),
-                      Text(
-                        '\$${product.effectivePrice.toStringAsFixed(2)}',
-                        style: GoogleFonts.poppins(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          
-          // Like Overlay
-          if (swipeProgress > 0)
-            Positioned(
-              top: 24,
-              right: isLiking ? 24 : null,
-              left: isDisliking ? 24 : null,
-              child: Transform.rotate(
-                angle: isLiking ? -0.2 : 0.2,
-                child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: isLiking ? Colors.green : Colors.red,
-                      width: 4,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    isLiking ? 'LIKE' : 'NOPE',
-                    style: GoogleFonts.poppins(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: isLiking ? Colors.green : Colors.red,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  // Empty state when no products match filters
+  // Enhanced empty state
   Widget _buildEmptyState() {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.search_off,
-            size: 72,
-            color: Colors.grey[400],
-          ),
-          SizedBox(height: 16),
-          Text(
-            'No items found',
-            style: GoogleFonts.poppins(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
+          Container(
+            padding: EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.explore_outlined,
+              size: 80,
+              color: Colors.grey[400],
             ),
           ),
-          SizedBox(height: 8),
+          
+          SizedBox(height: 32),
+          
           Text(
-            'Try adjusting your filters',
+            'No more discoveries!',
+            style: GoogleFonts.poppins(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey[800],
+            ),
+          ),
+          
+          SizedBox(height: 12),
+          
+          Text(
+            'You\'ve seen all available items.\nCheck back later for new finds.',
             style: GoogleFonts.poppins(
               fontSize: 16,
               color: Colors.grey[600],
+              height: 1.5,
             ),
+            textAlign: TextAlign.center,
           ),
-          SizedBox(height: 24),
+          
+          SizedBox(height: 40),
+          
           ElevatedButton.icon(
             onPressed: () {
-              setState(() {
-                _selectedCategory = 'All';
-                _selectedBrand = 'All';
-                _priceRange = RangeValues(0, 200);
-              });
               _loadFeaturedProducts();
             },
             icon: Icon(Icons.refresh),
-            label: Text('Reset Filters'),
+            label: Text('Refresh'),
             style: ElevatedButton.styleFrom(
-              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+              backgroundColor: Theme.of(context).primaryColor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(25),
+              ),
+              elevation: 4,
             ),
           ),
         ],
@@ -578,435 +891,19 @@ class _ExploreScreenState extends State<ExploreScreen> {
     );
   }
 
-  // Filter panel UI
-  Widget _buildFilterPanel() {
-    return Positioned(
-      top: 0,
-      bottom: 0,
-      right: 0,
-      width: MediaQuery.of(context).size.width * 0.85,
-      child: Material(
-        elevation: 8,
-        child: Column(
-          children: [
-            // Fixed header
-            Container(
-              padding: EdgeInsets.all(16),
-              color: Colors.white,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Filter Options',
-                    style: GoogleFonts.poppins(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.close),
-                    padding: EdgeInsets.zero,
-                    constraints: BoxConstraints(),
-                    onPressed: () => setState(() => _showFilterPanel = false),
-                  ),
-                ],
-              ),
-            ),
-            Divider(height: 1),
-            
-            // Scrollable content
-            Expanded(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.all(16),
-                physics: BouncingScrollPhysics(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Brand',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        'All', 'Nike', 'Adidas', 'Zara', 'H&M', 'Uniqlo'
-                      ].map((brand) {
-                        return FilterChip(
-                          label: Text(brand),
-                          selected: _selectedBrand == brand,
-                          onSelected: (selected) {
-                            setState(() {
-                              _selectedBrand = brand;
-                            });
-                          },
-                          selectedColor: Theme.of(context).primaryColor.withOpacity(0.2),
-                        );
-                      }).toList(),
-                    ),
-                    
-                    SizedBox(height: 24),
-                    
-                    Text(
-                      'Price Range',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('\$${_priceRange.start.round()}'),
-                        Text('\$${_priceRange.end.round()}'),
-                      ],
-                    ),
-                    RangeSlider(
-                      values: _priceRange,
-                      min: 0,
-                      max: 200,
-                      divisions: 20,
-                      activeColor: Theme.of(context).primaryColor,
-                      inactiveColor: Colors.grey[300],
-                      onChanged: (RangeValues values) {
-                        setState(() {
-                          _priceRange = values;
-                        });
-                      },
-                    ),
-                    
-                    SizedBox(height: 24),
-                    
-                    Text(
-                      'Sort By',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        ChoiceChip(
-                          label: Text('Newest'),
-                          selected: _sortBy == 'newest',
-                          onSelected: (selected) {
-                            if (selected) setState(() => _sortBy = 'newest');
-                          },
-                        ),
-                        ChoiceChip(
-                          label: Text('Price: Low to High'),
-                          selected: _sortBy == 'price_low',
-                          onSelected: (selected) {
-                            if (selected) setState(() => _sortBy = 'price_low');
-                          },
-                        ),
-                        ChoiceChip(
-                          label: Text('Price: High to Low'),
-                          selected: _sortBy == 'price_high',
-                          onSelected: (selected) {
-                            if (selected) setState(() => _sortBy = 'price_high');
-                          },
-                        ),
-                        ChoiceChip(
-                          label: Text('Most Popular'),
-                          selected: _sortBy == 'popular',
-                          onSelected: (selected) {
-                            if (selected) setState(() => _sortBy = 'popular');
-                          },
-                        ),
-                      ],
-                    ),
-                    
-                    // Add padding at the bottom to ensure space after scrolling
-                    SizedBox(height: 16),
-                  ],
-                ),
-              ),
-            ),
-            
-            // Fixed bottom actions
-            Container(
-              padding: EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 5,
-                    offset: Offset(0, -2),
-                  )
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        setState(() => _showFilterPanel = false);
-                        _applyFilters();
-                      },
-                      child: Text('Apply Filters'),
-                      style: ElevatedButton.styleFrom(
-                        padding: EdgeInsets.symmetric(vertical: 12),
-                        backgroundColor: Theme.of(context).primaryColor,
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton(
-                      onPressed: () {
-                        setState(() {
-                          _selectedCategory = 'All';
-                          _selectedBrand = 'All';
-                          _priceRange = RangeValues(0, 200);
-                          _sortBy = 'newest';
-                          _showFilterPanel = false;
-                        });
-                        _loadFeaturedProducts();
-                      },
-                      child: Text('Reset Filters'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Keep your existing category item widget
-  Widget _buildCategoryItem(BuildContext context, String title, IconData icon) {
-    final isSelected = _selectedCategory == title;
-    
-    return GestureDetector(
-      onTap: () => _filterByCategory(title),
-      child: Container(
-        width: 80,
-        margin: const EdgeInsets.only(right: 12),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            AnimatedContainer(
-              duration: Duration(milliseconds: 300),
-              width: 60,
-              height: 60,
-              decoration: BoxDecoration(
-                color: isSelected 
-                    ? Theme.of(context).primaryColor
-                    : Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: isSelected
-                        ? Theme.of(context).primaryColor.withOpacity(0.3)
-                        : Colors.black.withOpacity(0.05),
-                    spreadRadius: isSelected ? 2 : 0,
-                    blurRadius: isSelected ? 8 : 4,
-                    offset: Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Icon(
-                icon,
-                color: isSelected ? Colors.white : Colors.black87,
-                size: 28,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected ? Theme.of(context).primaryColor : Colors.black87,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _filterByCategory(String category) {
-    setState(() {
-      _selectedCategory = category;
-    });
-    _applyFilters();
-  }
-
-  // Apply filters and sorting to the featured products
-  void _applyFilters() async {
-    // First dispose the current controller safely
-    controller?.dispose();
-    controller = null;
-    
-    setState(() {
-      _isLoading = true;
-      // Generate new key to force CardSwiper recreation
-      _cardSwiperKey = UniqueKey();
-    });
-
-    try {
-      Query query = FirebaseFirestore.instance
-          .collection('products')
-          .where('isActive', isEqualTo: true);
-
-      if (_selectedCategory != 'All') {
-        query = query.where('category', isEqualTo: _selectedCategory);
-      }
-      if (_selectedBrand != 'All') {
-        query = query.where('brand', isEqualTo: _selectedBrand);
-      }
-      // Firestore does not support range queries on multiple fields, so we filter price after fetching
-      QuerySnapshot result = await query.limit(50).get();
-
-      List<Product> filtered = result.docs
-          .map((doc) {
-            try {
-              final data = doc.data() as Map<String, dynamic>;
-              data['id'] = doc.id;
-              return Product.fromMap(data);
-            } catch (e) {
-              print('Error parsing product ${doc.id}: $e');
-              return null;
-            }
-          })
-          .where((product) => product != null)
-          .cast<Product>()
-          .where((product) =>
-              product.effectivePrice >= _priceRange.start &&
-              product.effectivePrice <= _priceRange.end)
-          .toList();
-
-      // Sorting
-      if (_sortBy == 'price_low') {
-        filtered.sort((a, b) => a.effectivePrice.compareTo(b.effectivePrice));
-      } else if (_sortBy == 'price_high') {
-        filtered.sort((a, b) => b.effectivePrice.compareTo(a.effectivePrice));
-      } else {
-        // Default: newest
-        filtered.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      }
-
-      // Also modify the _applyFilters method to filter out wishlist items
-      filtered = filtered.where((product) => 
-          !_wishlistProductIds.contains(product.id)).toList();
-
-      setState(() {
-        _featuredProducts = filtered;
-        _isLoading = false;
-        // Create a new controller after filters are applied
-        controller = CardSwiperController();
-      });
-    } catch (e) {
-      print('Error applying filters: $e');
-      setState(() {
-        _isLoading = false;
-        // Create a new controller even on error
-        controller = CardSwiperController();
-      });
-    }
-  }
-
-  // Loading overlay with animation
-  Widget _buildFilterOverlay() {
-    return _isLoading
-        ? Container(
-            color: Colors.white.withOpacity(0.8),
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black12,
-                          blurRadius: 10,
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(
-                          width: 48,
-                          height: 48,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 3,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Theme.of(context).primaryColor,
-                            ),
-                          ),
-                        ),
-                        SizedBox(height: 16),
-                        Text(
-                          'Updating results...',
-                          style: GoogleFonts.poppins(
-                            fontWeight: FontWeight.w500,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          )
-        : SizedBox.shrink();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // This ensures we listen to wishlist changes
-    if (userId != null) {
-      final wishlistProvider = Provider.of<WishlistProvider>(context);
-      _updateWishlistIds(wishlistProvider);
-    }
-  }
-  
   // Helper method to update wishlist IDs when changed
   void _updateWishlistIds(WishlistProvider provider) {
     final newIds = provider.wishlist.map((item) => item.productId).toSet();
     
-    // If wishlist has changed, update our set and refresh products
-    if (!setEquals(newIds, _wishlistProductIds)) {
+    if (_wishlistProductIds.length != newIds.length || 
+        !_wishlistProductIds.containsAll(newIds)) {
       setState(() {
         _wishlistProductIds = newIds;
       });
       
-      // Check if we need to reload products (e.g., something was removed from wishlist)
       if (_wishlistProductIds.length < newIds.length) {
-        _loadFeaturedProducts(); // Reload to show newly unwishlisted items
+        _loadFeaturedProducts();
       }
     }
-  }
-
-  // Add this method to handle reloading products when a wishlist item is removed
-  void _refreshAfterWishlistRemoval(String productId) {
-    setState(() {
-      _wishlistProductIds.remove(productId);
-    });
-    _loadFeaturedProducts();
   }
 }
