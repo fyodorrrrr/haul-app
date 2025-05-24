@@ -153,6 +153,10 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
         icon = Icons.credit_card;
         cardColor = Colors.green;
         break;
+      case 'paypal': // ✅ Added PayPal case
+        icon = Icons.account_balance_wallet;
+        cardColor = Color(0xFF0070BA); // ✅ Official PayPal blue (#0070BA)
+        break;
       case 'bank':
         icon = Icons.account_balance;
         cardColor = Colors.purple;
@@ -242,15 +246,22 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
   void _showAddPaymentMethodDialog() {
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true,
+      isScrollControlled: true, // ✅ Keep this
+      isDismissible: true, // ✅ Allow dismissing by tapping outside
+      enableDrag: true, // ✅ Allow dragging to dismiss
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (context) => _AddPaymentMethodSheet(
-        onPaymentMethodAdded: () {
-          _loadPaymentMethods();
-          Navigator.pop(context);
-        },
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom, // ✅ Add keyboard padding here too
+        ),
+        child: _AddPaymentMethodSheet(
+          onPaymentMethodAdded: () {
+            _loadPaymentMethods();
+            Navigator.pop(context);
+          },
+        ),
       ),
     );
   }
@@ -352,112 +363,156 @@ class _AddPaymentMethodSheetState extends State<_AddPaymentMethodSheet> {
   bool _isLoading = false;
 
   final List<Map<String, dynamic>> _paymentTypes = [
-    {'id': 'gcash', 'name': 'GCash', 'icon': Icons.phone_android, 'color': Colors.blue},
-    {'id': 'maya', 'name': 'Maya (PayMaya)', 'icon': Icons.credit_card, 'color': Colors.green},
-    {'id': 'bank', 'name': 'Bank Transfer', 'icon': Icons.account_balance, 'color': Colors.purple},
-    {'id': 'cod', 'name': 'Cash on Delivery', 'icon': Icons.local_shipping, 'color': Colors.orange},
+    {
+      'id': 'gcash', 
+      'name': 'GCash', 
+      'icon': Icons.phone_android, 
+      'color': Colors.blue
+    },
+    {
+      'id': 'maya', 
+      'name': 'Maya (PayMaya)', 
+      'icon': Icons.credit_card, 
+      'color': Colors.green
+    },
+    {
+      'id': 'paypal', 
+      'name': 'PayPal', 
+      'icon': Icons.account_balance_wallet, 
+      'color': Color(0xFF0070BA) // ✅ Official PayPal blue
+    },
+    {
+      'id': 'bank', 
+      'name': 'Bank Transfer', 
+      'icon': Icons.account_balance, 
+      'color': Colors.purple
+    },
+    {
+      'id': 'cod', 
+      'name': 'Cash on Delivery', 
+      'icon': Icons.local_shipping, 
+      'color': Colors.orange
+    },
   ];
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Add Payment Method',
-              style: GoogleFonts.poppins(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+      child: SingleChildScrollView( // ✅ Wrap everything in SingleChildScrollView
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Add Payment Method',
+                style: GoogleFonts.poppins(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
-            
-            SizedBox(height: 24),
-            
-            // Payment Type Selection
-            Text(
-              'Payment Type',
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
+              
+              SizedBox(height: 24),
+              
+              // Payment Type Selection
+              Text(
+                'Payment Type',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ),
-            SizedBox(height: 8),
-            
-            ...(_paymentTypes.map((type) => RadioListTile<String>(
-              title: Row(
-                children: [
-                  Icon(type['icon'], color: type['color']),
-                  SizedBox(width: 12),
-                  Text(type['name']),
-                ],
-              ),
-              value: type['id'],
-              groupValue: _selectedType,
-              onChanged: (value) {
-                setState(() {
-                  _selectedType = value!;
-                });
-              },
-            )).toList()),
-            
-            SizedBox(height: 16),
-            
-            // Name Field
-            TextField(
-              controller: _nameController,
-              decoration: InputDecoration(
-                labelText: 'Name/Alias',
-                hintText: 'e.g., My GCash, Primary Bank',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            
-            SizedBox(height: 16),
-            
-            // Details Field
-            TextField(
-              controller: _detailsController,
-              decoration: InputDecoration(
-                labelText: _getDetailsLabel(),
-                hintText: _getDetailsHint(),
-                border: OutlineInputBorder(),
-              ),
-            ),
-            
-            SizedBox(height: 24),
-            
-            // Add Button
-            Container(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _addPaymentMethod,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.black,
-                  padding: EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+              SizedBox(height: 8),
+              
+              // ✅ Wrap RadioListTiles in a Container with maxHeight
+              Container(
+                constraints: BoxConstraints(
+                  maxHeight: 300, // ✅ Limit height to prevent overflow
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: _paymentTypes.map((type) => RadioListTile<String>(
+                      title: Row(
+                        children: [
+                          Icon(type['icon'], color: type['color']),
+                          SizedBox(width: 12),
+                          Flexible( // ✅ Add Flexible to prevent text overflow
+                            child: Text(type['name']),
+                          ),
+                        ],
+                      ),
+                      value: type['id'],
+                      groupValue: _selectedType,
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedType = value!;
+                        });
+                      },
+                    )).toList(),
                   ),
                 ),
-                child: _isLoading
-                    ? CircularProgressIndicator(color: Colors.white)
-                    : Text(
-                        'Add Payment Method',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
               ),
-            ),
-          ],
+              
+              SizedBox(height: 16),
+              
+              // Name Field
+              TextField(
+                controller: _nameController,
+                decoration: InputDecoration(
+                  labelText: 'Name/Alias',
+                  hintText: 'e.g., My GCash, Primary Bank',
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16), // ✅ Consistent padding
+                ),
+              ),
+              
+              SizedBox(height: 16),
+              
+              // Details Field
+              TextField(
+                controller: _detailsController,
+                keyboardType: _selectedType == 'paypal' ? TextInputType.emailAddress : TextInputType.text,
+                decoration: InputDecoration(
+                  labelText: _getDetailsLabel(),
+                  hintText: _getDetailsHint(),
+                  border: OutlineInputBorder(),
+                  prefixIcon: _selectedType == 'paypal' ? Icon(Icons.email) : null,
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16), // ✅ Consistent padding
+                ),
+              ),
+              
+              SizedBox(height: 24),
+              
+              // Add Button
+              Container(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _addPaymentMethod,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.black,
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: _isLoading
+                      ? CircularProgressIndicator(color: Colors.white)
+                      : Text(
+                          'Add Payment Method',
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                ),
+              ),
+              
+              // ✅ Add extra bottom padding for better spacing
+              SizedBox(height: 16),
+            ],
+          ),
         ),
       ),
     );
@@ -468,6 +523,8 @@ class _AddPaymentMethodSheetState extends State<_AddPaymentMethodSheet> {
       case 'gcash':
       case 'maya':
         return 'Phone Number';
+      case 'paypal': // ✅ Added PayPal case
+        return 'PayPal Email';
       case 'bank':
         return 'Account Number';
       case 'cod':
@@ -482,6 +539,8 @@ class _AddPaymentMethodSheetState extends State<_AddPaymentMethodSheet> {
       case 'gcash':
       case 'maya':
         return '+63 9XX XXX XXXX';
+      case 'paypal': // ✅ Added PayPal case
+        return 'your.email@example.com';
       case 'bank':
         return 'Your bank account number';
       case 'cod':
@@ -499,6 +558,18 @@ class _AddPaymentMethodSheetState extends State<_AddPaymentMethodSheet> {
       return;
     }
 
+    // ✅ Added PayPal email validation
+    if (_selectedType == 'paypal' && _detailsController.text.trim().isNotEmpty) {
+      final email = _detailsController.text.trim();
+      final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+      if (!emailRegex.hasMatch(email)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Please enter a valid email address')),
+        );
+        return;
+      }
+    }
+
     setState(() => _isLoading = true);
 
     try {
@@ -514,7 +585,7 @@ class _AddPaymentMethodSheetState extends State<_AddPaymentMethodSheet> {
           'type': _selectedType,
           'name': _nameController.text.trim(),
           'details': _detailsController.text.trim(),
-          'isDefault': isFirstMethod, // First method becomes default
+          'isDefault': isFirstMethod,
           'createdAt': FieldValue.serverTimestamp(),
         });
 
