@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -153,108 +154,140 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
           final orderItems = List<Map<String, dynamic>>.from(order['items'] ?? []);
           final status = order['status'] ?? 'pending';
 
-          return Card(
-            elevation: 2,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            child: Column(
-              children: [
-                ListTile(
-                  title: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Order #${order['orderNumber'] ?? order['orderId']}',
-                          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                      Container(
-                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: _getStatusColor(status).withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          status.toUpperCase(),
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: _getStatusColor(status),
+          return GestureDetector(
+            onLongPress: () {
+              _copyOrderId(order['orderNumber'] ?? order['orderId'] ?? order['documentId']);
+              _showCopyTooltip(); // Optional: Show a tooltip explaining long press
+            },
+            child: Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              child: Column(
+                children: [
+                  ListTile(
+                    title: Row(
+                      children: [
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  'Order #${order['orderNumber'] ?? order['orderId']}',
+                                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              SizedBox(width: 8),
+                              Tooltip(
+                                message: 'Copy Order ID',
+                                child: GestureDetector(
+                                  onTap: () => _copyOrderId(order['orderNumber'] ?? order['orderId'] ?? order['documentId']),
+                                  child: Container(
+                                    padding: EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[100],
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Icon(
+                                      Icons.copy,
+                                      size: 16,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(height: 4),
-                      Text(
-                        'Items: ${orderItems.length}',
-                        style: GoogleFonts.poppins(fontSize: 13),
-                      ),
-                      Text(
-                        'Total: \$${order['total']?.toStringAsFixed(2) ?? "0.00"}',
-                        style: GoogleFonts.poppins(fontSize: 13),
-                      ),
-                      if (createdAt != null)
+                        Container(
+                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: _getStatusColor(status).withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            status.toUpperCase(),
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: _getStatusColor(status),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(height: 4),
                         Text(
-                          'Placed: ${DateFormat('MMM dd, yyyy').format(createdAt)}',
-                          style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[600]),
+                          'Items: ${orderItems.length}',
+                          style: GoogleFonts.poppins(fontSize: 13),
                         ),
-                    ],
-                  ),
-                ),
-                // Product images row
-                SizedBox(
-                  height: 80,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    padding: EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: orderItems.length,
-                    itemBuilder: (context, itemIndex) {
-                      final item = orderItems[itemIndex];
-                      final hasImage = item['imageURL'] != null && item['imageURL'].toString().isNotEmpty;
-                      return Container(
-                        width: 70,
-                        margin: EdgeInsets.only(right: 8),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade300),
-                          borderRadius: BorderRadius.circular(8),
+                        Text(
+                          'Total: \$${order['total']?.toStringAsFixed(2) ?? "0.00"}',
+                          style: GoogleFonts.poppins(fontSize: 13),
                         ),
-                        clipBehavior: Clip.antiAlias,
-                        child: hasImage
-                            ? Image.network(
-                                item['imageURL'],
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Center(
-                                  child: Icon(Icons.image_not_supported, color: Colors.grey),
-                                ),
-                              )
-                            : Center(
-                                child: Icon(Icons.image_not_supported, color: Colors.grey),
-                              ),
-                      );
-                    },
-                  ),
-                ),
-                // Action button
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton(
-                      onPressed: () => _showOrderDetails(context, order),
-                      style: OutlinedButton.styleFrom(
-                        padding: EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: Text('View Details'),
+                        if (createdAt != null)
+                          Text(
+                            'Placed: ${DateFormat('MMM dd, yyyy').format(createdAt)}',
+                            style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[600]),
+                          ),
+                      ],
                     ),
                   ),
-                ),
-              ],
+                  // Product images row
+                  SizedBox(
+                    height: 80,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: orderItems.length,
+                      itemBuilder: (context, itemIndex) {
+                        final item = orderItems[itemIndex];
+                        final hasImage = item['imageURL'] != null && item['imageURL'].toString().isNotEmpty;
+                        return Container(
+                          width: 70,
+                          margin: EdgeInsets.only(right: 8),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey.shade300),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: hasImage
+                              ? Image.network(
+                                  item['imageURL'],
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Center(
+                                    child: Icon(Icons.image_not_supported, color: Colors.grey),
+                                  ),
+                                )
+                              : Center(
+                                  child: Icon(Icons.image_not_supported, color: Colors.grey),
+                                ),
+                        );
+                      },
+                    ),
+                  ),
+                  // Action button
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: () => _showOrderDetails(context, order),
+                        style: OutlinedButton.styleFrom(
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: Text('View Details'),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         },
@@ -501,6 +534,32 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  void _copyOrderId(String orderId) {
+    Clipboard.setData(ClipboardData(text: orderId)).then((_) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Order ID $orderId copied to clipboard'),
+          duration: Duration(seconds: 2),
+          backgroundColor: Colors.green[600],
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    });
+  }
+
+  void _showCopyTooltip() {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('💡 Tip: Long press any order card to copy its ID'),
+        duration: Duration(seconds: 2),
+        backgroundColor: Colors.blue[600],
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }
