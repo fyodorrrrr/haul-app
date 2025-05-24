@@ -27,6 +27,8 @@ dependencies:
   lottie: ^3.3.1
   shared_preferences: ^2.5.3
   uuid: ^3.0.7
+  flutter_card_swiper: ^4.0.1
+  flutter_hooks: ^0.18.5+1
   
   
 
@@ -52,6 +54,7 @@ flutter:
     - assets/data/philippine_provinces_cities_municipalities_and_barangays_2019v2.json
     - .env
     - assets/images/banner_1.jpg
+    - assets/images/banner_2.jpg
 
 flutter_native_splash:
   color: "#ffffff" 
