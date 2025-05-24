@@ -70,6 +70,15 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
         }).catchError((error) {
           print('Analytics loading failed: $error');
         });
+        
+        // ADD THIS: Load products when dashboard opens
+        final productProvider = Provider.of<ProductProvider>(context, listen: false);
+        print('Loading products from dashboard...');
+        productProvider.loadProducts().then((_) {
+          print('Products loading completed');
+        }).catchError((error) {
+          print('Products loading failed: $error');
+        });
       }
     });
   }
