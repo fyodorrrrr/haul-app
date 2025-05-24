@@ -349,7 +349,6 @@ class _MainHomeScreenState extends State<MainHomeScreen> with RouteAware {
   Widget _buildPromotionBanner(BuildContext context) {
     return Container(
       width: double.infinity,
-      // Remove fixed height to allow proper aspect ratio
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
@@ -361,12 +360,11 @@ class _MainHomeScreenState extends State<MainHomeScreen> with RouteAware {
           ),
         ],
       ),
-      clipBehavior: Clip.antiAlias,
-      // Use AspectRatio to maintain proper proportions
+      clipBehavior: Clip.antiAlias, // This ensures the image respects the border radius
       child: AspectRatio(
         aspectRatio: 16/9, // Standard banner aspect ratio
         child: Image.asset(
-          'assets/images/banner_2.jpg',
+          'assets/images/banner_1.jpg',
           fit: BoxFit.cover,
         ),
       ),
