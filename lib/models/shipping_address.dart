@@ -19,6 +19,20 @@ class ShippingAddress {
     required this.phoneNumber,
   });
 
+  // ✅ Safe factory constructor
+  factory ShippingAddress.fromMap(Map<String, dynamic> map) {
+    return ShippingAddress(
+      fullName: map['fullName']?.toString() ?? '',
+      addressLine1: map['addressLine1']?.toString() ?? '',
+      addressLine2: map['addressLine2']?.toString() ?? '',
+      city: map['city']?.toString() ?? '',
+      state: map['state']?.toString() ?? '',
+      zipCode: map['zipCode']?.toString() ?? '',
+      country: map['country']?.toString() ?? '',
+      phoneNumber: map['phoneNumber']?.toString() ?? '',
+    );
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'fullName': fullName,

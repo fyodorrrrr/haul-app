@@ -6,7 +6,7 @@ import '/models/shipping_address.dart';
 import '/models/payment_method.dart';
 import '/models/order.dart' as my_order;
 
-class CheckoutProvider with ChangeNotifier {
+class CheckoutProvider extends ChangeNotifier {
   // Current checkout step
   int _currentStep = 0;
   int get currentStep => _currentStep;
@@ -57,12 +57,16 @@ class CheckoutProvider with ChangeNotifier {
     }
   }
 
+  // ✅ Update method signature by adding optional parameters
   Future<bool> placeOrder({
     required List<CartModel> cartItems,
     required double subtotal,
     required double shipping,
     required double tax,
     required double total,
+    // ✅ Add these as optional parameters to maintain backward compatibility
+    ShippingAddress? shippingAddress,
+    PaymentMethod? paymentMethod,
   }) async {
     print('placeOrder called at ${DateTime.now()}');
     if (_isProcessingOrder) {
@@ -70,14 +74,18 @@ class CheckoutProvider with ChangeNotifier {
       return false;
     }
 
-    // Existing validation code...
-    if (_shippingAddress == null) {
+    // ✅ Use provided parameters or fall back to stored values
+    final finalShippingAddress = shippingAddress ?? _shippingAddress;
+    final finalPaymentMethod = paymentMethod ?? _paymentMethod;
+
+    // Existing validation code with updated variables
+    if (finalShippingAddress == null) {
       _errorMessage = "Shipping address is required";
       notifyListeners();
       return false;
     }
 
-    if (_paymentMethod == null) {
+    if (finalPaymentMethod == null) {
       _errorMessage = "Payment method is required";
       notifyListeners();
       return false;
@@ -106,8 +114,8 @@ class CheckoutProvider with ChangeNotifier {
         'orderNumber': orderNumber,
         'userId': user.uid,
         'items': cartItems.map((item) => item.toMap()).toList(),
-        'shippingAddress': _shippingAddress!.toMap(),
-        'paymentMethod': _paymentMethod!.toMap(),
+        'shippingAddress': finalShippingAddress.toMap(), // ✅ Use final variable
+        'paymentMethod': finalPaymentMethod.toMap(),     // ✅ Use final variable
         'subtotal': subtotal,
         'shipping': shipping,
         'tax': tax,
@@ -120,7 +128,7 @@ class CheckoutProvider with ChangeNotifier {
       // Add order to batch
       batch.set(orderRef, orderData);
       
-      // Count quantities for each product (since you don't have a quantity field)
+      // ✅ Rest of your existing code remains exactly the same
       Map<String, int> productQuantities = {};
       for (var item in cartItems) {
         if (productQuantities.containsKey(item.productId)) {

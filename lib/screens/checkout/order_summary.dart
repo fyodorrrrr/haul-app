@@ -129,33 +129,45 @@ class _OrderSummaryState extends State<OrderSummary> {
                               context,
                               listen: false,
                             );
+                            
+                            // ✅ Fix: Include missing parameters
                             final success = await checkoutProvider.placeOrder(
                               cartItems: widget.cartItems,
+                              shippingAddress: widget.shippingAddress, // ✅ Add this
+                              paymentMethod: widget.paymentMethod,     // ✅ Add this
                               subtotal: widget.subtotal,
                               shipping: widget.shipping,
                               tax: widget.tax,
                               total: widget.total,
                             );
+                            
                             Navigator.pop(context);
                             if (success) {
-                              Navigator.of(context).pushAndRemoveUntil(
-                                MaterialPageRoute(
-                                  builder: (_) => OrderConfirmation(
-                                    orderId: checkoutProvider.orderId!,
-                                    total: widget.total,
-                                    onContinueShopping: () {
-                                      // You can reset state or navigate home here if needed
-                                    },
+                              final orderId = checkoutProvider.orderId;
+                              if (orderId != null && orderId.isNotEmpty) { // ✅ Add null check
+                                Navigator.of(context).pushAndRemoveUntil(
+                                  MaterialPageRoute(
+                                    builder: (_) => OrderConfirmation(
+                                      orderId: orderId,
+                                      total: widget.total,
+                                      onContinueShopping: () {
+                                        Navigator.of(context).pushNamedAndRemoveUntil(
+                                          '/', // Your home route
+                                          (route) => false,
+                                        );
+                                      },
+                                    ),
                                   ),
-                                ),
-                                (route) => false, // Remove all previous routes
-                              );
+                                  (route) => false,
+                                );
+                              } else {
+                                throw Exception('Order ID is null or empty');
+                              }
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(
-                                    checkoutProvider.errorMessage ??
-                                        'Failed to place order',
+                                    checkoutProvider.errorMessage ?? 'Failed to place order',
                                   ),
                                   backgroundColor: Colors.red,
                                 ),
@@ -163,6 +175,7 @@ class _OrderSummaryState extends State<OrderSummary> {
                             }
                           } catch (e) {
                             Navigator.pop(context);
+                            print('❌ Order placement error: $e');
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text('An error occurred: $e'),
