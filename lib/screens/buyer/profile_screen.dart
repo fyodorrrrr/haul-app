@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:haul/screens/buyer/payment_methods_screen.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '/providers/user_profile_provider.dart';
@@ -104,7 +105,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _buildMenuItem(
               icon: Icons.payment, 
               title: 'Payment Methods',
-              onTap: () {},
+              subtitle: 'Manage your payment options',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => PaymentMethodsScreen()),
+                );
+              },
             ),
             
             const SizedBox(height: 16),
