@@ -197,10 +197,18 @@ class _PaymentMethodFormState extends State<PaymentMethodForm> {
               Expanded(
                 child: ElevatedButton(
                   onPressed: _selectedMethod != null ? () {
+                    // ✅ Create PaymentMethod with all required parameters
                     final paymentMethod = PaymentMethod(
-                      type: _selectedMethod!,
+                      type: _getPaymentType(),
+                      name: _selectedMethod!,
                       details: _getPaymentDetails(),
                     );
+                    
+                    print('Selected payment method:');
+                    print('  Type: ${paymentMethod.type}');
+                    print('  Name: ${paymentMethod.name}');
+                    print('  Details: ${paymentMethod.details}');
+                    
                     widget.onContinue(paymentMethod);
                   } : null,
                   style: ElevatedButton.styleFrom(
@@ -378,18 +386,55 @@ class _PaymentMethodFormState extends State<PaymentMethodForm> {
       if (_selectedMethod == displayName) {
         return {
           'savedMethodId': method['id'],
-          'type': method['type'],
-          'details': method['details'],
+          'originalDetails': method['details'], // ✅ Include original details
+          'isDefault': method['isDefault'] ?? false,
         };
       }
     }
     
-    // Default payment method
+    // Return details for default payment methods
     switch (_selectedMethod) {
+      case 'Cash on Delivery':
+        return {'payOnDelivery': true};
       case 'Credit/Debit Card':
-        return {'cardType': 'Visa', 'last4': '1234'};
+        return {'requiresCardInput': true};
+      case 'PayPal':
+        return {'requiresPayPalLogin': true};
+      case 'GCash':
+        return {'requiresGCashNumber': true};
+      case 'Maya (PayMaya)':
+        return {'requiresMayaAccount': true};
       default:
-        return null;
+        return {};
+    }
+  }
+  
+  // ✅ Add this method to extract clean payment type
+  String _getPaymentType() {
+    if (_selectedMethod == null) return '';
+    
+    // Check if it's a saved payment method
+    for (var method in _savedPaymentMethods) {
+      final displayName = '${method['name']} (${method['type']})';
+      if (_selectedMethod == displayName) {
+        return method['type']; // Return the stored type
+      }
+    }
+    
+    // Map default payment methods to clean types
+    switch (_selectedMethod) {
+      case 'Cash on Delivery':
+        return 'cod';
+      case 'Credit/Debit Card':
+        return 'card';
+      case 'PayPal':
+        return 'paypal';
+      case 'GCash':
+        return 'gcash';
+      case 'Maya (PayMaya)':
+        return 'maya';
+      default:
+        return _selectedMethod!.toLowerCase().replaceAll(' ', '_');
     }
   }
 }
