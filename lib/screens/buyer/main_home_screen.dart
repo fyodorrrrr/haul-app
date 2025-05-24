@@ -349,18 +349,23 @@ class _MainHomeScreenState extends State<MainHomeScreen> with RouteAware {
   Widget _buildPromotionBanner(BuildContext context) {
     return Container(
       width: double.infinity,
-      height: 100,
       decoration: BoxDecoration(
-        color: Colors.grey.shade200,
         borderRadius: BorderRadius.circular(12),
-      ),
-      child: Center(
-        child: Text(
-          '30% OFF',
-          style: GoogleFonts.poppins(
-            fontSize: 26,
-            fontWeight: FontWeight.w600,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 3,
+            offset: const Offset(0, 2),
           ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias, // This ensures the image respects the border radius
+      child: AspectRatio(
+        aspectRatio: 16/9, // Standard banner aspect ratio
+        child: Image.asset(
+          'assets/images/banner_1.jpg',
+          fit: BoxFit.cover,
         ),
       ),
     );
