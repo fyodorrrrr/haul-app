@@ -1150,39 +1150,4 @@ class _ExploreScreenState extends State<ExploreScreen> {
       }
     }
   }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // This ensures we listen to wishlist changes
-    if (userId != null) {
-      final wishlistProvider = Provider.of<WishlistProvider>(context);
-      _updateWishlistIds(wishlistProvider);
-    }
-  }
-  
-  // Helper method to update wishlist IDs when changed
-  void _updateWishlistIds(WishlistProvider provider) {
-    final newIds = provider.wishlist.map((item) => item.productId).toSet();
-    
-    // If wishlist has changed, update our set and refresh products
-    if (!setEquals(newIds, _wishlistProductIds)) {
-      setState(() {
-        _wishlistProductIds = newIds;
-      });
-      
-      // Check if we need to reload products (e.g., something was removed from wishlist)
-      if (_wishlistProductIds.length < newIds.length) {
-        _loadFeaturedProducts(); // Reload to show newly unwishlisted items
-      }
-    }
-  }
-
-  // Add this method to handle reloading products when a wishlist item is removed
-  void _refreshAfterWishlistRemoval(String productId) {
-    setState(() {
-      _wishlistProductIds.remove(productId);
-    });
-    _loadFeaturedProducts();
-  }
 }
