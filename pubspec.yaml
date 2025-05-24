@@ -29,6 +29,8 @@ dependencies:
   uuid: ^3.0.7
   flutter_card_swiper: ^4.0.1
   flutter_hooks: ^0.18.5+1
+  firebase_messaging: ^14.7.9
+  flutter_local_notifications: ^17.0.0
   
   
 

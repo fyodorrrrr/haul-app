@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:haul/screens/buyer/notification_preferences_screen.dart';
 import 'package:haul/screens/buyer/payment_methods_screen.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -17,6 +18,7 @@ import '/screens/buyer/saved_addresses_screen.dart';
 import '/screens/seller/seller_dashboard_screen.dart';
 import '/screens/buyer/order_history.dart';
 import '/screens/buyer/package_tracking_screen.dart';
+import '/screens/buyer/notification_preferences_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final UserProfile userProfile;
@@ -152,7 +154,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _buildMenuItem(
               icon: Icons.notifications_outlined, 
               title: 'Notification Preferences',
-              onTap: () {},
+              subtitle: 'Manage how you receive updates',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => NotificationPreferencesScreen()),
+                );
+              },
             ),
             _buildMenuItem(
               icon: Icons.lock_outline, 
