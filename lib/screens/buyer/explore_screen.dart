@@ -350,49 +350,91 @@ class _ExploreScreenState extends State<ExploreScreen> {
     }
   }
 
+  // Add this method to your _ExploreScreenState class
+  Map<String, dynamic> _getResponsiveValues(BuildContext context) {
+  final screenSize = MediaQuery.of(context).size;
+  final screenWidth = screenSize.width;
+  final screenHeight = screenSize.height;
+  
+  // Screen size categories
+  final isSmallScreen = screenWidth < 360;
+  final isMediumScreen = screenWidth >= 360 && screenWidth < 768;
+  final isLargeScreen = screenWidth >= 768;
+  final isTablet = screenWidth >= 768 && screenWidth < 1024;
+  final isDesktop = screenWidth >= 1024;
+  
+  return {
+    'isSmallScreen': isSmallScreen,
+    'isMediumScreen': isMediumScreen,
+    'isLargeScreen': isLargeScreen,
+    'isTablet': isTablet,
+    'isDesktop': isDesktop,
+    'screenWidth': screenWidth,
+    'screenHeight': screenHeight,
+    
+    // Responsive values
+    'headerPadding': isSmallScreen ? 12.0 : isMediumScreen ? 16.0 : 20.0,
+    'headerVerticalPadding': isSmallScreen ? 8.0 : 12.0,
+    'titleFontSize': isSmallScreen ? 20.0 : isMediumScreen ? 24.0 : isTablet ? 28.0 : 32.0,
+    'subtitleFontSize': isSmallScreen ? 10.0 : isMediumScreen ? 12.0 : 14.0,
+    'buttonIconSize': isSmallScreen ? 16.0 : isMediumScreen ? 20.0 : 24.0,
+    'buttonPadding': isSmallScreen ? 6.0 : 8.0,
+    'cardPadding': isSmallScreen ? 2.0 : isMediumScreen ? 4.0 : 8.0,
+    'bottomPadding': isSmallScreen ? 60.0 : isMediumScreen ? 70.0 : 80.0,
+    'actionButtonSize': isSmallScreen ? 40.0 : isMediumScreen ? 44.0 : isTablet ? 50.0 : 56.0,
+  };
+}
+
   @override
   Widget build(BuildContext context) {
-    final userProfileProvider = Provider.of<UserProfileProvider>(context, listen: true);
-    if (!userProfileProvider.isProfileLoaded) {
-      return const NotLoggedInScreen(
-        message: 'Please sign in to access Ukay.',
-        icon: Icons.swap_horiz_outlined,
-      );
-    }
+  final userProfileProvider = Provider.of<UserProfileProvider>(context, listen: true);
+  if (!userProfileProvider.isProfileLoaded) {
+    return const NotLoggedInScreen(
+      message: 'Please sign in to access Ukay.',
+      icon: Icons.swap_horiz_outlined,
+    );
+  }
 
-    // Listen for wishlist changes
-    if (userId != null) {
-      final wishlistProvider = Provider.of<WishlistProvider>(context);
-      _updateWishlistIds(wishlistProvider);
-    }
-    
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Enhanced Header with refresh button and instructions
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Column(
+  // ✅ Get responsive values
+  final responsive = _getResponsiveValues(context);
+  
+  // Listen for wishlist changes
+  if (userId != null) {
+    final wishlistProvider = Provider.of<WishlistProvider>(context);
+    _updateWishlistIds(wishlistProvider);
+  }
+  
+  return Scaffold(
+    backgroundColor: Colors.grey[50],
+    body: SafeArea(
+      child: Column(
+        children: [
+          // ✅ Responsive Header
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: responsive['headerPadding'],
+              vertical: responsive['headerVerticalPadding'],
+            ),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Discover',
+                        'Ukay',
                         style: GoogleFonts.poppins(
-                          fontSize: 24,
+                          fontSize: responsive['titleFontSize'],
                           fontWeight: FontWeight.bold,
                           color: Colors.black87,
                         ),
@@ -400,200 +442,205 @@ class _ExploreScreenState extends State<ExploreScreen> {
                       Text(
                         'Swipe to explore items',
                         style: GoogleFonts.poppins(
-                          fontSize: 12,
+                          fontSize: responsive['subtitleFontSize'],
                           color: Colors.grey[600],
                           fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
                   ),
-                  Spacer(),
-                  
-                  // Add Refresh Button
-                  Container(
-                    margin: EdgeInsets.only(right: 12),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: _isLoading ? null : _refreshProducts,
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          padding: EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: _isLoading 
-                                ? Colors.grey[100] 
-                                : Theme.of(context).primaryColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: _isLoading 
-                                  ? Colors.grey[300]! 
-                                  : Theme.of(context).primaryColor.withOpacity(0.2),
-                              width: 1,
-                            ),
-                          ),
-                          child: _isLoading
-                              ? SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      Theme.of(context).primaryColor,
-                                    ),
-                                  ),
-                                )
-                              : Icon(
-                                  Icons.refresh,
-                                  color: Theme.of(context).primaryColor,
-                                  size: 20,
-                                ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  
-                  // Instructions button (replacing wishlist indicator)
-                  Container(
-                    padding: EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.blue[50],
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.blue[200]!,
-                        width: 1,
-                      ),
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: _showInstructions,
-                        borderRadius: BorderRadius.circular(8),
-                        child: Icon(
-                          Icons.help_outline,
-                          color: Colors.blue[600],
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            
-            // Main Card Swiper Area
-            Expanded(
-              child: Stack(
-                children: [
-                  // Main Content - Card Swiper (remove RefreshIndicator wrapper)
-                  Positioned.fill(
-                    child: _isLoading 
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              CircularProgressIndicator(
-                                strokeWidth: 3,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Theme.of(context).primaryColor,
-                                ),
-                              ),
-                              SizedBox(height: 20),
-                              Text(
-                                'Finding amazing items...',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 16,
-                                  color: Colors.grey[600],
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      : _featuredProducts.isEmpty
-                        ? _buildEmptyState()
-                        : Padding(
-                            padding: EdgeInsets.only(
-                              left: 4,
-                              right: 4,
-                              top: 4,
-                              bottom: 70,
-                            ),
-                            child: CardSwiper(
-                              key: _cardSwiperKey,
-                              controller: controller,
-                              cardsCount: _featuredProducts.length,
-                              cardBuilder: (BuildContext context, int index) {
-                                return _buildImprovedProductCard(context, _featuredProducts[index]);
-                              },
-                              onSwipe: (previousIndex, currentIndex, direction) {
-                                if (!_isDisposed && mounted) {
-                                  return _handleSwipe(previousIndex, currentIndex, direction);
-                                }
-                                return false;
-                              },
-                              threshold: 50,
-                              maxAngle: 12,
-                              isLoop: false,
-                              scale: 0.98,
-                              numberOfCardsDisplayed: 1,
-                            ),
-                          ),
-                  ),
-                  
-                  // Enhanced Bottom Action Buttons
-                  Positioned(
-                    bottom: 15,
-                    left: 15,
-                    right: 15,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        // Pass/Dislike button
-                        _buildActionButton(
-                          icon: Icons.close,
-                          color: Colors.red,
-                          size: 44,
-                          onPressed: () {
-                            _safeSwipeLeft();
-                          },
-                        ),
-                        // Like/Add to wishlist button
-                        _buildActionButton(
-                          icon: Icons.favorite,
-                          color: Colors.green,
-                          size: 44,
-                          onPressed: () {
-                            _safeSwipeRight();
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-      
-      // Add Floating Action Button for refresh (alternative/additional option)
-      floatingActionButton: _featuredProducts.isEmpty && !_isLoading
-          ? FloatingActionButton.extended(
-              onPressed: _refreshProducts,
-              backgroundColor: Theme.of(context).primaryColor,
-              foregroundColor: Colors.white,
-              icon: Icon(Icons.refresh),
-              label: Text(
-                'Refresh',
-                style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.w600,
                 ),
+                
+                // ✅ Responsive Refresh Button
+                Container(
+                  margin: EdgeInsets.only(right: responsive['isSmallScreen'] ? 8 : 12),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: _isLoading ? null : _refreshProducts,
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: EdgeInsets.all(responsive['buttonPadding']),
+                        decoration: BoxDecoration(
+                          color: _isLoading 
+                              ? Colors.grey[100] 
+                              : Theme.of(context).primaryColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: _isLoading 
+                                ? Colors.grey[300]! 
+                                : Theme.of(context).primaryColor.withOpacity(0.2),
+                            width: 1,
+                          ),
+                        ),
+                        child: _isLoading
+                            ? SizedBox(
+                                width: responsive['buttonIconSize'] - 4,
+                                height: responsive['buttonIconSize'] - 4,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Theme.of(context).primaryColor,
+                                  ),
+                                ),
+                              )
+                            : Icon(
+                                Icons.refresh,
+                                color: Theme.of(context).primaryColor,
+                                size: responsive['buttonIconSize'],
+                              ),
+                      ),
+                    ),
+                  ),
+                ),
+                
+                // ✅ Responsive Instructions Button
+                Container(
+                  padding: EdgeInsets.all(responsive['buttonPadding']),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.blue[200]!,
+                      width: 1,
+                    ),
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: _showInstructions,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Icon(
+                        Icons.help_outline,
+                        color: Colors.blue[600],
+                        size: responsive['buttonIconSize'],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // ✅ Responsive Main Content Area
+          Expanded(
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: _isLoading 
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            CircularProgressIndicator(
+                              strokeWidth: 3,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Theme.of(context).primaryColor,
+                              ),
+                            ),
+                            SizedBox(height: 20),
+                            Text(
+                              'Finding amazing items...',
+                              style: GoogleFonts.poppins(
+                                fontSize: responsive['subtitleFontSize'] + 2,
+                                color: Colors.grey[600],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : _featuredProducts.isEmpty
+                      ? _buildEmptyState(responsive)
+                      : Padding(
+                          padding: EdgeInsets.only(
+                            left: responsive['cardPadding'],
+                            right: responsive['cardPadding'],
+                            top: responsive['cardPadding'],
+                            bottom: responsive['bottomPadding'],
+                          ),
+                          child: CardSwiper(
+                            key: _cardSwiperKey,
+                            controller: controller,
+                            cardsCount: _featuredProducts.length,
+                            cardBuilder: (BuildContext context, int index) {
+                              return _buildImprovedProductCard(
+                                context, 
+                                _featuredProducts[index],
+                                responsive,
+                              );
+                            },
+                            onSwipe: (previousIndex, currentIndex, direction) {
+                              if (!_isDisposed && mounted) {
+                                return _handleSwipe(previousIndex, currentIndex, direction);
+                              }
+                              return false;
+                            },
+                            threshold: responsive['isSmallScreen'] ? 40 : 50,
+                            maxAngle: 12,
+                            isLoop: false,
+                            scale: 0.98,
+                            numberOfCardsDisplayed: 1,
+                          ),
+                        ),
+                ),
+                
+                // ✅ Responsive Bottom Action Buttons
+                Positioned(
+                  bottom: responsive['isSmallScreen'] ? 10 : 15,
+                  left: responsive['isSmallScreen'] ? 10 : 15,
+                  right: responsive['isSmallScreen'] ? 10 : 15,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildActionButton(
+                        icon: Icons.close,
+                        color: Colors.red,
+                        size: responsive['actionButtonSize'],
+                        onPressed: () {
+                          _safeSwipeLeft();
+                        },
+                      ),
+                      _buildActionButton(
+                        icon: Icons.favorite,
+                        color: Colors.green,
+                        size: responsive['actionButtonSize'],
+                        onPressed: () {
+                          _safeSwipeRight();
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+    
+    // ✅ Responsive Floating Action Button
+    floatingActionButton: _featuredProducts.isEmpty && !_isLoading
+        ? FloatingActionButton.extended(
+            onPressed: _refreshProducts,
+            backgroundColor: Theme.of(context).primaryColor,
+            foregroundColor: Colors.white,
+            icon: Icon(
+              Icons.refresh, 
+              size: responsive['isSmallScreen'] ? 20 : 24,
+            ),
+            label: Text(
+              'Refresh',
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w600,
+                fontSize: responsive['isSmallScreen'] ? 12 : 14,
               ),
-            )
-          : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-    );
-  }
+            ),
+          )
+        : null,
+    floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+  );
+}
 
   // Enhanced Action Button with even smaller default size
   Widget _buildActionButton({
@@ -661,7 +708,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   // Enhanced Product Card Design with better animations and layout
-  Widget _buildImprovedProductCard(BuildContext context, Product product) {
+  Widget _buildImprovedProductCard(BuildContext context, Product product, Map<String, dynamic> responsive) {
     return GestureDetector(
       onDoubleTap: () {
         // Add haptic feedback for better UX
@@ -1192,7 +1239,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   // Enhanced empty state
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(Map<String, dynamic> responsive) {
     return Center(
       child: Padding(
         padding: EdgeInsets.all(32),
