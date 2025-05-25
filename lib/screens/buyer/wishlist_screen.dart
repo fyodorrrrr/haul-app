@@ -55,7 +55,7 @@ class _WishlistScreenState extends State<WishlistScreen> {
     );
   }
 
-  // ✅ Enhanced app bar with search and selection
+  // ✅ Enhanced app bar with select all functionality
   PreferredSizeWidget _buildAppBar(WishlistProvider wishlistProvider, CartProvider cartProvider) {
     return AppBar(
       title: _isSelectionMode 
@@ -66,16 +66,39 @@ class _WishlistScreenState extends State<WishlistScreen> {
       elevation: 0,
       actions: [
         if (_isSelectionMode) ...[
+          // ✅ Select all button
+          IconButton(
+            icon: Icon(_allItemsSelected ? Icons.deselect : Icons.select_all),
+            onPressed: () {
+              if (_allItemsSelected) {
+                setState(() => _selectedItems.clear());
+                _exitSelectionMode();
+              } else {
+                _selectAll(wishlistProvider);
+              }
+            },
+            tooltip: _allItemsSelected ? 'Deselect All' : 'Select All',
+          ),
+          
+          // ✅ Move to cart button (now functional)
           IconButton(
             icon: Icon(Icons.shopping_cart_outlined),
-            onPressed: () => _moveSelectedToCart(wishlistProvider, cartProvider),
+            onPressed: _selectedItems.isNotEmpty 
+                ? () => _moveSelectedToCart(wishlistProvider, cartProvider)
+                : null,
             tooltip: 'Move to Cart',
           ),
+          
+          // ✅ Remove selected button (now functional)
           IconButton(
             icon: Icon(Icons.delete_outline),
-            onPressed: () => _removeSelectedItems(wishlistProvider),
+            onPressed: _selectedItems.isNotEmpty 
+                ? () => _removeSelectedItems(wishlistProvider)
+                : null,
             tooltip: 'Remove Selected',
           ),
+          
+          // ✅ Cancel selection button
           IconButton(
             icon: Icon(Icons.close),
             onPressed: _exitSelectionMode,
@@ -898,6 +921,20 @@ class _WishlistScreenState extends State<WishlistScreen> {
       _isSelectionMode = true;
       _selectedItems.add(productId);
     });
+    
+    // Show helpful tip
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Selection mode active. Tap items to select/deselect.'),
+        backgroundColor: Colors.blue,
+        duration: Duration(seconds: 2),
+        action: SnackBarAction(
+          label: 'Got it',
+          textColor: Colors.white,
+          onPressed: () {},
+        ),
+      ),
+    );
   }
 
   void _exitSelectionMode() {
@@ -999,10 +1036,362 @@ class _WishlistScreenState extends State<WishlistScreen> {
   }
 
   Future<void> _moveSelectedToCart(WishlistProvider wishlistProvider, CartProvider cartProvider) async {
-    // Implementation for moving selected items to cart
+    if (_selectedItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No items selected'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text(
+                'Moving ${_selectedItems.length} items to cart...',
+                style: GoogleFonts.poppins(color: Colors.white),
+              ),
+            ],
+          ),
+        ),
+      );
+
+      int successCount = 0;
+      int failCount = 0;
+      List<String> failedItems = [];
+
+      // Process each selected item
+      for (String productId in _selectedItems) {
+        try {
+          // Find the wishlist item
+          final wishlistItem = wishlistProvider.wishlist.firstWhere(
+            (item) => item.productId == productId,
+          );
+
+          // Check if item is already in cart
+          if (!cartProvider.isInCart(productId)) {
+            // Create cart item
+            final cartItem = CartModel(
+              productId: wishlistItem.productId,
+              userId: wishlistItem.userId,
+              sellerId: wishlistItem.sellerId ?? '',
+              productName: wishlistItem.productName,
+              imageURL: wishlistItem.productImage,
+              productPrice: wishlistItem.effectivePrice,
+              quantity: 1,
+              addedAt: DateTime.now(),
+              sellerName: wishlistItem.sellerName,
+              brand: wishlistItem.brand,
+              size: wishlistItem.size,
+              condition: wishlistItem.condition,
+            );
+
+            // Add to cart
+            await cartProvider.addToCart(cartItem);
+          }
+
+          // Remove from wishlist
+          await wishlistProvider.removeFromWishlist(
+            wishlistItem.productId, 
+            wishlistItem.userId,
+          );
+
+          successCount++;
+        } catch (e) {
+          failCount++;
+          failedItems.add(productId);
+          print('❌ Failed to move item $productId: $e');
+        }
+      }
+
+      // Close loading dialog
+      Navigator.pop(context);
+
+      // Exit selection mode
+      _exitSelectionMode();
+
+      // Show result message
+      if (successCount > 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              failCount == 0 
+                  ? '$successCount items moved to cart successfully!' 
+                  : '$successCount items moved to cart, $failCount failed',
+            ),
+            backgroundColor: failCount == 0 ? Colors.green : Colors.orange,
+            duration: Duration(seconds: 3),
+            action: SnackBarAction(
+              label: 'View Cart',
+              textColor: Colors.white,
+              onPressed: () {
+                Navigator.pushNamedAndRemoveUntil(
+                  context, 
+                  '/main', 
+                  (route) => false,
+                  arguments: {'initialIndex': 2}, // Cart tab
+                );
+              },
+            ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to move items to cart'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+
+    } catch (e) {
+      // Close loading dialog if still open
+      Navigator.of(context, rootNavigator: true).pop();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('An error occurred while moving items'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      
+      print('❌ Error in _moveSelectedToCart: $e');
+    }
   }
 
   Future<void> _removeSelectedItems(WishlistProvider provider) async {
-    // Implementation for removing selected items
+    if (_selectedItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No items selected'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Remove Items',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Are you sure you want to remove ${_selectedItems.length} selected items from your wishlist?',
+              style: GoogleFonts.poppins(),
+            ),
+            SizedBox(height: 12),
+            Text(
+              'This action cannot be undone.',
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: Colors.grey.shade600,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.poppins(),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(
+              'Remove',
+              style: GoogleFonts.poppins(
+                color: Colors.red,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text(
+                'Removing ${_selectedItems.length} items...',
+                style: GoogleFonts.poppins(color: Colors.white),
+              ),
+            ],
+          ),
+        ),
+      );
+
+      int successCount = 0;
+      int failCount = 0;
+      List<WishlistModel> removedItems = [];
+
+      // Process each selected item
+      for (String productId in _selectedItems) {
+        try {
+          // Find the wishlist item for potential undo
+          final wishlistItem = provider.wishlist.firstWhere(
+            (item) => item.productId == productId,
+          );
+          removedItems.add(wishlistItem);
+
+          // Remove from wishlist
+          await provider.removeFromWishlist(
+            wishlistItem.productId, 
+            wishlistItem.userId,
+          );
+
+          successCount++;
+        } catch (e) {
+          failCount++;
+          print('❌ Failed to remove item $productId: $e');
+        }
+      }
+
+      // Close loading dialog
+      Navigator.pop(context);
+
+      // Exit selection mode
+      _exitSelectionMode();
+
+      // Show result message with undo option
+      if (successCount > 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              failCount == 0 
+                  ? '$successCount items removed from wishlist' 
+                  : '$successCount items removed, $failCount failed',
+            ),
+            backgroundColor: failCount == 0 ? Colors.orange : Colors.red,
+            duration: Duration(seconds: 5),
+            action: SnackBarAction(
+              label: 'Undo',
+              textColor: Colors.white,
+              onPressed: () async {
+                // Restore removed items
+                try {
+                  for (var item in removedItems) {
+                    await provider.addToWishlist(item);
+                  }
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Items restored to wishlist'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to restore items'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              },
+            ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to remove items from wishlist'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+
+    } catch (e) {
+      // Close loading dialog if still open
+      Navigator.of(context, rootNavigator: true).pop();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('An error occurred while removing items'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      
+      print('❌ Error in _removeSelectedItems: $e');
+    }
+  }
+
+  // ✅ Add this method for better selection feedback
+  void _selectAll(WishlistProvider provider) {
+    setState(() {
+      _selectedItems = provider.wishlist.map((item) => item.productId).toSet();
+    });
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('All ${_selectedItems.length} items selected'),
+        backgroundColor: Colors.blue,
+        duration: Duration(seconds: 1),
+      ),
+    );
+  }
+
+  // ✅ Add this method to check if all items are selected
+  bool get _allItemsSelected {
+    final provider = Provider.of<WishlistProvider>(context, listen: false);
+    return _selectedItems.length == provider.wishlist.length && provider.wishlist.isNotEmpty;
+  }
+
+  // ✅ Helper method for showing loading dialog
+  void _showLoadingDialog(String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text(
+              message,
+              style: GoogleFonts.poppins(fontSize: 14),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ✅ Helper method for hiding loading dialog
+  void _hideLoadingDialog() {
+    if (Navigator.canPop(context)) {
+      Navigator.pop(context);
+    }
   }
 }
