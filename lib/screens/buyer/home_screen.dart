@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:haul/screens/buyer/product_details_screen.dart';
 import 'package:haul/screens/buyer/search_results_screen.dart';
 import '/widgets/custom_appbar.dart';
@@ -12,7 +13,6 @@ import 'package:provider/provider.dart';
 import '/providers/user_profile_provider.dart';
 import '/widgets/not_logged_in.dart';
 import 'seller_public_profile_screen.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../models/product.dart'; // Make sure this points to your enhanced Product model
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';

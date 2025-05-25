@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'search_screen.dart'; // ✅ Use SearchScreen instead
 import '../../widgets/brand_logo_widget.dart';
 import '../../services/brand_logo_service.dart';
-import 'brand_screen.dart';
 
 class BrandsShowcaseScreen extends StatefulWidget {
   @override
@@ -88,7 +88,7 @@ class _BrandsShowcaseScreenState extends State<BrandsShowcaseScreen> {
     List<String> brands;
     
     if (_selectedCategory == 'all') {
-      brands = BrandLogoService.getAllBrands();
+      brands = BrandLogoService.getAllKnownBrands();
     } else {
       brands = BrandLogoService.getBrandsByCategory(_selectedCategory);
     }
@@ -120,7 +120,10 @@ class _BrandsShowcaseScreenState extends State<BrandsShowcaseScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => BrandProductsScreen(brandName: brand),
+                  builder: (context) => SearchScreen(),
+                  settings: RouteSettings(
+                    arguments: {'brandFilter': brand},
+                  ),
                 ),
               );
             },

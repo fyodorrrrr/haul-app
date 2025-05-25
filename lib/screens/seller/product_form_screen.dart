@@ -6,6 +6,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/services.dart';
 import '../../models/product.dart';
 import '../../providers/product_provider.dart';
+import '../../services/brand_logo_service.dart';
+import '../../widgets/brand_logo_widget.dart';
 
 class ProductFormScreen extends StatefulWidget {
   final Product? product; // Null for new products
@@ -105,68 +107,37 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   bool _isLoading = false;
   final _picker = ImagePicker();
   
-  // Add these new state variables
+  // Brand-related variables
   List<String> _filteredBrands = [];
   bool _showBrandDropdown = false;
   final FocusNode _brandFocusNode = FocusNode();
+  String _selectedBrandCategory = 'all';
+  
+  List<String> get _availableBrands {
+    if (_selectedBrandCategory == 'all') {
+      return BrandLogoService.getAllKnownBrands();
+    } else {
+      return BrandLogoService.getBrandsByCategory(_selectedBrandCategory);
+    }
+  }
+
   String? _priceWarning;
   Color _sellingPriceColor = Colors.black;
   
-  // Enhanced brand list - Focus on vintage brands
-  final List<String> _popularBrands = [
-    // Vintage Fashion Brands
-    'Vintage', 'Retro', 'Thrifted', 'Pre-loved', 'Second-hand',
-    
-    // Classic Vintage Brands
-    'Levi\'s Vintage', 'Wrangler Vintage', 'Lee Vintage', 'Guess Vintage',
-    'Tommy Hilfiger Vintage', 'Calvin Klein Vintage', 'Ralph Lauren Vintage',
-    
-    // Designer Vintage
-    'Chanel Vintage', 'Dior Vintage', 'Versace Vintage', 'Armani Vintage',
-    'Yves Saint Laurent Vintage', 'Givenchy Vintage', 'Prada Vintage',
-    
-    // Vintage Sportswear
-    'Nike Vintage', 'Adidas Vintage', 'Champion Vintage', 'Converse Vintage',
-    'Reebok Vintage', 'Puma Vintage', 'Fila Vintage',
-    
-    // Vintage Casual
-    'Gap Vintage', 'Old Navy Vintage', 'American Eagle Vintage',
-    'Hollister Vintage', 'Abercrombie Vintage',
-    
-    // Local Vintage/Thrift
-    'Local Vintage', 'Philippine Vintage', 'Imported Vintage',
-    'Deadstock', 'NOS (New Old Stock)', 'Vintage Band Tee',
-    
-    // Era-specific
-    '70s Vintage', '80s Vintage', '90s Vintage', '2000s Vintage',
-    'Y2K', 'Grunge Era', 'Punk Era',
-    
-    // Generic Categories
-    'Unknown Brand', 'No Brand/Generic', 'Unbranded Vintage',
-    'Custom Vintage', 'Handmade Vintage', 'Reconstructed',
-  ];
-
   @override
   void initState() {
     super.initState();
-    _filteredBrands = _popularBrands;
+    _filteredBrands = BrandLogoService.getAllKnownBrands();
     
-    // Add brand focus listener with better state management
+    // Add brand focus listener
     _brandFocusNode.addListener(() {
       if (_brandFocusNode.hasFocus) {
         setState(() {
           _showBrandDropdown = true;
           if (_brandController.text.isEmpty) {
-            _filteredBrands = _popularBrands;
+            _filteredBrands = _availableBrands;
           }
         });
-      }
-    });
-    
-    // Add listener to hide dropdown when tapping outside
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        // Add a global tap listener to close dropdown
       }
     });
     
@@ -178,20 +149,16 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       _costPriceController.text = product.costPrice.toString();
       _sellingPriceController.text = product.sellingPrice.toString();
       _salePriceController.text = product.salePrice?.toString() ?? '';
-      _stockController.text = product.currentStock.toString(); // Fixed: Changed from 'stock' to 'currentStock'
+      _stockController.text = product.currentStock.toString();
       _skuController.text = product.sku;
       _brandController.text = product.brand;
       _minimumStockController.text = product.minimumStock.toString();
       
-      // Initialize categories from product
       _selectedMainCategory = product.category;
       _selectedSubcategory = product.subcategory;
-      
-      // Initialize images array
-      _existingImageUrls = List.from(product.images); // Fixed: Changed from 'imageUrls' to 'images'
+      _existingImageUrls = List.from(product.images);
       _isActive = product.isActive;
     } else {
-      // Set defaults for new products
       _minimumStockController.text = '5';
     }
   }
@@ -211,13 +178,20 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     super.dispose();
   }
 
+  // Safe setState method
+  void safeSetState(VoidCallback fn) {
+    if (mounted) {
+      setState(fn);
+    }
+  }
+
   Future<void> _pickImage() async {
     try {
       final result = await _picker.pickImage(
         source: ImageSource.gallery,
         imageQuality: 80,
       );
-        if (result != null) {
+      if (result != null) {
         if (!mounted) return;
         setState(() {
           _newImageFiles.add(File(result.path));
@@ -239,6 +213,98 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   void _removeExistingImage(int index) {
     safeSetState(() {
       _existingImageUrls.removeAt(index);
+    });
+  }
+
+  void _generateSKU() {
+    final brand = _brandController.text.trim();
+    final category = _selectedMainCategory;
+    
+    if (brand.isNotEmpty && category.isNotEmpty) {
+      final brandPrefix = brand.length >= 3 ? brand.substring(0, 3).toUpperCase() : brand.toUpperCase();
+      final categoryPrefix = category.length >= 3 ? category.substring(0, 3).toUpperCase() : category.toUpperCase();
+      final timestamp = DateTime.now().millisecondsSinceEpoch.toString().substring(8);
+      
+      final generatedSKU = '$brandPrefix-$categoryPrefix-$timestamp';
+      _skuController.text = generatedSKU;
+      setState(() {});
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Please fill brand and category first to generate SKU'),
+        ),
+      );
+    }
+  }
+
+  void _onBrandSearchChanged(String value) {
+    setState(() {
+      if (value.isEmpty) {
+        _filteredBrands = _availableBrands;
+      } else {
+        final knownMatches = _availableBrands
+            .where((brand) => brand.toLowerCase().contains(value.toLowerCase()))
+            .toList();
+        
+        _filteredBrands = knownMatches;
+        
+        if (value.isNotEmpty && !_filteredBrands.any((brand) => 
+            brand.toLowerCase() == value.toLowerCase())) {
+          _filteredBrands.insert(0, value);
+        }
+      }
+      
+      _showBrandDropdown = true;
+    });
+  }
+
+  String _getCategoryDisplayName(String category) {
+    switch (category) {
+      case 'sports': return 'Sports & Athletic';
+      case 'luxury': return 'Luxury & Designer';
+      case 'streetwear': return 'Streetwear';
+      case 'classic': return 'Classic Fashion';
+      case 'contemporary': return 'Contemporary';
+      case 'vintage': return 'Vintage';
+      case 'basic': return 'Basic & Essentials';
+      default: return 'Other';
+    }
+  }
+
+  void _selectBrand(String brand) {
+    _brandController.text = brand;
+    setState(() {
+      _showBrandDropdown = false;
+    });
+    _brandFocusNode.unfocus();
+    
+    if (BrandLogoService.isOtherBrand(brand)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.info, color: Colors.white),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Custom brand "$brand" will be displayed as "Other Brands" in filters',
+                  style: GoogleFonts.poppins(fontSize: 13),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  void _clearBrandSelection() {
+    _brandController.clear();
+    setState(() {
+      _filteredBrands = _availableBrands;
+      _showBrandDropdown = false;
     });
   }
   
@@ -288,13 +354,11 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
         return;
       }
       
-      // If stock is 0, force isActive to false
       if (stock == 0) {
         _isActive = false;
       }
       
       if (widget.product == null) {
-        // Add new product - Updated parameters to match enhanced ProductProvider
         success = await provider.addProduct(
           name: _nameController.text.trim(),
           description: _descriptionController.text.trim(),
@@ -310,7 +374,6 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
           minimumStock: minimumStock,
         );
       } else {
-        // Update existing product - Updated parameters to match enhanced ProductProvider
         success = await provider.updateProduct(
           productId: widget.product!.id,
           name: _nameController.text.trim(),
@@ -333,7 +396,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       if (!mounted) return;
       
       if (success) {
-        Navigator.of(context).pop(); // Go back to product listing
+        Navigator.of(context).pop();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -372,7 +435,6 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
           ? Center(child: CircularProgressIndicator()) 
           : GestureDetector(
               onTap: () {
-                // Close brand dropdown when tapping outside
                 if (_showBrandDropdown) {
                   setState(() {
                     _showBrandDropdown = false;
@@ -492,9 +554,9 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                       ),
                       SizedBox(height: 16),
                       
-                      // SKU and Brand in same row - FIXED ALIGNMENT
+                      // SKU and Brand in same row
                       Row(
-                        crossAxisAlignment: CrossAxisAlignment.start, // Key fix for alignment
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
                             child: _buildSKUField(),
@@ -604,7 +666,6 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                               safeSetState(() {
                                 if (selected) {
                                   _selectedMainCategory = category;
-                                  // Reset subcategory when main category changes
                                   _selectedSubcategory = '';
                                 } else {
                                   _selectedMainCategory = '';
@@ -616,7 +677,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                         }).toList(),
                       ),
 
-                      // Subcategories - only show if a main category is selected
+                      // Subcategories
                       if (_selectedMainCategory.isNotEmpty) ...[
                         SizedBox(height: 16),
                         Text(
@@ -671,9 +732,8 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                                 : 'Product is visible to customers'
                           ),
                           value: _isActive,
-                          // Disable the switch when stock is 0
                           onChanged: int.tryParse(_stockController.text) == 0
-                              ? null  // This disables the switch
+                              ? null
                               : (value) {
                                   safeSetState(() {
                                     _isActive = value;
@@ -712,9 +772,10 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
             ),
     );
   }
+
   Widget _buildImageTile({
     required bool isNetworkImage,
-    required dynamic imageSource, // Fixed: comma instead of semicolon
+    required dynamic imageSource,
     required VoidCallback onRemove,
   }) {
     return Container(
@@ -829,27 +890,6 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       ],
     );
   }
-
-  void _generateSKU() {
-    final brand = _brandController.text.trim();
-    final category = _selectedMainCategory;
-    
-    if (brand.isNotEmpty && category.isNotEmpty) {
-      final brandPrefix = brand.length >= 3 ? brand.substring(0, 3).toUpperCase() : brand.toUpperCase();
-      final categoryPrefix = category.length >= 3 ? category.substring(0, 3).toUpperCase() : category.toUpperCase();
-      final timestamp = DateTime.now().millisecondsSinceEpoch.toString().substring(8);
-      
-      final generatedSKU = '$brandPrefix-$categoryPrefix-$timestamp';
-      _skuController.text = generatedSKU;
-      setState(() {});
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Please fill brand and category first to generate SKU'),
-        ),
-      );
-    }
-  }
   
   Widget _buildBrandSelector() {
     return Column(
@@ -865,15 +905,21 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
         ),
         const SizedBox(height: 8),
         
+        // Brand Category Filter
+        _buildBrandCategoryFilter(),
+        const SizedBox(height: 12),
+        
+        // Brand Search Field
         TextFormField(
           controller: _brandController,
           focusNode: _brandFocusNode,
           decoration: InputDecoration(
-            hintText: 'Search or type vintage brand name',
+            hintText: 'Search brand or type custom name',
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
             ),
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+            prefixIcon: _buildBrandIcon(),
             suffixIcon: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -901,25 +947,12 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
               ],
             ),
           ),
-          onChanged: (value) {
-            setState(() {
-              _filteredBrands = _popularBrands
-                  .where((brand) => brand.toLowerCase().contains(value.toLowerCase()))
-                  .toList();
-              
-              if (value.isNotEmpty && !_filteredBrands.any((brand) => 
-                  brand.toLowerCase() == value.toLowerCase())) {
-                _filteredBrands.insert(0, value);
-              }
-              
-              _showBrandDropdown = true;
-            });
-          },
+          onChanged: _onBrandSearchChanged,
           onTap: () {
             setState(() {
               _showBrandDropdown = true;
               if (_brandController.text.isEmpty) {
-                _filteredBrands = _popularBrands;
+                _filteredBrands = _availableBrands;
               }
             });
           },
@@ -934,84 +967,228 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
           },
         ),
         
-        // Dropdown positioned properly to not affect layout
+        // Brand Dropdown
         if (_showBrandDropdown && _filteredBrands.isNotEmpty)
-          Container(
-            margin: const EdgeInsets.only(top: 4),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: Colors.grey[300]!),
-              borderRadius: BorderRadius.circular(8),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            constraints: const BoxConstraints(maxHeight: 200),
-            child: ListView.builder(
-              shrinkWrap: true,
-              padding: EdgeInsets.zero,
-              itemCount: _filteredBrands.length,
-              itemBuilder: (context, index) {
-                final brand = _filteredBrands[index];
-                final isVintageBrand = _popularBrands.contains(brand);
-                final isSelected = _brandController.text == brand;
-                
-                return Container(
-                  decoration: BoxDecoration(
-                    color: isSelected ? Theme.of(context).primaryColor.withOpacity(0.1) : null,
-                    border: index < _filteredBrands.length - 1 
-                        ? Border(bottom: BorderSide(color: Colors.grey[200]!))
-                        : null,
-                  ),
-                  child: ListTile(
-                    dense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    leading: Icon(
-                      isVintageBrand ? Icons.history : Icons.edit,
-                      size: 16,
-                      color: isVintageBrand ? Colors.brown : Colors.grey,
-                    ),
-                    title: Text(
-                      brand,
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        fontWeight: isSelected ? FontWeight.w600 : 
-                                    isVintageBrand ? FontWeight.w500 : FontWeight.w400,
-                        color: isSelected ? Theme.of(context).primaryColor : null,
-                      ),
-                    ),
-                    subtitle: !isVintageBrand ? Text(
-                      'Custom brand',
-                      style: GoogleFonts.poppins(fontSize: 12),
-                    ) : brand.contains('Vintage') || brand.contains('70s') || brand.contains('80s') || brand.contains('90s') || brand.contains('2000s') ? Text(
-                      'Era-specific vintage',
-                      style: GoogleFonts.poppins(fontSize: 12, color: Colors.brown[600]),
-                    ) : null,
-                    onTap: () {
-                      _selectBrand(brand);
-                    },
-                  ),
-                );
-              },
-            ),
-          ),
+          _buildBrandDropdown(),
       
-      const SizedBox(height: 8),
-      Text(
-        'Search from our vintage brand list or add your own.',
+        const SizedBox(height: 8),
+        _buildBrandHelper(),
+      ],
+    );
+  }
+
+  Widget _buildBrandCategoryFilter() {
+    final categories = [
+      {'key': 'all', 'label': 'All', 'icon': Icons.apps},
+      {'key': 'sports', 'label': 'Sports', 'icon': Icons.sports},
+      {'key': 'luxury', 'label': 'Luxury', 'icon': Icons.diamond},
+      {'key': 'streetwear', 'label': 'Street', 'icon': Icons.style},
+      {'key': 'classic', 'label': 'Classic', 'icon': Icons.history_edu},
+      {'key': 'vintage', 'label': 'Vintage', 'icon': Icons.history},
+    ];
+
+    return SizedBox(
+      height: 40,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: categories.length,
+        itemBuilder: (context, index) {
+          final category = categories[index];
+          final isSelected = _selectedBrandCategory == category['key'];
+          
+          return Container(
+            margin: EdgeInsets.only(right: 8),
+            child: FilterChip(
+              avatar: Icon(
+                category['icon'] as IconData,
+                size: 16,
+                color: isSelected ? Colors.white : Colors.grey[600],
+              ),
+              label: Text(
+                category['label'] as String,
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: isSelected ? Colors.white : Colors.grey[700],
+                ),
+              ),
+              selected: isSelected,
+              onSelected: (selected) {
+                setState(() {
+                  _selectedBrandCategory = category['key'] as String;
+                  _filteredBrands = _availableBrands;
+                  if (_brandController.text.isNotEmpty) {
+                    _onBrandSearchChanged(_brandController.text);
+                  }
+                });
+              },
+              backgroundColor: Colors.grey[200],
+              selectedColor: Colors.black,
+              checkmarkColor: Colors.white,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildBrandIcon() {
+    final brandName = _brandController.text.trim();
+    
+    if (brandName.isEmpty) {
+      return Icon(Icons.business, color: Colors.grey[400]);
+    }
+    
+    return Container(
+      width: 24,
+      height: 24,
+      margin: EdgeInsets.all(12),
+      child: BrandLogoWidget(
+        brandName: brandName,
+        size: 24,
+        circular: true,
+        showBorder: false,
+      ),
+    );
+  }
+
+  Widget _buildBrandDropdown() {
+    return Container(
+      margin: const EdgeInsets.only(top: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: Colors.grey[300]!),
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      constraints: const BoxConstraints(maxHeight: 200),
+      child: ListView.builder(
+        shrinkWrap: true,
+        padding: EdgeInsets.zero,
+        itemCount: _filteredBrands.length,
+        itemBuilder: (context, index) {
+          final brand = _filteredBrands[index];
+          final isKnownBrand = BrandLogoService.isKnownBrand(brand);
+          final hasLogo = BrandLogoService.hasBrandLogo(brand);
+          final category = BrandLogoService.getBrandCategory(brand);
+          final isSelected = _brandController.text == brand;
+          
+          return Container(
+            decoration: BoxDecoration(
+              color: isSelected ? Theme.of(context).primaryColor.withOpacity(0.1) : null,
+              border: index < _filteredBrands.length - 1 
+                  ? Border(bottom: BorderSide(color: Colors.grey[200]!))
+                  : null,
+            ),
+            child: ListTile(
+              dense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              leading: BrandLogoWidget(
+                brandName: brand,
+                size: 32,
+                circular: true,
+                showBorder: true,
+              ),
+              title: Text(
+                brand,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  color: isSelected ? Theme.of(context).primaryColor : null,
+                ),
+              ),
+              subtitle: Row(
+                children: [
+                  if (hasLogo)
+                    Icon(Icons.verified, size: 12, color: Colors.green),
+                  if (hasLogo)
+                    SizedBox(width: 4),
+                  Text(
+                    isKnownBrand ? _getCategoryDisplayName(category) : 'Custom Brand',
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      color: isKnownBrand ? Colors.blue[600] : Colors.orange[600],
+                    ),
+                  ),
+                ],
+              ),
+              trailing: !isKnownBrand 
+                  ? Icon(Icons.edit, size: 16, color: Colors.grey[400])
+                  : null,
+              onTap: () => _selectBrand(brand),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildBrandHelper() {
+    final brandName = _brandController.text.trim();
+    
+    if (brandName.isEmpty) {
+      return Text(
+        'Search from our curated brand list or add your own custom brand.',
         style: GoogleFonts.poppins(
           fontSize: 12,
           color: Colors.grey[600],
         ),
-      ),
-    ],
-  );
-}
-  
+      );
+    }
+    
+    final isKnown = BrandLogoService.isKnownBrand(brandName);
+    final hasLogo = BrandLogoService.hasBrandLogo(brandName);
+    
+    if (isKnown) {
+      return Row(
+        children: [
+          Icon(
+            hasLogo ? Icons.verified : Icons.check_circle_outline,
+            size: 14,
+            color: Colors.green,
+          ),
+          SizedBox(width: 4),
+          Expanded(
+            child: Text(
+              hasLogo 
+                  ? 'Verified brand with logo'
+                  : 'Verified brand (logo coming soon)',
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: Colors.green[600],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      );
+    } else {
+      return Row(
+        children: [
+          Icon(Icons.info_outline, size: 14, color: Colors.orange),
+          SizedBox(width: 4),
+          Expanded(
+            child: Text(
+              'Custom brand - will be categorized as "Other Brands"',
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: Colors.orange[600],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+  }
+
+  // Pricing section
   Widget _buildPricingSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1023,297 +1200,91 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         
+        // Cost Price and Selling Price in same row
         Row(
           children: [
             Expanded(
               child: TextFormField(
                 controller: _costPriceController,
                 decoration: InputDecoration(
-                  labelText: 'Cost Price *',
-                  prefixText: '₱ ',
-                  hintText: '0.00',
+                  labelText: 'Cost Price',
+                  prefixText: '₱',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  helperText: 'Amount you paid for this item',
                 ),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
-                ],
+                keyboardType: TextInputType.numberWithOptions(decimal: true),
                 validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
+                  if (value == null || value.isEmpty) {
                     return 'Required';
                   }
                   if (double.tryParse(value) == null) {
-                    return 'Invalid price';
+                    return 'Invalid number';
                   }
                   if (double.parse(value) <= 0) {
                     return 'Must be greater than 0';
                   }
                   return null;
                 },
-                onChanged: (value) {
-                  setState(() {});
-                  _validateSellingPrice(_sellingPriceController.text);
-                },
               ),
             ),
-            const SizedBox(width: 16),
+            SizedBox(width: 16),
             Expanded(
               child: TextFormField(
                 controller: _sellingPriceController,
                 decoration: InputDecoration(
-                  labelText: 'Selling Price *',
-                  prefixText: '₱ ',
-                  hintText: '0.00',
+                  labelText: 'Selling Price',
+                  prefixText: '₱',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: _sellingPriceColor),
                   ),
-                  helperText: 'Your selling price',
                 ),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
-                ],
-                validator: _validateSellingPrice,
-                onChanged: (value) => setState(() {}),
+                keyboardType: TextInputType.numberWithOptions(decimal: true),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Required';
+                  }
+                  if (double.tryParse(value) == null) {
+                    return 'Invalid number';
+                  }
+                  if (double.parse(value) <= 0) {
+                    return 'Must be greater than 0';
+                  }
+                  return null;
+                },
               ),
             ),
           ],
         ),
+        SizedBox(height: 16),
         
-        // Price feedback
-        if (_priceWarning != null) ...[
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: _sellingPriceColor.withOpacity(0.1),
-              border: Border.all(color: _sellingPriceColor.withOpacity(0.3)),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  _sellingPriceColor == Colors.red ? Icons.error :
-                  _sellingPriceColor == Colors.orange ? Icons.warning :
-                  _sellingPriceColor == Colors.blue ? Icons.info :
-                  Icons.check_circle,
-                  color: _sellingPriceColor,
-                  size: 16,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    _priceWarning!,
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      color: _sellingPriceColor,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-        
-        const SizedBox(height: 16),
-        
-        // Sale Price with discount calculator
+        // Sale Price (Optional)
         TextFormField(
           controller: _salePriceController,
           decoration: InputDecoration(
             labelText: 'Sale Price (Optional)',
-            prefixText: '₱ ',
+            prefixText: '₱',
             hintText: 'Leave empty if not on sale',
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
             ),
-            helperText: _calculateDiscountPercentage(),
-            suffixIcon: _sellingPriceController.text.isNotEmpty
-                ? IconButton(
-                    icon: const Icon(Icons.calculate),
-                    onPressed: _showDiscountCalculator,
-                    tooltip: 'Quick discount calculator',
-                  )
-                : null,
           ),
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          inputFormatters: [
-            FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
-          ],
-          validator: _validateSalePrice,
-          onChanged: (value) => setState(() {}),
+          keyboardType: TextInputType.numberWithOptions(decimal: true),
+          validator: (value) {
+            if (value != null && value.isNotEmpty) {
+              if (double.tryParse(value) == null) {
+                return 'Invalid number';
+              }
+              if (double.parse(value) <= 0) {
+                return 'Must be greater than 0';
+              }
+            }
+            return null;
+          },
         ),
       ],
     );
-  }
-
-  // Add these validation methods
-  String? _validateSellingPrice(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Required';
-    }
-    if (double.tryParse(value) == null) {
-      return 'Invalid price';
-    }
-    
-    final sellingPrice = double.parse(value);
-    final costPrice = double.tryParse(_costPriceController.text);
-    
-    if (sellingPrice <= 0) {
-      return 'Must be greater than 0';
-    }
-    
-    if (costPrice != null && costPrice > 0) {
-      if (sellingPrice <= costPrice) {
-        setState(() {
-          _sellingPriceColor = Colors.red;
-          _priceWarning = 'No profit - selling price must be higher than cost';
-        });
-        return 'Must be higher than cost price';
-      }
-      
-      final markup = ((sellingPrice - costPrice) / costPrice) * 100;
-      
-      if (markup < 20) {
-        setState(() {
-          _sellingPriceColor = Colors.orange;
-          _priceWarning = 'Low profit margin: ${markup.toStringAsFixed(1)}%';
-        });
-      } else if (markup > 300) {
-        setState(() {
-          _sellingPriceColor = Colors.blue;
-          _priceWarning = 'High markup: ${markup.toStringAsFixed(1)}% - verify pricing';
-        });
-      } else {
-        setState(() {
-          _sellingPriceColor = Colors.green;
-          _priceWarning = 'Good profit margin: ${markup.toStringAsFixed(1)}%';
-        });
-      }
-    }
-    
-    return null;
-  }
-
-  String? _validateSalePrice(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return null; // Optional field
-    }
-    if (double.tryParse(value) == null) {
-      return 'Invalid price';
-    }
-    
-    final salePrice = double.parse(value);
-    final sellingPrice = double.tryParse(_sellingPriceController.text);
-    
-    if (salePrice <= 0) {
-      return 'Must be greater than 0';
-    }
-    
-    if (sellingPrice != null && salePrice >= sellingPrice) {
-      return 'Must be lower than selling price';
-    }
-    
-    return null;
-  }
-
-  String? _calculateDiscountPercentage() {
-    final salePrice = double.tryParse(_salePriceController.text);
-    final sellingPrice = double.tryParse(_sellingPriceController.text);
-    
-    if (salePrice != null && sellingPrice != null && salePrice < sellingPrice) {
-      final discount = ((sellingPrice - salePrice) / sellingPrice) * 100;
-      return '${discount.toStringAsFixed(1)}% discount';
-    }
-    return 'Set a discounted price for promotions';
-  }
-
-  void _showDiscountCalculator() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Discount Calculator', style: GoogleFonts.poppins()),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Apply discount to selling price:', style: GoogleFonts.poppins()),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () => _applyDiscount(10),
-                    child: const Text('10%'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () => _applyDiscount(20),
-                    child: const Text('20%'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () => _applyDiscount(30),
-                    child: const Text('30%'),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _applyDiscount(double percentage) {
-    final sellingPrice = double.tryParse(_sellingPriceController.text);
-    if (sellingPrice != null) {
-      final salePrice = sellingPrice * (1 - percentage / 100);
-      _salePriceController.text = salePrice.toStringAsFixed(2);
-      setState(() {});
-    }
-    Navigator.pop(context);
-  }
-    // Use setState directly with mounted check when needed
-  void safeSetState(VoidCallback fn) {
-    if (mounted) {
-      setState(fn);
-    }
-  }
-
-  void _clearBrandSelection() {
-    _brandController.clear();
-    setState(() {
-      _filteredBrands = _popularBrands;
-      _showBrandDropdown = false;
-    });
-  }
-
-  void _selectBrand(String brand) {
-    _brandController.text = brand;
-    setState(() {
-      _showBrandDropdown = false;
-    });
-    _brandFocusNode.unfocus();
-  }
-
-  bool _isBrandSelected(String brand) {
-    return _brandController.text.trim().toLowerCase() == brand.toLowerCase();
   }
 }

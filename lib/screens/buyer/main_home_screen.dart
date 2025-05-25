@@ -10,9 +10,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'product_details_screen.dart';
 import '/utils/snackbar_helper.dart';
 import '/main.dart';
-import 'package:haul/screens/buyer/brand_screen.dart';
 import 'brands_showcase_screen.dart';
 import '../../widgets/brand_logo_widget.dart';
+import 'search_screen.dart';
+import 'brands_showcase_screen.dart';
 
 class MainHomeScreen extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -432,7 +433,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> with RouteAware {
     final brandsList = uniqueBrands.toList();
 
     return SizedBox(
-      height: 110, // ✅ Increased height to accommodate text
+      height: 110,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: EdgeInsets.symmetric(horizontal: 16),
@@ -440,7 +441,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> with RouteAware {
         itemBuilder: (context, index) {
           final brand = brandsList[index];
           return Container(
-            width: 80, // ✅ Fixed width to prevent overflow
+            width: 80,
             margin: EdgeInsets.only(right: 12),
             child: BrandLogoWidget(
               brandName: brand,
@@ -449,10 +450,15 @@ class _MainHomeScreenState extends State<MainHomeScreen> with RouteAware {
               circular: true,
               showBorder: true,
               onTap: () {
+                // ✅ THIS IS THE ONLY CHANGE - Replace the existing onTap with this:
+                print('🔥 Navigating to search with brand: $brand');
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => BrandProductsScreen(brandName: brand),
+                    builder: (context) => SearchScreen(),
+                    settings: RouteSettings(
+                      arguments: {'brandFilter': brand},
+                    ),
                   ),
                 );
               },
@@ -661,6 +667,120 @@ class _MainHomeScreenState extends State<MainHomeScreen> with RouteAware {
           ),
         );
       },
+    );
+  }
+
+  // ✅ Add this new method for brands section
+  Widget _buildBrandsSection(BuildContext context) {
+    final popularBrands = ['Nike', 'Adidas', 'Supreme', 'Gucci', 'Off-White', 'Vintage'];
+    
+    return Container(
+      padding: EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Popular Brands',
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => BrandsShowcaseScreen(),
+                    ),
+                  );
+                },
+                child: Text('See All'),
+              ),
+            ],
+          ),
+          SizedBox(height: 12),
+          
+          // ✅ Brand grid with working navigation
+          GridView.builder(
+            shrinkWrap: true,
+            physics: NeverScrollableScrollPhysics(),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              childAspectRatio: 1,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+            ),
+            itemCount: popularBrands.length,
+            itemBuilder: (context, index) {
+              return _buildBrandCard(context, popularBrands[index]);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ✅ This is the core of Fix 8 - working brand card with navigation
+  Widget _buildBrandCard(BuildContext context, String brandName) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          print('🔥 Navigating to search with brand: $brandName');
+          
+          // ✅ Working navigation to search with brand filter
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => SearchScreen(),
+              settings: RouteSettings(
+                arguments: {'brandFilter': brandName},
+              ),
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey[300]!),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 4,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              BrandLogoWidget(
+                brandName: brandName,
+                size: 40,
+                circular: true,
+                showBorder: false,
+              ),
+              SizedBox(height: 8),
+              Text(
+                brandName,
+                style: GoogleFonts.poppins(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

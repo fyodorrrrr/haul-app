@@ -1,96 +1,138 @@
 class BrandLogoService {
-  static const Map<String, String> _brandColors = {
-    // Popular Fashion Brands
-    'Nike': 'FF6B35',
-    'Adidas': '000000',
-    'Puma': '000000',
-    'Converse': '000000',
-    'Vans': '000000',
-    'Supreme': 'FF0000',
-    'Champion': 'C8102E',
-    'Tommy Hilfiger': '003087',
-    'Calvin Klein': '000000',
-    'Ralph Lauren': '000080',
-    'Polo Ralph Lauren': '000000',
-    'Lacoste': '000000',
-    'Hugo Boss': '000000',
-    'Armani': '000000',
-    'Versace': '000000',
-    'Gucci': '006B3C',
-    'Prada': '000000',
-    'Louis Vuitton': '8B4513',
-    'Chanel': '000000',
-    'Dior': '000000',
+  // Known brands with logos
+  static const Map<String, Map<String, dynamic>> _knownBrands = {
+    // Sports & Athletic Brands
+    'Nike': {'category': 'sports', 'hasLogo': true},
+    'Adidas': {'category': 'sports', 'hasLogo': true},
+    'Puma': {'category': 'sports', 'hasLogo': true},
+    'Champion': {'category': 'sports', 'hasLogo': true},
+    'Under Armour': {'category': 'sports', 'hasLogo': true},
+    'Reebok': {'category': 'sports', 'hasLogo': true},
+    'New Balance': {'category': 'sports', 'hasLogo': true},
+    'Converse': {'category': 'sports', 'hasLogo': true},
+    'Vans': {'category': 'sports', 'hasLogo': true},
+    'Jordan': {'category': 'sports', 'hasLogo': true},
     
-    // Streetwear & Urban
-    'Off-White': '000000',
-    'Stone Island': '4A4A4A',
-    'A Bathing Ape': '000000',
-    'Kenzo': '000000',
-    'Billionaire Boys Club': '000000',
-    'Stussy': '000000',
-    'Carhartt': '000000',
-    'Dickies': '000000',
+    // Luxury & Designer Brands
+    'Gucci': {'category': 'luxury', 'hasLogo': true},
+    'Prada': {'category': 'luxury', 'hasLogo': true},
+    'Louis Vuitton': {'category': 'luxury', 'hasLogo': true},
+    'Chanel': {'category': 'luxury', 'hasLogo': true},
+    'Dior': {'category': 'luxury', 'hasLogo': true},
+    'Balenciaga': {'category': 'luxury', 'hasLogo': true},
+    'Versace': {'category': 'luxury', 'hasLogo': true},
+    'Armani': {'category': 'luxury', 'hasLogo': true},
+    'Burberry': {'category': 'luxury', 'hasLogo': true},
+    'Fendi': {'category': 'luxury', 'hasLogo': true},
     
-    // Vintage/Retro Brands
-    'Vintage Adidas': '000000',
-    'Vintage Nike': '000000',
-    'Vintage Champion': '000000',
-    'Vintage Tommy': '000000',
-    'Harley Davidson': '8B0000',
-    'Levi\'s': '003087',
-    'Wrangler': '000000',
-    'Lee': '000000',
+    // Streetwear Brands
+    'Supreme': {'category': 'streetwear', 'hasLogo': true},
+    'Off-White': {'category': 'streetwear', 'hasLogo': true},
+    'Stone Island': {'category': 'streetwear', 'hasLogo': true},
+    'A Bathing Ape': {'category': 'streetwear', 'hasLogo': true},
+    'Stussy': {'category': 'streetwear', 'hasLogo': true},
+    'Kenzo': {'category': 'streetwear', 'hasLogo': true},
     
-    // Sports Brands
-    'Under Armour': '000000',
-    'Reebok': '000000',
-    'New Balance': '000000',
-    'ASICS': '000000',
-    'Jordan': '000000',
-    'Yeezy': '000000',
+    // Classic Fashion Brands
+    'Levi\'s': {'category': 'classic', 'hasLogo': true},
+    'Tommy Hilfiger': {'category': 'classic', 'hasLogo': true},
+    'Calvin Klein': {'category': 'classic', 'hasLogo': true},
+    'Ralph Lauren': {'category': 'classic', 'hasLogo': true},
+    'Lacoste': {'category': 'classic', 'hasLogo': true},
+    'Hugo Boss': {'category': 'classic', 'hasLogo': true},
+    'Dr. Martens': {'category': 'classic', 'hasLogo': true},
     
     // Contemporary Brands
-    'H&M': 'E50000',
-    'Zara': '000000',
-    'Uniqlo': '000000',
-    'Forever 21': '000000',
-    'Gap': '000000',
-    'Old Navy': '000000',
+    'Zara': {'category': 'contemporary', 'hasLogo': true},
+    'H&M': {'category': 'contemporary', 'hasLogo': true},
+    'Uniqlo': {'category': 'contemporary', 'hasLogo': true},
+    'Gap': {'category': 'contemporary', 'hasLogo': true},
+    'Forever 21': {'category': 'contemporary', 'hasLogo': true},
     
-    // Luxury Brands
-    'Balenciaga': '000000',
-    'Givenchy': '000000',
-    'Saint Laurent': '000000',
-    'Burberry': 'A0522D',
-    'Fendi': '000000',
-    'Hermès': '000000',
+    // Vintage Era Brands
+    'Vintage Nike': {'category': 'vintage', 'hasLogo': true},
+    'Vintage Adidas': {'category': 'vintage', 'hasLogo': true},
+    'Vintage Champion': {'category': 'vintage', 'hasLogo': true},
+    'Vintage Tommy': {'category': 'vintage', 'hasLogo': true},
+    'Vintage Levi\'s': {'category': 'vintage', 'hasLogo': true},
+    
+    // Era-specific
+    '80s Vintage': {'category': 'vintage', 'hasLogo': false},
+    '90s Vintage': {'category': 'vintage', 'hasLogo': false},
+    'Y2K': {'category': 'vintage', 'hasLogo': false},
+    '2000s Vintage': {'category': 'vintage', 'hasLogo': false},
+    
+    // Generic/Other
+    'Hanes': {'category': 'basic', 'hasLogo': true},
+    'Fruit of the Loom': {'category': 'basic', 'hasLogo': true},
+    'Gildan': {'category': 'basic', 'hasLogo': true},
   };
 
+  static const String _defaultLogo = 'assets/brand_logos/default_brand.png';
+
+  /// Get brand logo path for a given brand name
   static String getBrandLogo(String brandName) {
-    return brandName;
-  }
-
-  static bool hasBrandLogo(String brandName) {
-    return _brandColors.containsKey(brandName);
-  }
-
-  static List<String> getAllBrands() {
-    return _brandColors.keys.toList();
-  }
-
-  static List<String> getBrandsByCategory(String category) {
-    switch (category.toLowerCase()) {
-      case 'luxury':
-        return ['Gucci', 'Prada', 'Louis Vuitton', 'Balenciaga', 'Burberry'];
-      case 'streetwear':
-        return ['Supreme', 'Off-White', 'Stone Island'];
-      case 'sports':
-        return ['Nike', 'Adidas', 'Puma', 'Champion'];
-      case 'vintage':
-        return ['Levi\'s', 'Dr. Martens', 'Hanes'];
-      default:
-        return getAllBrands();
+    if (brandName.isEmpty) return _defaultLogo;
+    
+    // Check if it's a known brand with logo
+    if (isKnownBrand(brandName) && _knownBrands[brandName]!['hasLogo'] == true) {
+      return 'assets/brand_logos/${brandName.toLowerCase().replaceAll(' ', '_').replaceAll('\'', '').replaceAll('-', '_')}.png';
     }
+    
+    return _defaultLogo;
+  }
+
+  /// Check if brand is in our known brands list
+  static bool isKnownBrand(String brandName) {
+    return _knownBrands.containsKey(brandName);
+  }
+
+  /// Check if brand has a logo asset
+  static bool hasBrandLogo(String brandName) {
+    return isKnownBrand(brandName) && _knownBrands[brandName]!['hasLogo'] == true;
+  }
+
+  /// Get all known brand names
+  static List<String> getAllKnownBrands() {
+    return _knownBrands.keys.toList()..sort();
+  }
+
+  /// Get brands by category
+  static List<String> getBrandsByCategory(String category) {
+    return _knownBrands.entries
+        .where((entry) => entry.value['category'] == category)
+        .map((entry) => entry.key)
+        .toList()..sort();
+  }
+
+  /// Get all brand categories
+  static List<String> getBrandCategories() {
+    return ['sports', 'luxury', 'streetwear', 'classic', 'contemporary', 'vintage', 'basic'];
+  }
+
+  /// Normalize brand name for comparison
+  static String normalizeBrandName(String brandName) {
+    return brandName.trim().toLowerCase();
+  }
+
+  /// Check if a brand should be categorized as "Other"
+  static bool isOtherBrand(String brandName) {
+    return !isKnownBrand(brandName);
+  }
+
+  /// Get brand category
+  static String getBrandCategory(String brandName) {
+    if (isKnownBrand(brandName)) {
+      return _knownBrands[brandName]!['category'];
+    }
+    return 'other';
+  }
+
+  /// Get display name for brand (handles "Other" brands)
+  static String getDisplayBrandName(String brandName) {
+    if (isOtherBrand(brandName)) {
+      return 'Other Brands';
+    }
+    return brandName;
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:haul/services/brand_logo_service.dart';
 import 'package:uuid/uuid.dart';
 import '../models/product.dart';
 
@@ -11,9 +12,17 @@ class ProductProvider extends ChangeNotifier {
   final FirebaseStorage _storage = FirebaseStorage.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   
+  // ✅ Add the collection reference
+  late final CollectionReference<Map<String, dynamic>> _productsCollection;
+  
   bool _isLoading = false;
   String? _errorMessage;
   List<Product> _products = [];
+
+  // ✅ Constructor to initialize collection
+  ProductProvider() {
+    _productsCollection = _firestore.collection('products');
+  }
 
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
@@ -391,9 +400,123 @@ class ProductProvider extends ChangeNotifier {
     ).toList();
   }
 
+  // Filter products by brand
+  static Query<Map<String, dynamic>> buildBrandQuery(
+    CollectionReference<Map<String, dynamic>> collection,
+    List<String> selectedBrands,
+  ) {
+    if (selectedBrands.isEmpty) {
+      return collection;
+    }
+
+    Query<Map<String, dynamic>> query = collection;
+    
+    if (selectedBrands.contains('Other Brands')) {
+      // Include products with brands not in our known brands list
+      final knownBrands = BrandLogoService.getAllKnownBrands();
+      query = query.where('brand', whereNotIn: knownBrands);
+      
+      // Remove 'Other Brands' from the list and add remaining filters
+      final remainingBrands = selectedBrands.where((b) => b != 'Other Brands').toList();
+      if (remainingBrands.isNotEmpty) {
+        // Create separate queries and combine results
+        // Note: Firestore has limitations on complex queries
+        query = query.where('brand', whereIn: remainingBrands);
+      }
+    } else {
+      query = query.where('brand', whereIn: selectedBrands);
+    }
+    
+    return query;
+  }
+
   // Clear error message
   void clearError() {
     _errorMessage = null;
     notifyListeners();
+  }
+
+  // Add this to your product provider for one-time migration
+  Future<void> migrateBrandNames() async {
+    final snapshot = await FirebaseFirestore.instance
+        .collection('products')
+        .get();
+
+    final batch = FirebaseFirestore.instance.batch();
+    
+    for (final doc in snapshot.docs) {
+      final data = doc.data();
+      final currentBrand = data['brand'] as String?;
+      
+      if (currentBrand != null && currentBrand.isNotEmpty) {
+        // Check if brand needs normalization
+        final knownBrands = BrandLogoService.getAllKnownBrands();
+        final normalizedBrand = knownBrands.firstWhere(
+          (brand) => brand.toLowerCase() == currentBrand.toLowerCase(),
+          orElse: () => currentBrand, // Keep original if not found
+        );
+        
+        if (normalizedBrand != currentBrand) {
+          batch.update(doc.reference, {'brand': normalizedBrand});
+        }
+      }
+    }
+    
+    await batch.commit();
+  }
+
+  // Add this method to your ProductProvider class:
+  Future<List<Product>> getProductsByBrand(String brandName) async {
+    try {
+      Query<Map<String, dynamic>> query = _productsCollection
+          .where('brand', isEqualTo: brandName)
+          .where('isActive', isEqualTo: true);
+      
+      final snapshot = await query.get();
+      
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        
+        // Handle Timestamp conversion
+        if (data['createdAt'] is Timestamp) {
+          data['createdAt'] = (data['createdAt'] as Timestamp).toDate();
+        }
+        if (data['updatedAt'] is Timestamp) {
+          data['updatedAt'] = (data['updatedAt'] as Timestamp).toDate();
+        }
+        
+        return Product.fromMap(data);
+      }).toList();
+    } catch (e) {
+      print('Error getting products by brand: $e');
+      return [];
+    }
+  }
+
+  Future<List<Product>> getAllProducts() async {
+    try {
+      final snapshot = await _productsCollection
+          .where('isActive', isEqualTo: true)
+          .get();
+    
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        
+        // Handle Timestamp conversion
+        if (data['createdAt'] is Timestamp) {
+          data['createdAt'] = (data['createdAt'] as Timestamp).toDate();
+        }
+        if (data['updatedAt'] is Timestamp) {
+          data['updatedAt'] = (data['updatedAt'] as Timestamp).toDate();
+        }
+        
+        return Product.fromMap(data);
+      }).toList();
+    } catch (e) {
+      print('Error getting all products: $e');
+      return [];
+    }
   }
 }
