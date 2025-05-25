@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:haul/screens/buyer/package_tracking_screen.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -1701,10 +1702,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
   void _trackOrder() {
     // Navigate to package tracking screen
-    Navigator.pushNamed(
+    Navigator.push(
       context,
-      '/package-tracking',
-      arguments: widget.orderId,
+      MaterialPageRoute(
+        builder: (context) => PackageTrackingScreen(
+        ),
+      ),
     );
   }
 
