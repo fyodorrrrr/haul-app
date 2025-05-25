@@ -236,17 +236,17 @@ class _OrderSummaryState extends State<OrderSummary> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              widget.shippingAddress.fullName,
+              widget.shippingAddress.fullName ?? 'No Name', // ✅ Handle null
               style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 4),
-            Text(widget.shippingAddress.addressLine1),
-            if (widget.shippingAddress.addressLine2.isNotEmpty)
-              Text(widget.shippingAddress.addressLine2),
-            Text('${widget.shippingAddress.city}, ${widget.shippingAddress.state} ${widget.shippingAddress.zipCode}'),
-            Text(widget.shippingAddress.country),
+            Text(widget.shippingAddress.addressLine1 ?? ''), // ✅ Handle null
+            if ((widget.shippingAddress.addressLine2?.isNotEmpty ?? false)) // ✅ Handle null
+              Text(widget.shippingAddress.addressLine2!),
+            Text('${widget.shippingAddress.city ?? ''}, ${widget.shippingAddress.state ?? ''} ${widget.shippingAddress.zipCode ?? ''}'), // ✅ Handle null
+            Text(widget.shippingAddress.country ?? ''), // ✅ Handle null
             const SizedBox(height: 4),
-            Text(widget.shippingAddress.phoneNumber),
+            Text(widget.shippingAddress.phoneNumber ?? ''), // ✅ Handle null
           ],
         ),
       ),
@@ -256,7 +256,8 @@ class _OrderSummaryState extends State<OrderSummary> {
   Widget _buildPaymentMethodCard() {
     // Define icon based on payment method
     IconData getIcon() {
-      switch (widget.paymentMethod.type) {
+      final type = widget.paymentMethod.type ?? '';
+      switch (type) {
         case 'Cash on Delivery':
           return Icons.money;
         case 'Credit/Debit Card':
@@ -279,17 +280,34 @@ class _OrderSummaryState extends State<OrderSummary> {
       child: ListTile(
         leading: Icon(getIcon(), color: Colors.black),
         title: Text(
-          widget.paymentMethod.type,
+          widget.paymentMethod.type ?? 'Unknown Payment Method', // ✅ Handle null
           style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
         ),
-        subtitle: widget.paymentMethod.details != null && widget.paymentMethod.type == 'Credit/Debit Card'
-            ? Text('${widget.paymentMethod.details!['cardType']} ending in ${widget.paymentMethod.details!['last4']}')
-            : null,
+        subtitle: _buildPaymentSubtitle(),
       ),
     );
   }
 
+  // ✅ Add helper method for payment subtitle
+  Widget? _buildPaymentSubtitle() {
+    final type = widget.paymentMethod.type ?? '';
+    
+    if (type == 'Credit/Debit Card') {
+      final cardType = widget.paymentMethod.cardType;
+      final lastFour = widget.paymentMethod.cardLastFour;
+      
+      if (cardType != null && lastFour != null) {
+        return Text('$cardType ending in $lastFour');
+      }
+    }
+    
+    return null; // No subtitle for other payment methods
+  }
+
+  // ✅ Enhanced order item with better information display:
   Widget _buildOrderItem(CartModel item) {
+    final itemTotal = (item.productPrice ?? 0.0) * item.quantity;
+    
     return Card(
       elevation: 0,
       margin: const EdgeInsets.only(bottom: 8),
@@ -303,19 +321,34 @@ class _OrderSummaryState extends State<OrderSummary> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Product Image
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.network(
-                item.imageURL,
-                width: 70,
-                height: 70,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  width: 70,
-                  height: 70,
-                  color: Colors.grey.shade300,
-                  child: const Icon(Icons.image_not_supported, color: Colors.grey),
-                ),
+            Container(
+              width: 70,
+              height: 70,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                color: Colors.grey.shade300,
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: (item.imageURL?.isNotEmpty == true)
+                    ? Image.network(
+                        item.imageURL!,
+                        width: 70,
+                        height: 70,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          width: 70,
+                          height: 70,
+                          color: Colors.grey.shade300,
+                          child: const Icon(Icons.image_not_supported, color: Colors.grey),
+                        ),
+                      )
+                    : Container(
+                        width: 70,
+                        height: 70,
+                        color: Colors.grey.shade300,
+                        child: const Icon(Icons.image_not_supported, color: Colors.grey),
+                      ),
               ),
             ),
             const SizedBox(width: 16),
@@ -325,19 +358,89 @@ class _OrderSummaryState extends State<OrderSummary> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Product Name
                   Text(
-                    item.productName,
+                    item.productName ?? 'Unknown Product',
                     style: GoogleFonts.poppins(
                       fontWeight: FontWeight.w600,
                       fontSize: 14,
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '\$${item.productPrice.toStringAsFixed(2)}',
-                    style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.w600,
+                  const SizedBox(height: 4),
+                  
+                  // Brand (if available)
+                  if (item.brand?.isNotEmpty == true)
+                    Text(
+                      item.brand!,
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
                     ),
+                  
+                  // Size and Condition (if available)
+                  if (item.size?.isNotEmpty == true || item.condition?.isNotEmpty == true)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        [
+                          if (item.size?.isNotEmpty == true) 'Size: ${item.size}',
+                          if (item.condition?.isNotEmpty == true) 'Condition: ${item.condition}',
+                        ].join(' • '),
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+                    ),
+                  
+                  const SizedBox(height: 8),
+                  
+                  // Price and Quantity
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Quantity
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'Qty: ${item.quantity}',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      
+                      // Price
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          if (item.quantity > 1)
+                            Text(
+                              '\$${(item.productPrice ?? 0.0).toStringAsFixed(2)} each',
+                              style: GoogleFonts.poppins(
+                                fontSize: 11,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          Text(
+                            '\$${itemTotal.toStringAsFixed(2)}',
+                            style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                              color: Colors.green.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ],
               ),
