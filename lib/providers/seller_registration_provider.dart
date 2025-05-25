@@ -17,7 +17,7 @@ class SellerRegistrationProvider extends ChangeNotifier {
   void _setLoadingState(bool isLoading, [String? errorMessage]) {
     _isLoading = isLoading;
     _errorMessage = errorMessage;
-    // notifyListeners();
+    notifyListeners();
   }
   
   // Location data
