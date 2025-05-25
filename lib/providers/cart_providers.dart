@@ -221,20 +221,64 @@ class CartProvider with ChangeNotifier {
   // ✅ Add the missing removeFromCartById method
   Future<void> removeFromCartById(String cartItemId) async {
     try {
-      // Remove from Firestore
-      await FirebaseFirestore.instance
-          .collection('carts')
-          .doc(cartItemId)
-          .delete();
-
-      // Remove from local cart
-      _cart.removeWhere((item) => item.id == cartItemId);
-      notifyListeners();
+      // ✅ Validate input
+      if (cartItemId.isEmpty) {
+        throw Exception('Cart item ID cannot be empty');
+      }
       
-      print('✅ Item removed from cart successfully');
+      print('🗑️ Attempting to remove cart item: $cartItemId');
+      
+      // ✅ Check if item exists in local cart first
+      final itemIndex = _cart.indexWhere((item) => item.id == cartItemId);
+      if (itemIndex == -1) {
+        print('⚠️ Item not found in local cart, checking Firestore...');
+      } else {
+        print('✅ Item found in local cart at index $itemIndex');
+      }
+      
+      // Remove from Firestore
+      final docRef = FirebaseFirestore.instance.collection('carts').doc(cartItemId);
+      
+      // ✅ Check if document exists before deleting
+      final docSnapshot = await docRef.get();
+      if (docSnapshot.exists) {
+        await docRef.delete();
+        print('✅ Removed from Firestore successfully');
+      } else {
+        print('⚠️ Document not found in Firestore, proceeding with local removal');
+      }
+      
+      // Remove from local cart
+      if (itemIndex != -1) {
+        final removedItem = _cart[itemIndex];
+        _cart.removeAt(itemIndex);
+        print('✅ Removed from local cart: ${removedItem.productName}');
+      } else {
+        // Try to remove by ID even if not found by index
+        _cart.removeWhere((item) => item.id == cartItemId);
+        print('✅ Attempted removal from local cart by ID');
+      }
+      
+      notifyListeners();
+      print('📊 Cart now has ${_cart.length} items');
+      
     } catch (e) {
-      print('❌ Error removing item from cart: $e');
-      throw e;
+      print('❌ Error removing cart item: $e');
+      
+      // ✅ Enhanced error handling - try to refresh cart
+      try {
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          print('🔄 Refreshing cart from server...');
+          await fetchCart(user.uid);
+          print('✅ Cart refreshed from server');
+        }
+      } catch (refreshError) {
+        print('❌ Failed to refresh cart: $refreshError');
+      }
+      
+      // Re-throw with more descriptive message
+      throw Exception('Failed to remove item from cart: ${e.toString()}');
     }
   }
 
@@ -410,6 +454,42 @@ class CartProvider with ChangeNotifier {
     } catch (e) {
       print('❌ Error updating cart with seller info: $e');
       throw e;
+    }
+  }
+
+  // ✅ Add this fallback method to CartProvider:
+
+  /// Remove cart item by product ID if cart item ID is null
+  Future<void> removeFromCartByProductId(String productId, String userId) async {
+    try {
+      print('🗑️ Removing cart item by product ID: $productId');
+      
+      // Find and remove from Firestore by productId and userId
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('carts')
+          .where('productId', isEqualTo: productId)
+          .where('userId', isEqualTo: userId)
+          .get();
+      
+      final batch = FirebaseFirestore.instance.batch();
+      for (var doc in querySnapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      
+      if (querySnapshot.docs.isNotEmpty) {
+        await batch.commit();
+        print('✅ Removed ${querySnapshot.docs.length} items from Firestore');
+      }
+      
+      // Remove from local cart
+      _cart.removeWhere((item) => item.productId == productId);
+      notifyListeners();
+      
+      print('✅ Removed items with product ID: $productId');
+      
+    } catch (e) {
+      print('❌ Error removing cart item by product ID: $e');
+      throw Exception('Failed to remove item: ${e.toString()}');
     }
   }
 }
