@@ -34,33 +34,40 @@ class _SearchScreenState extends State<SearchScreen> {
     super.initState();
     
     // Handle initial query
-    if (widget.initialQuery != null) {
+    if (widget.initialQuery != null && widget.initialQuery!.isNotEmpty) {
       _searchController.text = widget.initialQuery!;
       _performSearch();
     }
     
-    // ✅ Handle navigation arguments for brand filter - FIXED VERSION
+    // ✅ Auto-focus search bar when screen opens
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.initialQuery == null || widget.initialQuery!.isEmpty) {
+        _searchFocusNode.requestFocus();
+      }
+      
+      // ✅ Handle navigation arguments for brand filter with better null checking
       try {
-        final args = ModalRoute.of(context)?.settings.arguments;
-        print('🔥 SearchScreen received arguments: $args');
-        
-        if (args != null) {
+        final route = ModalRoute.of(context);
+        if (route?.settings.arguments != null) {
+          final args = route!.settings.arguments;
           Map<String, dynamic>? argsMap;
           
-          // Handle different argument types
           if (args is Map<String, dynamic>) {
             argsMap = args;
           } else if (args is Map) {
             argsMap = Map<String, dynamic>.from(args);
           }
           
-          if (argsMap != null && argsMap['brandFilter'] != null) {
-            final brandName = argsMap['brandFilter'].toString();
-            print('🔥 Setting brand filter: $brandName');
+          // ✅ Better null checking for brandFilter
+          if (argsMap != null && 
+              argsMap.containsKey('brandFilter') && 
+              argsMap['brandFilter'] != null &&
+              argsMap['brandFilter'].toString().isNotEmpty) {
+            final brandFilter = argsMap['brandFilter'].toString();
+            print('🔥 Setting brand filter: $brandFilter');
             
             setState(() {
-              _selectedBrands = [brandName];
+              _selectedBrands = [brandFilter];
               _hasSearched = true;
             });
             _performSearch();
@@ -80,7 +87,9 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Future<void> _performSearch() async {
-    if (_searchController.text.trim().isEmpty && _selectedBrands.isEmpty && _selectedCategories.isEmpty) {
+    if ((_searchController.text.trim().isEmpty) && 
+        (_selectedBrands.isEmpty) && 
+        (_selectedCategories.isEmpty)) {
       return;
     }
 
@@ -95,38 +104,49 @@ class _SearchScreenState extends State<SearchScreen> {
       // Get all products first, then filter
       List<Product> allProducts = await productProvider.getAllProducts();
       
-      // Apply search filters
+      // ✅ Apply search filters with better null checking
       List<Product> filteredProducts = allProducts.where((product) {
-        // Text search
+        // ✅ Null check for product properties
+        if (product == null) return false;
+        
+        // Text search with null checks
         bool matchesText = true;
         if (_searchController.text.trim().isNotEmpty) {
           final query = _searchController.text.toLowerCase();
-          matchesText = product.name.toLowerCase().contains(query) ||
-                       product.description.toLowerCase().contains(query) ||
-                       product.brand.toLowerCase().contains(query) ||
-                       product.category.toLowerCase().contains(query);
+          final productName = product.name?.toLowerCase() ?? '';
+          final productDescription = product.description?.toLowerCase() ?? '';
+          final productBrand = product.brand?.toLowerCase() ?? '';
+          final productCategory = product.category?.toLowerCase() ?? '';
+          
+          matchesText = productName.contains(query) ||
+                       productDescription.contains(query) ||
+                       productBrand.contains(query) ||
+                       productCategory.contains(query);
         }
 
-        // Brand filter
+        // Brand filter with null checks
         bool matchesBrand = true;
-        if (_selectedBrands.isNotEmpty) {
+        if (_selectedBrands.isNotEmpty && product.brand != null) {
           if (_selectedBrands.contains('Other Brands')) {
             // Check if brand is not in known brands list
             final knownBrands = BrandLogoService.getAllKnownBrands();
-            matchesBrand = !knownBrands.contains(product.brand) ||
+            matchesBrand = !knownBrands.contains(product.brand!) ||
                          _selectedBrands.any((brand) => brand != 'Other Brands' && brand == product.brand);
           } else {
-            matchesBrand = _selectedBrands.contains(product.brand);
+            matchesBrand = _selectedBrands.contains(product.brand!);
           }
+        } else if (_selectedBrands.isNotEmpty && product.brand == null) {
+          matchesBrand = false; // If no brand but brand filter is active
         }
 
-        // Category filter
+        // Category filter with null checks
         bool matchesCategory = _selectedCategories.isEmpty || 
-                              _selectedCategories.contains(product.category);
+                              (product.category != null && _selectedCategories.contains(product.category!));
 
-        // Price filter
-        bool matchesPrice = product.sellingPrice >= _priceRange.start && 
-                           product.sellingPrice <= _priceRange.end;
+        // Price filter with null checks
+        final sellingPrice = product.sellingPrice ?? 0;
+        bool matchesPrice = sellingPrice >= _priceRange.start && 
+                           sellingPrice <= _priceRange.end;
 
         return matchesText && matchesBrand && matchesCategory && matchesPrice;
       }).toList();
@@ -139,38 +159,41 @@ class _SearchScreenState extends State<SearchScreen> {
         _isLoading = false;
       });
     } catch (e) {
+      print('❌ Search error: $e');
       setState(() {
         _isLoading = false;
       });
       
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error searching products: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error searching products: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
   void _sortProducts(List<Product> products) {
     switch (_sortBy) {
       case 'price_low':
-        products.sort((a, b) => a.sellingPrice.compareTo(b.sellingPrice));
+        products.sort((a, b) => (a.sellingPrice ?? 0).compareTo(b.sellingPrice ?? 0));
         break;
       case 'price_high':
-        products.sort((a, b) => b.sellingPrice.compareTo(a.sellingPrice));
+        products.sort((a, b) => (b.sellingPrice ?? 0).compareTo(a.sellingPrice ?? 0));
         break;
       case 'newest':
-        products.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        products.sort((a, b) => (b.createdAt ?? DateTime.now()).compareTo(a.createdAt ?? DateTime.now()));
         break;
       case 'oldest':
-        products.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        products.sort((a, b) => (a.createdAt ?? DateTime.now()).compareTo(b.createdAt ?? DateTime.now()));
         break;
       case 'name_az':
-        products.sort((a, b) => a.name.compareTo(b.name));
+        products.sort((a, b) => (a.name ?? '').compareTo(b.name ?? ''));
         break;
       case 'name_za':
-        products.sort((a, b) => b.name.compareTo(a.name));
+        products.sort((a, b) => (b.name ?? '').compareTo(a.name ?? ''));
         break;
     }
   }
@@ -592,7 +615,7 @@ class _SearchScreenState extends State<SearchScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Product image
+            // ✅ Fixed product image with proper null checking
             Expanded(
               flex: 3,
               child: Container(
@@ -600,9 +623,9 @@ class _SearchScreenState extends State<SearchScreen> {
                   borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
                   color: Colors.grey[200],
                 ),
-                child: product.images.isNotEmpty
+                child: (product.images != null && product.images!.isNotEmpty) // ✅ Fix null check
                     ? Image.network(
-                        product.images.first,
+                        product.images!.first, // ✅ Add null assertion
                         fit: BoxFit.cover,
                         width: double.infinity,
                         errorBuilder: (context, error, stackTrace) {
@@ -627,7 +650,7 @@ class _SearchScreenState extends State<SearchScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      product.name,
+                      product.name ?? 'Unknown Product', // ✅ Add null check
                       style: GoogleFonts.poppins(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
@@ -640,7 +663,7 @@ class _SearchScreenState extends State<SearchScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          '₱${product.sellingPrice.toStringAsFixed(0)}',
+                          '₱${(product.sellingPrice ?? 0).toStringAsFixed(0)}', // ✅ Add null check
                           style: GoogleFonts.poppins(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -648,7 +671,7 @@ class _SearchScreenState extends State<SearchScreen> {
                           ),
                         ),
                         Text(
-                          product.brand,
+                          product.brand ?? 'Unknown', // ✅ Add null check
                           style: GoogleFonts.poppins(
                             fontSize: 10,
                             color: Colors.grey[600],

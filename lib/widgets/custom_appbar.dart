@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '/models/product.dart';
+import '../screens/buyer/search_screen.dart'; // ✅ Add this import
 
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
   final bool showSearchBar;
-  final TextEditingController searchController;
-  final Function(String) onSearchChanged;
+  final TextEditingController? searchController; // ✅ Make optional
+  final Function(String)? onSearchChanged; // ✅ Make optional
   final List<Product>? searchSuggestions;
   final VoidCallback? onSearchSubmitted;
 
@@ -14,8 +15,8 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     Key? key,
     required this.title,
     this.showSearchBar = true,
-    required this.searchController,
-    required this.onSearchChanged,
+    this.searchController, // ✅ Make optional
+    this.onSearchChanged, // ✅ Make optional
     this.searchSuggestions,
     this.onSearchSubmitted,
   }) : super(key: key);
@@ -25,79 +26,63 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     return AppBar(
       elevation: 0,
       backgroundColor: Colors.white,
-      automaticallyImplyLeading: false, // Remove default back button
-      centerTitle: true, // Center the title/logo
+      automaticallyImplyLeading: false,
+      centerTitle: true,
       title: showSearchBar
           ? Row(
               mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Add your logo here
+                // Logo
                 Image.asset(
-                  'assets/haul_logo_.png', // Replace with your logo path
-                  height: 64, // Adjust height as needed
-                  width: 64,  // Adjust width as needed
+                  'assets/haul_logo_.png',
+                  height: 64,
+                  width: 64,
                 ),
                 SizedBox(width: 8),
+                
+                // ✅ Replace TextField with GestureDetector
                 Expanded(
-                  child: Container(
-                    height: 46,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[100],
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.1),
-                          spreadRadius: 1,
-                          blurRadius: 3,
-                          offset: const Offset(0, 2),
+                  child: GestureDetector(
+                    onTap: () {
+                      // ✅ Navigate to SearchScreen when tapped
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => SearchScreen(),
                         ),
-                      ],
-                    ),
-                    child: Theme(
-                      data: Theme.of(context).copyWith(
-                        colorScheme: ColorScheme.fromSwatch().copyWith(
-                          secondary: Theme.of(context).primaryColor,
-                        ),
-                      ),
-                      child: TextField(
-                        controller: searchController,
-                        onChanged: onSearchChanged,
-                        onSubmitted: (value) {
-                          if (onSearchSubmitted != null) {
-                            onSearchSubmitted!();
-                          }
-                        },
-                        decoration: InputDecoration(
-                          hintText: 'Search for thrift items...',
-                          hintStyle: GoogleFonts.poppins(
-                            fontSize: 14,
-                            color: Colors.grey[500],
+                      );
+                    },
+                    child: Container(
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.withOpacity(0.1),
+                            spreadRadius: 1,
+                            blurRadius: 3,
+                            offset: const Offset(0, 2),
                           ),
-                          prefixIcon: Icon(
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          SizedBox(width: 16),
+                          Icon(
                             Icons.search,
                             color: Colors.grey[600],
                           ),
-                          suffixIcon: searchController.text.isNotEmpty
-                              ? IconButton(
-                                  icon: Icon(
-                                    Icons.close,
-                                    color: Colors.grey[600],
-                                    size: 20,
-                                  ),
-                                  onPressed: () {
-                                    searchController.clear();
-                                    onSearchChanged('');
-                                    // setState(() {});
-                                  },
-                                )
-                              : null,
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 8,
-                            horizontal: 16,
+                          SizedBox(width: 12),
+                          Text(
+                            'Search for thrift items...',
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              color: Colors.grey[500],
+                            ),
                           ),
-                        ),
+                        ],
                       ),
                     ),
                   ),
@@ -112,12 +97,19 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 fontWeight: FontWeight.bold,
               ),
             ),
-      // Add leading and trailing widgets if needed
       leading: title == 'Explore'
           ? IconButton(
               icon: Icon(Icons.filter_list, color: Colors.black),
               onPressed: () {
-                // Add filter functionality
+                // ✅ Navigate to SearchScreen with filters open
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => SearchScreen(),
+                  ),
+                ).then((_) {
+                  // Could open filters bottom sheet automatically
+                });
               },
             )
           : null,
@@ -128,18 +120,6 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
             // Add notification functionality
           },
         ),
-        // IconButton(
-        //   icon: Icon(Icons.clear_all),
-        //   onPressed: () {
-        //     setState(() {
-        //       _selectedCategory = 'All';
-        //       _selectedCondition = 'All';
-        //       _priceRange = RangeValues(0, 200);
-        //       _sortBy = 'newest';
-        //     });
-        //     _loadFeaturedProducts();
-        //   },
-        // ),
       ],
     );
   }
