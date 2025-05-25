@@ -221,12 +221,6 @@ Future<List<Map<String, dynamic>>> fetchUserOrders() async {
 
 ---
 
-## 🎨 Screenshots
-
-| Explore Screen | Order Details | Seller Dashboard |
-|----------------|---------------|------------------|
-| ![Explore](screenshots/explore.png) | ![Orders](screenshots/orders.png) | ![Dashboard](screenshots/dashboard.png) |
-
 ---
 
 ## 🧪 Testing
