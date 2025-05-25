@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/services.dart';
 
 class NotificationPreferencesScreen extends StatefulWidget {
   @override
@@ -86,67 +87,98 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
   }
 
   Future<void> _saveNotificationPreferences() async {
+    // ✅ Check if widget is still mounted before starting
+    if (!mounted) return;
+    
     setState(() => _isSaving = true);
 
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        final preferences = {
-          // General preferences
-          'pushNotifications': _pushNotifications,
-          'emailNotifications': _emailNotifications,
-          'smsNotifications': _smsNotifications,
-          
-          // Category preferences
-          'orderUpdates': _orderUpdates,
-          'promotionalOffers': _promotionalOffers,
-          'newProducts': _newProducts,
-          'priceAlerts': _priceAlerts,
-          'wishlistAlerts': _wishlistAlerts,
-          'securityAlerts': _securityAlerts,
-          'sellerUpdates': _sellerUpdates,
-          'systemAnnouncements': _systemAnnouncements,
-          
-          // Timing preferences
-          'quietHoursStart': _quietHoursStart,
-          'quietHoursEnd': _quietHoursEnd,
-          'quietHoursEnabled': _quietHoursEnabled,
-          
-          'lastUpdated': FieldValue.serverTimestamp(),
-        };
-
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .collection('preferences')
-            .doc('notifications')
-            .set(preferences, SetOptions(merge: true));
-
-        // Handle push notification permissions
-        if (_pushNotifications) {
-          await _requestNotificationPermission();
-        }
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Notification preferences saved!'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
+      if (user == null) {
+        throw Exception('User not authenticated');
       }
-    } catch (e) {
+
+      final preferences = {
+        // General preferences
+        'pushNotifications': _pushNotifications,
+        'emailNotifications': _emailNotifications,
+        'smsNotifications': _smsNotifications,
+        
+        // Category preferences
+        'orderUpdates': _orderUpdates,
+        'promotionalOffers': _promotionalOffers,
+        'newProducts': _newProducts,
+        'priceAlerts': _priceAlerts,
+        'wishlistAlerts': _wishlistAlerts,
+        'securityAlerts': _securityAlerts,
+        'sellerUpdates': _sellerUpdates,
+        'systemAnnouncements': _systemAnnouncements,
+        
+        // Timing preferences
+        'quietHoursStart': _quietHoursStart,
+        'quietHoursEnd': _quietHoursEnd,
+        'quietHoursEnabled': _quietHoursEnabled,
+        
+        'lastUpdated': FieldValue.serverTimestamp(),
+      };
+
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('preferences')
+          .doc('notifications')
+          .set(preferences, SetOptions(merge: true));
+
+      // Handle push notification permissions
+      if (_pushNotifications) {
+        await _requestNotificationPermission();
+      }
+
+      // ✅ Check mounted before showing success message
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error saving preferences: $e'),
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 8),
+                Text('Notification has been saved!'),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 3),
+          ),
+        );
+        
+        // ✅ No automatic navigation - user can tap back button when ready
+      }
+
+    } catch (e) {
+      print('❌ Error saving preferences: $e');
+      
+      // ✅ Check mounted before showing error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.error, color: Colors.white),
+                SizedBox(width: 8),
+                Expanded(child: Text('Error saving preferences: $e')),
+              ],
+            ),
             backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 4),
           ),
         );
       }
     } finally {
-      setState(() => _isSaving = false);
+      // ✅ Check mounted before updating state
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
     }
   }
 
@@ -161,35 +193,56 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
       );
 
       if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-        print('User granted permission');
+        print('✅ User granted notification permission');
+        
         // Get FCM token and save it
         final token = await messaging.getToken();
-        if (token != null) {
+        if (token != null && mounted) {
           await _saveFCMToken(token);
         }
       } else {
-        print('User declined or has not accepted permission');
+        print('❌ User declined or has not accepted permission');
+        
+        // ✅ Show user-friendly message about permissions
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Push notifications disabled. You can enable them in device settings.'),
+              backgroundColor: Colors.orange,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
       }
     } catch (e) {
-      print('Error requesting notification permission: $e');
+      print('❌ Error requesting notification permission: $e');
     }
   }
 
   Future<void> _saveFCMToken(String token) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .update({
-          'fcmToken': token,
-          'fcmTokenUpdated': FieldValue.serverTimestamp(),
-        });
-      }
+      if (user == null || !mounted) return;
+
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .update({
+        'fcmToken': token,
+        'fcmTokenUpdated': FieldValue.serverTimestamp(),
+      });
+
+      print('✅ FCM token saved successfully');
     } catch (e) {
-      print('Error saving FCM token: $e');
+      print('❌ Error saving FCM token: $e');
     }
+  }
+
+  @override
+  void dispose() {
+    // ✅ Clean up any ongoing operations
+    print('🗑️ NotificationPreferencesScreen disposing');
+    super.dispose();
   }
 
   @override
@@ -205,12 +258,32 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
         elevation: 0,
         actions: [
           TextButton(
-            onPressed: _isSaving ? null : _saveNotificationPreferences,
+            onPressed: _isSaving ? null : () async {
+              // ✅ Add haptic feedback
+              HapticFeedback.lightImpact();
+              await _saveNotificationPreferences();
+            },
             child: _isSaving
-                ? SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        'Saving...',
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
                   )
                 : Text(
                     'Save',
@@ -335,11 +408,11 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
                     ),
                   ],
 
-                  SizedBox(height: 32),
+                  // SizedBox(height: 32),
 
-                  _buildTestNotificationButton(),
+                  // _buildTestNotificationButton(),
 
-                  SizedBox(height: 16),
+                  // SizedBox(height: 16),
                 ],
               ),
             ),
@@ -461,22 +534,22 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
     );
   }
 
-  Widget _buildTestNotificationButton() {
-    return Container(
-      width: double.infinity,
-      child: OutlinedButton.icon(
-        onPressed: _sendTestNotification,
-        icon: Icon(Icons.notifications_outlined),
-        label: Text('Send Test Notification'),
-        style: OutlinedButton.styleFrom(
-          padding: EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-        ),
-      ),
-    );
-  }
+  // Widget _buildTestNotificationButton() {
+  //   return Container(
+  //     width: double.infinity,
+  //     child: OutlinedButton.icon(
+  //       onPressed: _sendTestNotification,
+  //       icon: Icon(Icons.notifications_outlined),
+  //       label: Text('Send Test Notification'),
+  //       style: OutlinedButton.styleFrom(
+  //         padding: EdgeInsets.symmetric(vertical: 16),
+  //         shape: RoundedRectangleBorder(
+  //           borderRadius: BorderRadius.circular(8),
+  //         ),
+  //       ),
+  //     ),
+  //   );
+  // }
 
   Future<void> _sendTestNotification() async {
     if (_pushNotifications) {
