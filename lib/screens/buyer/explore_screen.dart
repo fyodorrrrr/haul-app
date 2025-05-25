@@ -25,7 +25,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   bool _isLoading = true;
   String? userId;
   Set<String> _wishlistProductIds = {};
-  bool _isDisposed = false; // ✅ Add disposal tracking
+  bool _isDisposed = false;
 
   @override
   void initState() {
@@ -35,17 +35,30 @@ class _ExploreScreenState extends State<ExploreScreen> {
     _loadFeaturedProducts();
   }
 
-  // ✅ Add controller initialization method
+  // ✅ Improved controller initialization
   void _initializeController() {
-    controller?.dispose();
+    // Only dispose if controller exists and is not already disposed
+    if (controller != null) {
+      try {
+        controller?.dispose();
+      } catch (e) {
+        print('Error disposing old controller: $e');
+      }
+    }
     controller = CardSwiperController();
   }
 
   @override
   void dispose() {
-    _isDisposed = true; // ✅ Mark as disposed
-    controller?.dispose();
-    controller = null; // ✅ Set to null after disposal
+    _isDisposed = true;
+    // ✅ Safe disposal
+    try {
+      controller?.dispose();
+    } catch (e) {
+      print('Error disposing controller in dispose: $e');
+    } finally {
+      controller = null;
+    }
     super.dispose();
   }
 
@@ -77,12 +90,14 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   Future<void> _loadFeaturedProducts() async {
-    if (_isDisposed) return; // ✅ Check if disposed
+    if (_isDisposed) return;
 
-    setState(() {
-      _isLoading = true;
-      _featuredProducts.clear();
-    });
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _featuredProducts.clear();
+      });
+    }
 
     try {
       QuerySnapshot result = await FirebaseFirestore.instance
@@ -108,20 +123,23 @@ class _ExploreScreenState extends State<ExploreScreen> {
           .where((product) => !_wishlistProductIds.contains(product.id))
           .toList();
 
-      if (!_isDisposed && mounted) { // ✅ Check before setState
+      // ✅ Randomize the products
+      products.shuffle();
+
+      if (!_isDisposed && mounted) {
         setState(() {
           _featuredProducts = products;
           _isLoading = false;
         });
 
-        // ✅ Safely initialize controller if needed
+        // ✅ Only create controller if we don't have one and have products
         if (products.isNotEmpty && controller == null) {
-          _initializeController();
+          controller = CardSwiperController();
         }
       }
     } catch (e) {
       print('Error loading products: $e');
-      if (!_isDisposed && mounted) { // ✅ Check before setState
+      if (!_isDisposed && mounted) {
         setState(() => _isLoading = false);
       }
     }
@@ -131,14 +149,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
     if (_isLoading || _featuredProducts.isEmpty) return;
 
     try {
-      final lastProduct = _featuredProducts.last;
-      
+      // ✅ Get random products instead of chronological order
       QuerySnapshot result = await FirebaseFirestore.instance
           .collection('products')
           .where('isActive', isEqualTo: true)
-          .where('createdAt', isLessThan: lastProduct.createdAt)
-          .orderBy('createdAt', descending: true)
-          .limit(20)
+          .limit(30) // Get 30 random products
           .get();
 
       List<Product> newProducts = result.docs
@@ -155,49 +170,181 @@ class _ExploreScreenState extends State<ExploreScreen> {
           .where((product) => product != null)
           .cast<Product>()
           .where((product) => !_wishlistProductIds.contains(product.id))
+          .where((product) => !_featuredProducts.any((existing) => existing.id == product.id)) // ✅ Avoid duplicates
           .toList();
+
+      // ✅ Randomize the new products
+      newProducts.shuffle();
 
       if (newProducts.isNotEmpty) {
         setState(() {
-          _featuredProducts.addAll(newProducts);
+          _featuredProducts.addAll(newProducts.take(20)); // Add only 20 to avoid too many
         });
+        
+        print('Added ${newProducts.take(20).length} more randomized products');
       }
     } catch (e) {
       print('Error loading more products: $e');
     }
   }
 
-  // ✅ Add refresh method for pull-to-refresh
+  // ✅ Improved refresh method with better randomization
   Future<void> _refreshProducts() async {
-    if (_isDisposed) return; // ✅ Check if disposed
+    if (_isDisposed) return;
     
     print('Refreshing products...');
     
-    // Safely dispose and recreate controller
-    try {
-      controller?.dispose();
-    } catch (e) {
-      print('Error disposing controller: $e');
-    }
-    
+    // ✅ Create completely new controller and key
     setState(() {
       _cardSwiperKey = UniqueKey();
-      controller = CardSwiperController(); // ✅ Create new controller
+      _isLoading = true;
     });
     
-    // Reload wishlist first
-    await _loadWishlistItems();
+    // ✅ Safely dispose old controller
+    try {
+      if (controller != null) {
+        controller!.dispose();
+        controller = null;
+      }
+    } catch (e) {
+      print('Error disposing controller during refresh: $e');
+    }
     
-    // Then reload products
-    await _loadFeaturedProducts();
+    // ✅ Wait a frame before creating new controller
+    await Future.delayed(Duration(milliseconds: 100));
     
-    // Show success message
-    if (mounted && !_isDisposed) {
-      SnackBarHelper.showSnackBar(
-        context,
-        '🔄 Fresh products loaded!',
-        isSuccess: true,
-      );
+    if (!_isDisposed && mounted) {
+      // Create new controller
+      controller = CardSwiperController();
+      
+      // Reload wishlist first
+      await _loadWishlistItems();
+      
+      // ✅ Get more products for better randomization
+      await _loadRandomizedProducts();
+      
+      // Show success message
+      if (mounted && !_isDisposed) {
+        SnackBarHelper.showSnackBar(
+          context,
+          'Refreshed!',
+          isSuccess: true,
+        );
+      }
+    }
+  }
+
+  // ✅ New method specifically for randomized loading with larger pool
+  Future<void> _loadRandomizedProducts() async {
+    if (_isDisposed) return;
+
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _featuredProducts.clear();
+      });
+    }
+
+    try {
+      // ✅ Get a larger pool of products for better randomization
+      QuerySnapshot result = await FirebaseFirestore.instance
+          .collection('products')
+          .where('isActive', isEqualTo: true)
+          .limit(100) // ✅ Increased from 50 to 100 for better variety
+          .get();
+
+      List<Product> allProducts = result.docs
+          .map((doc) {
+            try {
+              final data = doc.data() as Map<String, dynamic>;
+              data['id'] = doc.id;
+              return Product.fromMap(data);
+            } catch (e) {
+              print('Error parsing product ${doc.id}: $e');
+              return null;
+            }
+          })
+          .where((product) => product != null)
+          .cast<Product>()
+          .where((product) => !_wishlistProductIds.contains(product.id))
+          .toList();
+
+      // ✅ Shuffle all products first
+      allProducts.shuffle();
+      
+      // ✅ Take only first 30-50 for the swipe session
+      List<Product> products = allProducts.take(50).toList();
+      
+      // ✅ Shuffle again for extra randomness
+      products.shuffle();
+
+      if (!_isDisposed && mounted) {
+        setState(() {
+          _featuredProducts = products;
+          _isLoading = false;
+        });
+
+        // ✅ Only create controller if we don't have one and have products
+        if (products.isNotEmpty && controller == null) {
+          controller = CardSwiperController();
+        }
+      }
+    } catch (e) {
+      print('Error loading randomized products: $e');
+      if (!_isDisposed && mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  // ✅ Safe swipe methods with better error handling
+  void _safeSwipeLeft() {
+    if (_isDisposed || _isLoading || _featuredProducts.isEmpty) return;
+    
+    try {
+      // ✅ Check if controller is still valid before using
+      if (controller != null && !_isDisposed) {
+        controller!.swipeLeft();
+      }
+    } catch (e) {
+      print('Error swiping left: $e');
+      // ✅ Recreate controller if it was disposed
+      if (e.toString().contains('disposed')) {
+        _recreateController();
+      }
+    }
+  }
+
+  void _safeSwipeRight() {
+    if (_isDisposed || _isLoading || _featuredProducts.isEmpty) return;
+    
+    try {
+      // ✅ Check if controller is still valid before using
+      if (controller != null && !_isDisposed) {
+        controller!.swipeRight();
+      }
+    } catch (e) {
+      print('Error swiping right: $e');
+      // ✅ Recreate controller if it was disposed
+      if (e.toString().contains('disposed')) {
+        _recreateController();
+      }
+    }
+  }
+
+  // ✅ Add method to recreate controller when needed
+  void _recreateController() {
+    if (_isDisposed) return;
+    
+    try {
+      controller = CardSwiperController();
+      if (mounted) {
+        setState(() {
+          _cardSwiperKey = UniqueKey();
+        });
+      }
+    } catch (e) {
+      print('Error recreating controller: $e');
     }
   }
 
@@ -222,9 +369,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Enhanced Header with smaller styling
+            // Enhanced Header with refresh button
             Container(
-              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12), // ✅ Reduced from (24, 20)
+              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               decoration: BoxDecoration(
                 color: Colors.white,
                 boxShadow: [
@@ -243,7 +390,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                       Text(
                         'Discover',
                         style: GoogleFonts.poppins(
-                          fontSize: 24, // ✅ Reduced from 32
+                          fontSize: 24,
                           fontWeight: FontWeight.bold,
                           color: Colors.black87,
                         ),
@@ -251,7 +398,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                       Text(
                         'Swipe to explore items',
                         style: GoogleFonts.poppins(
-                          fontSize: 12, // ✅ Reduced from 14
+                          fontSize: 12,
                           color: Colors.grey[600],
                           fontWeight: FontWeight.w500,
                         ),
@@ -259,11 +406,56 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     ],
                   ),
                   Spacer(),
+                  
+                  // Add Refresh Button
                   Container(
-                    padding: EdgeInsets.all(8), // ✅ Reduced from 12
+                    margin: EdgeInsets.only(right: 12),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: _isLoading ? null : _refreshProducts,
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: _isLoading 
+                                ? Colors.grey[100] 
+                                : Theme.of(context).primaryColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: _isLoading 
+                                  ? Colors.grey[300]! 
+                                  : Theme.of(context).primaryColor.withOpacity(0.2),
+                              width: 1,
+                            ),
+                          ),
+                          child: _isLoading
+                              ? SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Theme.of(context).primaryColor,
+                                    ),
+                                  ),
+                                )
+                              : Icon(
+                                  Icons.refresh,
+                                  color: Theme.of(context).primaryColor,
+                                  size: 20,
+                                ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  
+                  // Wishlist indicator
+                  Container(
+                    padding: EdgeInsets.all(8),
                     decoration: BoxDecoration(
                       color: Colors.grey[50],
-                      borderRadius: BorderRadius.circular(12), // ✅ Reduced from 16
+                      borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: Colors.grey[200]!,
                         width: 1,
@@ -274,14 +466,14 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         Icon(
                           Icons.favorite_border,
                           color: Colors.grey[600],
-                          size: 20, // ✅ Reduced from 28
+                          size: 20,
                         ),
                         if (_wishlistProductIds.isNotEmpty)
                           Positioned(
                             right: -2,
                             top: -2,
                             child: Container(
-                              padding: EdgeInsets.all(3), // ✅ Reduced from 4
+                              padding: EdgeInsets.all(3),
                               decoration: BoxDecoration(
                                 color: Colors.red,
                                 shape: BoxShape.circle,
@@ -290,7 +482,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                 '${_wishlistProductIds.length}',
                                 style: GoogleFonts.poppins(
                                   color: Colors.white,
-                                  fontSize: 8, // ✅ Reduced from 10
+                                  fontSize: 8,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -307,7 +499,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
             Expanded(
               child: Stack(
                 children: [
-                  // Main Content - Card Swiper with Pull-to-Refresh
+                  // Main Content - Card Swiper (remove RefreshIndicator wrapper)
                   Positioned.fill(
                     child: _isLoading 
                       ? Center(
@@ -334,82 +526,59 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         )
                       : _featuredProducts.isEmpty
                         ? _buildEmptyState()
-                        : RefreshIndicator( // ✅ Add RefreshIndicator wrapper
-                            onRefresh: _refreshProducts, // ✅ Add refresh method
-                            color: Theme.of(context).primaryColor,
-                            backgroundColor: Colors.white,
-                            strokeWidth: 3,
-                            displacement: 40,
-                            child: Stack(
-                              children: [
-                                // ✅ Add invisible ListView for pull-to-refresh to work
-                                ListView(
-                                  children: [
-                                    Container(
-                                      height: MediaQuery.of(context).size.height - 200,
-                                      child: Text(''), // Empty container to enable pull gesture
-                                    ),
-                                  ],
-                                ),
-                                // ✅ Card Swiper on top
-                                Padding(
-                                  padding: EdgeInsets.only(
-                                    left: 4,
-                                    right: 4,
-                                    top: 4,
-                                    bottom: 70,
-                                  ),
-                                  child: GestureDetector( // ✅ Add tap-to-refresh for empty state
-                                    onTap: _featuredProducts.isEmpty ? _refreshProducts : null,
-                                    child: CardSwiper(
-                                      key: _cardSwiperKey,
-                                      controller: controller, // ✅ Can be null safely
-                                      cardsCount: _featuredProducts.length,
-                                      cardBuilder: (BuildContext context, int index) {
-                                        return _buildImprovedProductCard(context, _featuredProducts[index]);
-                                      },
-                                      onSwipe: (previousIndex, currentIndex, direction) {
-                                        if (!_isDisposed) { // ✅ Check if not disposed
-                                          _handleSwipe(previousIndex, currentIndex, direction);
-                                        }
-                                        return true;
-                                      },
-                                      threshold: 50,
-                                      maxAngle: 12,
-                                      isLoop: false,
-                                      scale: 0.98,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                        : Padding(
+                            padding: EdgeInsets.only(
+                              left: 4,
+                              right: 4,
+                              top: 4,
+                              bottom: 70,
+                            ),
+                            child: CardSwiper(
+                              key: _cardSwiperKey,
+                              controller: controller,
+                              cardsCount: _featuredProducts.length,
+                              cardBuilder: (BuildContext context, int index) {
+                                return _buildImprovedProductCard(context, _featuredProducts[index]);
+                              },
+                              onSwipe: (previousIndex, currentIndex, direction) {
+                                if (!_isDisposed && mounted) {
+                                  return _handleSwipe(previousIndex, currentIndex, direction);
+                                }
+                                return false;
+                              },
+                              threshold: 50,
+                              maxAngle: 12,
+                              isLoop: false,
+                              scale: 0.98,
+                              numberOfCardsDisplayed: 1,
                             ),
                           ),
                   ),
                   
-                  // Enhanced Bottom Action Buttons - Even Smaller
+                  // Enhanced Bottom Action Buttons
                   Positioned(
-                    bottom: 15, // ✅ Reduced from 30
-                    left: 15, // ✅ Reduced from 20
-                    right: 15, // ✅ Reduced from 20
+                    bottom: 15,
+                    left: 15,
+                    right: 15,
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        // Pass/Dislike button - Fixed
+                        // Pass/Dislike button
                         _buildActionButton(
                           icon: Icons.close,
                           color: Colors.red,
                           size: 44,
                           onPressed: () {
-                            _safeSwipeLeft(); // ✅ Use safe swipe method
+                            _safeSwipeLeft();
                           },
                         ),
-                        // Like/Add to wishlist button - Fixed
+                        // Like/Add to wishlist button
                         _buildActionButton(
                           icon: Icons.favorite,
                           color: Colors.green,
                           size: 44,
                           onPressed: () {
-                            _safeSwipeRight(); // ✅ Use safe swipe method
+                            _safeSwipeRight();
                           },
                         ),
                       ],
@@ -421,6 +590,23 @@ class _ExploreScreenState extends State<ExploreScreen> {
           ],
         ),
       ),
+      
+      // Add Floating Action Button for refresh (alternative/additional option)
+      floatingActionButton: _featuredProducts.isEmpty && !_isLoading
+          ? FloatingActionButton.extended(
+              onPressed: _refreshProducts,
+              backgroundColor: Theme.of(context).primaryColor,
+              foregroundColor: Colors.white,
+              icon: Icon(Icons.refresh),
+              label: Text(
+                'Refresh',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            )
+          : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 
@@ -1002,7 +1188,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
         
         SnackBarHelper.showSnackBar(
           context,
-          '❤️ Added to wishlist!',
+          'Added to wishlist!',
           isSuccess: true,
         );
       }
@@ -1017,143 +1203,85 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   // Enhanced empty state
   Widget _buildEmptyState() {
-    return RefreshIndicator( // ✅ Add RefreshIndicator to empty state
-      onRefresh: _refreshProducts,
-      color: Theme.of(context).primaryColor,
-      child: ListView( // ✅ Wrap in ListView for RefreshIndicator
-        children: [
-          Container(
-            height: MediaQuery.of(context).size.height - 200,
-            child: GestureDetector( // ✅ Add tap-to-refresh gesture
-              onTap: _refreshProducts,
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: EdgeInsets.all(32),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[100],
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.explore_outlined,
-                        size: 80,
-                        color: Colors.grey[400],
-                      ),
-                    ),
-                    
-                    SizedBox(height: 32),
-                    
-                    Text(
-                      'No more discoveries!',
-                      style: GoogleFonts.poppins(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey[800],
-                      ),
-                    ),
-                    
-                    SizedBox(height: 12),
-                    
-                    Text(
-                      'You\'ve seen all available items.\nPull down or tap to refresh for new finds.',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        color: Colors.grey[600],
-                        height: 1.5,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    
-                    SizedBox(height: 24), // ✅ Reduced space
-                    
-                    // ✅ Add pull down hint
-                    Container(
-                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).primaryColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: Theme.of(context).primaryColor.withOpacity(0.2),
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.explore_outlined,
+                size: 80,
+                color: Colors.grey[400],
+              ),
+            ),
+            
+            SizedBox(height: 32),
+            
+            Text(
+              'No more discoveries!',
+              style: GoogleFonts.poppins(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey[800],
+              ),
+            ),
+            
+            SizedBox(height: 12),
+            
+            Text(
+              'You\'ve seen all available items.\nTap the refresh button to find new items.',
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                color: Colors.grey[600],
+                height: 1.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            
+            SizedBox(height: 32),
+            
+            // Big refresh button
+            SizedBox(
+              width: 200,
+              height: 50,
+              child: ElevatedButton.icon(
+                onPressed: _isLoading ? null : _refreshProducts,
+                icon: _isLoading 
+                    ? SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
                         ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.swipe_down,
-                            color: Theme.of(context).primaryColor,
-                            size: 16,
-                          ),
-                          SizedBox(width: 8),
-                          Text(
-                            'Pull down to refresh',
-                            style: GoogleFonts.poppins(
-                              fontSize: 12,
-                              color: Theme.of(context).primaryColor,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    
-                    SizedBox(height: 16),
-                    
-                    // ✅ Add tap hint
-                    Container(
-                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: Colors.orange.withOpacity(0.2),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.touch_app,
-                            color: Colors.orange,
-                            size: 16,
-                          ),
-                          SizedBox(width: 8),
-                          Text(
-                            'Tap anywhere to refresh',
-                            style: GoogleFonts.poppins(
-                              fontSize: 12,
-                              color: Colors.orange,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    
-                    SizedBox(height: 32),
-                    
-                    ElevatedButton.icon(
-                      onPressed: _refreshProducts, // ✅ Use the new refresh method
-                      icon: Icon(Icons.refresh),
-                      label: Text('Refresh Now'),
-                      style: ElevatedButton.styleFrom(
-                        padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                        backgroundColor: Theme.of(context).primaryColor,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
-                        ),
-                        elevation: 4,
-                      ),
-                    ),
-                  ],
+                      )
+                    : Icon(Icons.refresh),
+                label: Text(
+                  _isLoading ? 'Loading...' : 'Refresh Now',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).primaryColor,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(25),
+                  ),
+                  elevation: 4,
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1179,37 +1307,5 @@ class _ExploreScreenState extends State<ExploreScreen> {
     }
   }
 
-  // Safe swipe left method
-  void _safeSwipeLeft() {
-    if (_isDisposed || _isLoading || _featuredProducts.isEmpty) return;
-    
-    if (controller != null) {
-      try {
-        controller!.swipeLeft();
-      } catch (e) {
-        print('Error swiping left: $e');
-        // Fallback: manually handle swipe
-        if (_featuredProducts.isNotEmpty) {
-          _handleSwipe(0, 1, CardSwiperDirection.left);
-        }
-      }
-    }
-  }
 
-  // Safe swipe right method
-  void _safeSwipeRight() {
-    if (_isDisposed || _isLoading || _featuredProducts.isEmpty) return;
-    
-    if (controller != null) {
-      try {
-        controller!.swipeRight();
-      } catch (e) {
-        print('Error swiping right: $e');
-        // Fallback: manually handle swipe
-        if (_featuredProducts.isNotEmpty) {
-          _handleSwipe(0, 1, CardSwiperDirection.right);
-        }
-      }
-    }
-  }
 }
