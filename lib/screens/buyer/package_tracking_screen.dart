@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../../models/order_model.dart';
 import 'dart:math' as math;
+import '../seller/order_detail_screen.dart';
 
 class PackageTrackingScreen extends StatefulWidget {
   const PackageTrackingScreen({Key? key}) : super(key: key);
@@ -1102,77 +1103,14 @@ class _PackageTrackingScreenState extends State<PackageTrackingScreen> {
   }
 
   void _showOrderDetails(OrderModel order) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Container(
-        padding: EdgeInsets.all(20),
-        height: MediaQuery.of(context).size.height * 0.7,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Order Details',
-              style: GoogleFonts.poppins(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            SizedBox(height: 16),
-            
-            _buildDetailRow('Order ID', order.id),
-            _buildDetailRow('Status', _getStatusText(order.status)),
-            _buildDetailRow('Seller', order.sellerIds.isNotEmpty ? order.sellerIds.first : 'Unknown'),
-            _buildDetailRow('Total Amount', '₱${order.total.toStringAsFixed(2)}'), // FIXED: Use order.total
-            _buildDetailRow('Order Date', DateFormat('MMMM d, yyyy at h:mm a').format(order.createdAt)),
-            
-            if (order.trackingNumber != null)
-              _buildDetailRow('Tracking Number', order.trackingNumber!),
-            
-            if (order.shippingAddress != null)
-              _buildDetailRow('Delivery Address', order.shippingAddress!),
-            
-            Spacer(),
-            
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text('Close'),
-              ),
-            ),
-          ],
+    // Navigate to existing OrderDetailScreen instead of showing modal
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => OrderDetailScreen(
+          orderId: order.id,
+          isSellerView: false, // Set to false for buyer view
         ),
-      ),
-    );
-  }
-
-  Widget _buildDetailRow(String label, String value) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              label,
-              style: GoogleFonts.poppins(
-                fontWeight: FontWeight.w600,
-                color: Colors.grey[700],
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: GoogleFonts.poppins(),
-            ),
-          ),
-        ],
       ),
     );
   }

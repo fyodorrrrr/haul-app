@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lottie/lottie.dart';
 import '../buyer/home_screen.dart';
+import '../seller/order_detail_screen.dart';
 
 class OrderConfirmation extends StatefulWidget {
   final String orderId;
@@ -166,24 +167,32 @@ class _OrderConfirmationState extends State<OrderConfirmation> with SingleTicker
                 SizedBox(
                   width: double.infinity,
                   height: 50,
-                  child: OutlinedButton(
+                  child: OutlinedButton.icon(
                     onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Order details will be available soon')),
+                      // Navigate to existing OrderDetailScreen
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => OrderDetailScreen(
+                            orderId: widget.orderId,
+                            isSellerView: false, // Set to false for buyer view
+                          ),
+                        ),
                       );
                     },
+                    icon: Icon(Icons.receipt_long),
+                    label: Text(
+                      'View Order Details',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.black,
                       side: const BorderSide(color: Colors.black),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: Text(
-                      'View Order',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
