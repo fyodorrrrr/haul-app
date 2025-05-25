@@ -130,4 +130,10 @@ class WishlistModel {
       originalStock: originalStock ?? this.originalStock,
     );
   }
+
+   bool get isRecent {
+    final now = DateTime.now();
+    final difference = now.difference(addedAt);
+    return difference.inDays < 3;
+  }
 }
