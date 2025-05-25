@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:haul/screens/buyer/product_details_screen.dart';
 import 'package:haul/screens/buyer/search_results_screen.dart';
 import '/widgets/custom_appbar.dart';
@@ -12,10 +13,10 @@ import 'package:provider/provider.dart';
 import '/providers/user_profile_provider.dart';
 import '/widgets/not_logged_in.dart';
 import 'seller_public_profile_screen.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../models/product.dart'; // Make sure this points to your enhanced Product model
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../widgets/brand_logo_widget.dart';
 
 class HomeScreen extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -263,25 +264,38 @@ class _HomeScreenState extends State<HomeScreen> {
                     itemBuilder: (context, index) {
                       final product = _searchSuggestions[index];
                       return ListTile(
-                        leading: Container(
-                          width: 50,
-                          height: 50,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                            color: Colors.grey[200],
-                          ),
-                          child: product.images.isNotEmpty 
-                            ? ClipRRect(
+                        leading: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Brand logo
+                            BrandLogoWidget(
+                              brandName: product.brand,
+                              size: 24,
+                              circular: true,
+                            ),
+                            SizedBox(width: 8),
+                            // Product image
+                            Container(
+                              width: 50,
+                              height: 50,
+                              decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(8),
-                                child: Image.network(
-                                  product.images.first,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Icon(Icons.image_not_supported, color: Colors.grey);
-                                  },
-                                ),
-                              )
-                            : Icon(Icons.image_not_supported, color: Colors.grey),
+                                color: Colors.grey[200],
+                              ),
+                              child: product.images.isNotEmpty 
+                                ? ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.network(
+                                      product.images.first,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (context, error, stackTrace) {
+                                        return Icon(Icons.image_not_supported, color: Colors.grey);
+                                      },
+                                    ),
+                                  )
+                                : Icon(Icons.image_not_supported, color: Colors.grey),
+                            ),
+                          ],
                         ),
                         title: Text(
                           product.name,
@@ -292,12 +306,25 @@ class _HomeScreenState extends State<HomeScreen> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        subtitle: Text(
-                          '₱${product.sellingPrice.toStringAsFixed(2)}', // Updated to use sellingPrice
-                          style: GoogleFonts.poppins(
-                            color: Theme.of(context).primaryColor,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        subtitle: Row(
+                          children: [
+                            Text(
+                              product.brand,
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            Text(
+                              ' • ₱${product.sellingPrice.toStringAsFixed(2)}',
+                              style: GoogleFonts.poppins(
+                                color: Theme.of(context).primaryColor,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
                         ),
                         onTap: () {
                           Navigator.push(

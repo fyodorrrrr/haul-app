@@ -10,7 +10,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'product_details_screen.dart';
 import '/utils/snackbar_helper.dart';
 import '/main.dart';
-import 'package:haul/screens/buyer/brand_screen.dart';
+import 'brands_showcase_screen.dart';
+import '../../widgets/brand_logo_widget.dart';
+import 'search_screen.dart';
+import 'brands_showcase_screen.dart';
 
 class MainHomeScreen extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -327,7 +330,15 @@ class _MainHomeScreenState extends State<MainHomeScreen> with RouteAware {
             const SizedBox(height: 24),
             
             // Brands Section
-            _buildSectionHeader('Brands'),
+            _buildSectionHeader(
+              'Brands', 
+              onViewAll: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => BrandsShowcaseScreen()),
+                );
+              },
+            ),
             const SizedBox(height: 12),
             _buildBrandsRow(),
             
@@ -371,24 +382,41 @@ class _MainHomeScreenState extends State<MainHomeScreen> with RouteAware {
     );
   }
 
-  Widget _buildSectionHeader(String title, {bool showSubtitle = false}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildSectionHeader(String title, {bool showSubtitle = false, VoidCallback? onViewAll}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          title,
-          style: GoogleFonts.poppins(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: GoogleFonts.poppins(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            if (showSubtitle)
+              Text(
+                'BASED ON YOUR RECENT ACTIVITIES',
+                style: GoogleFonts.poppins(
+                  fontSize: 10,
+                  color: Colors.grey.shade500,
+                  letterSpacing: 0.5,
+                ),
+              ),
+          ],
         ),
-        if (showSubtitle)
-          Text(
-            'BASED ON YOUR RECENT ACTIVITIES',
-            style: GoogleFonts.poppins(
-              fontSize: 10,
-              color: Colors.grey.shade500,
-              letterSpacing: 0.5,
+        if (onViewAll != null)
+          TextButton(
+            onPressed: onViewAll,
+            child: Text(
+              'View All',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Colors.blue,
+              ),
             ),
           ),
       ],
@@ -398,50 +426,44 @@ class _MainHomeScreenState extends State<MainHomeScreen> with RouteAware {
   Widget _buildBrandsRow() {
     if (uniqueBrands.isEmpty) {
       return const Center(
-        child: CircularProgressIndicator(), // Show a loader if no brands are available
+        child: CircularProgressIndicator(),
       );
     }
 
-    final brandsList = uniqueBrands.toList(); // Convert Set to List
+    final brandsList = uniqueBrands.toList();
 
     return SizedBox(
-      height: 80,
+      height: 110,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.symmetric(horizontal: 16),
         itemCount: brandsList.length,
         itemBuilder: (context, index) {
           final brand = brandsList[index];
-          return GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => BrandProductsScreen(brandName: brand),
-                ),
-              );
-            },
-            child: Container(
-              width: 80,
-              height: 80,
-              margin: const EdgeInsets.only(right: 12),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Center(
-                child: Text(
-                  brand,
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.black87,
+          return Container(
+            width: 80,
+            margin: EdgeInsets.only(right: 12),
+            child: BrandLogoWidget(
+              brandName: brand,
+              size: 60,
+              showText: true,
+              circular: true,
+              showBorder: true,
+              onTap: () {
+                // ✅ THIS IS THE ONLY CHANGE - Replace the existing onTap with this:
+                print('🔥 Navigating to search with brand: $brand');
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => SearchScreen(),
+                    settings: RouteSettings(
+                      arguments: {'brandFilter': brand},
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
             ),
           );
-
         },
       ),
     );

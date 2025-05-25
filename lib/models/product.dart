@@ -146,6 +146,29 @@ class Product {
     );
   }
 
+  // ✅ Add the missing fromFirestore method
+  factory Product.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data()!;
+    data['id'] = doc.id; // Add document ID to data
+    
+    // Handle Timestamp conversion
+    if (data['createdAt'] is Timestamp) {
+      data['createdAt'] = (data['createdAt'] as Timestamp).toDate();
+    }
+    if (data['updatedAt'] is Timestamp) {
+      data['updatedAt'] = (data['updatedAt'] as Timestamp).toDate();
+    }
+    
+    // Handle other potential Timestamp fields
+    data.forEach((key, value) {
+      if (value is Timestamp) {
+        data[key] = value.toDate();
+      }
+    });
+    
+    return Product.fromMap(data);
+  }
+
   // Helper methods (keep all existing helper methods)
   static List<ProductVariant> _toVariantsList(dynamic value) {
     if (value == null) return [];
