@@ -65,6 +65,9 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _setupOrdersListener();
       
+      // ✅ Add this to fetch total orders count
+      _updateOrdersCount();
+      
       // Load analytics with delay to ensure provider is ready
       final analyticsProvider = Provider.of<AnalyticsProvider>(context, listen: false);
       print('Loading analytics from dashboard...');
@@ -79,6 +82,13 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
       print('Loading products from dashboard...');
       productProvider.loadProducts().then((_) {
         print('Products loading completed');
+        
+        // ✅ Update active listings count from products
+        if (mounted) {
+          setState(() {
+            _salesMetrics['activeListings'] = productProvider.products.where((p) => p.isActive).length;
+          });
+        }
       }).catchError((error) {
         print('Products loading failed: $error');
       });
@@ -294,7 +304,7 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
   }
 
   // ✅ Process successful orders snapshot
-  // ✅ Enhanced order processing with total calculation
+  // ✅ Enhanced order processing with total calculation AND orders count update
   void _processOrdersSnapshot(QuerySnapshot snapshot) {
     if (mounted) {
       final orders = snapshot.docs.map((doc) {
@@ -331,9 +341,23 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
         _recentOrders = orders;
         _ordersLoading = false;
         _ordersError = null;
+        
+        // ✅ Update orders count in sales metrics
+        _salesMetrics['ordersCount'] = orders.length;
+        
+        // ✅ Calculate total sales from recent orders
+        double totalSales = 0.0;
+        for (var order in orders) {
+          if (order['total'] != null) {
+            totalSales += (order['total'] as num).toDouble();
+          }
+        }
+        _salesMetrics['totalSales'] = totalSales;
       });
       
       print('✅ Successfully processed ${orders.length} orders with totals');
+      print('✅ Updated orders count: ${_salesMetrics['ordersCount']}');
+      print('✅ Updated total sales: ₱${_salesMetrics['totalSales'].toStringAsFixed(2)}');
     }
   }
 
@@ -380,6 +404,121 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
       );
     }
   }
+
+  // ✅ Add method to fetch total orders count
+Future<void> _updateOrdersCount() async {
+  try {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    print('🔍 Fetching total orders count for seller: ${user.uid}');
+
+    // Try multiple strategies to count orders
+    int totalOrdersCount = 0;
+    double totalSalesAmount = 0.0;
+
+    // Strategy 1: Try map-based query
+    try {
+      final mapQuery = await FirebaseFirestore.instance
+          .collection('orders')
+          .where('sellerIds.${user.uid}', isEqualTo: true)
+          .get();
+      
+      totalOrdersCount = mapQuery.docs.length;
+      
+      // Calculate total sales from all orders
+      for (var doc in mapQuery.docs) {
+        final data = doc.data();
+        double orderTotal = 0.0;
+        
+        if (data['total'] != null) {
+          orderTotal = (data['total'] as num).toDouble();
+        } else if (data['items'] is List) {
+          // Calculate from items if total is missing
+          final items = data['items'] as List;
+          for (var item in items) {
+            if (item is Map<String, dynamic>) {
+              final price = (item['price'] ?? 0.0).toDouble();
+              final quantity = (item['quantity'] ?? 1).toInt();
+              orderTotal += (price * quantity);
+            }
+          }
+        }
+        
+        totalSalesAmount += orderTotal;
+      }
+      
+      print('✅ Strategy 1 - Found ${totalOrdersCount} total orders, ₱${totalSalesAmount.toStringAsFixed(2)} total sales');
+      
+    } catch (e) {
+      print('❌ Strategy 1 failed: $e');
+      
+      // Strategy 2: Manual filtering (fallback)
+      final allOrders = await FirebaseFirestore.instance
+          .collection('orders')
+          .get();
+      
+      for (var doc in allOrders.docs) {
+        final data = doc.data();
+        bool isSellerOrder = false;
+        
+        // Check if this order belongs to current seller
+        if (data['sellerIds'] is Map) {
+          final sellerIds = data['sellerIds'] as Map;
+          if (sellerIds.containsKey(user.uid) && sellerIds[user.uid] == true) {
+            isSellerOrder = true;
+          }
+        }
+        
+        if (data['items'] is List && !isSellerOrder) {
+          for (var item in data['items']) {
+            if (item is Map && item['sellerId'] == user.uid) {
+              isSellerOrder = true;
+              break;
+            }
+          }
+        }
+        
+        if (isSellerOrder) {
+          totalOrdersCount++;
+          
+          double orderTotal = 0.0;
+          if (data['total'] != null) {
+            orderTotal = (data['total'] as num).toDouble();
+          } else if (data['items'] is List) {
+            final items = data['items'] as List;
+            for (var item in items) {
+              if (item is Map<String, dynamic>) {
+                final price = (item['price'] ?? 0.0).toDouble();
+                final quantity = (item['quantity'] ?? 1).toInt();
+                orderTotal += (price * quantity);
+              }
+            }
+          }
+          
+          totalSalesAmount += orderTotal;
+        }
+      }
+      
+      print('✅ Strategy 2 - Found ${totalOrdersCount} total orders, ₱${totalSalesAmount.toStringAsFixed(2)} total sales');
+    }
+
+    // Update the metrics
+    if (mounted) {
+      setState(() {
+        _salesMetrics['ordersCount'] = totalOrdersCount;
+        _salesMetrics['totalSales'] = totalSalesAmount;
+      });
+    }
+
+    print('✅ Updated sales metrics:');
+    print('  - Orders Count: ${_salesMetrics['ordersCount']}');
+    print('  - Total Sales: ₱${_salesMetrics['totalSales'].toStringAsFixed(2)}');
+
+  } catch (e) {
+    print('❌ Error updating orders count: $e');
+  }
+}
 
   double _getProfileCompleteness(Map<String, dynamic> data) {
     int filled = 0;
