@@ -60,13 +60,13 @@ class HelpDetailScreen extends StatelessWidget {
                 int index = entry.key;
                 String step = entry.value;
                 return Padding(
-                  padding: EdgeInsets.only(bottom: 8),
+                  padding: EdgeInsets.only(bottom: 12),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Container(
-                        width: 24,
-                        height: 24,
+                        width: 28,
+                        height: 28,
                         decoration: BoxDecoration(
                           color: Colors.black,
                           shape: BoxShape.circle,
@@ -86,7 +86,10 @@ class HelpDetailScreen extends StatelessWidget {
                       Expanded(
                         child: Text(
                           step,
-                          style: GoogleFonts.poppins(fontSize: 14),
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            height: 1.4,
+                          ),
                         ),
                       ),
                     ],
@@ -135,6 +138,49 @@ class HelpDetailScreen extends StatelessWidget {
                 ),
               ),
             ),
+            SizedBox(height: 16),
+            Card(
+              color: Colors.blue.shade50,
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.support_agent,
+                      size: 32,
+                      color: Colors.blue,
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Need more help?',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Our support team is here to help you with any questions about thrift shopping on Haul.',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: Colors.grey.shade600,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    SizedBox(height: 12),
+                    ElevatedButton.icon(
+                      onPressed: () => _contactSupport(context),
+                      icon: Icon(Icons.chat),
+                      label: Text('Contact Support'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -155,9 +201,18 @@ class HelpDetailScreen extends StatelessWidget {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(helpful 
-            ? 'Thanks for your feedback!' 
-            : 'Thanks for your feedback. We\'ll improve this article.'),
+            ? 'Thanks for your feedback! 👍' 
+            : 'Thanks for your feedback. We\'ll improve this article. 📝'),
         backgroundColor: helpful ? Colors.green : Colors.orange,
+      ),
+    );
+  }
+
+  void _contactSupport(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Opening support chat...'),
+        backgroundColor: Colors.blue,
       ),
     );
   }
