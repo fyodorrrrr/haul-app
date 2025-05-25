@@ -38,4 +38,10 @@ class WishlistModel {
       addedAt: DateTime.parse(map['addedAt']),
     );
   }
+
+   bool get isRecent {
+    final now = DateTime.now();
+    final difference = now.difference(addedAt);
+    return difference.inDays < 3;
+  }
 }

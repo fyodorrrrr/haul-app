@@ -13,9 +13,11 @@ import '/widgets/not_logged_in.dart'; // Import NotLoggedInScreen
 
 class WishlistScreen extends StatelessWidget {
   const WishlistScreen({Key? key}) : super(key: key);
+  
 
   @override
   Widget build(BuildContext context) {
+
     return Consumer<UserProfileProvider>(
       builder: (context, userProfileProvider, child) {
         // Show NotLoggedInScreen if user is not logged in
@@ -30,8 +32,10 @@ class WishlistScreen extends StatelessWidget {
         return Consumer<WishlistProvider>(
           builder: (context, wishlistProvider, child) {
             final cartProvider = Provider.of<CartProvider>(context); // Access CartProvider
+            final productCount = wishlistProvider.wishlist.length;
+            final recentlyAddedProducts = wishlistProvider.wishlist.where((item) => item.isRecent).toList();
 
-            if (wishlistProvider.wishlist.isEmpty) {
+            if (wishlistProvider.wishlist.isEmpty) {  
               return Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -80,11 +84,9 @@ class WishlistScreen extends StatelessWidget {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        _buildStat(wishlistProvider.wishlist.length.toString(), 'Items'),
+                        _buildStat(productCount.toString(), 'Items'),
                         _buildDivider(),
-                        _buildStat('2', 'On sale'),
-                        _buildDivider(),
-                        _buildStat('3', 'Recently added'),
+                        _buildStat(recentlyAddedProducts.length.toString(), 'Recently added'),
                       ],
                     ),
                   ),

@@ -5,6 +5,9 @@ import '../../widgets/brand_filter_widget.dart';
 import '../../models/product.dart';
 import '../../providers/product_provider.dart';
 import '../../services/brand_logo_service.dart';
+import '/screens/buyer/product_details_screen.dart';
+import '/providers/user_profile_provider.dart';
+import '../../helpers/responsive_helper.dart';
 
 class SearchScreen extends StatefulWidget {
   final String? initialQuery;
@@ -591,84 +594,153 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
+  // Replace _buildProductCard method with this responsive version:
   Widget _buildProductCard(Product product) {
+    final userProfileProvider = Provider.of<UserProfileProvider>(context, listen: false);
+    final userId = userProfileProvider.userProfile != null
+        ? userProfileProvider.userProfile!.uid
+        : null;
+
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(ResponsiveHelper.getCardBorderRadius(context)),
       ),
       child: InkWell(
         onTap: () {
-          // Navigate to product detail
-          // Navigator.push(context, MaterialPageRoute(builder: (_) => ProductDetailScreen(product: product)));
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ProductDetailsScreen(
+                product: product,
+                userId: userId,
+              ),
+            ),
+          );
         },
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(ResponsiveHelper.getCardBorderRadius(context)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ✅ Fixed product image with proper null checking
-            Expanded(
-              flex: 3,
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-                  color: Colors.grey[200],
+            // Product image - responsive height
+            Container(
+              height: ResponsiveHelper.getSearchImageHeight(context),
+              width: double.infinity,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.vertical(
+                  top: Radius.circular(ResponsiveHelper.getCardBorderRadius(context)),
                 ),
-                child: (product.images != null && product.images!.isNotEmpty) // ✅ Fix null check
+                color: Colors.grey[200],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.vertical(
+                  top: Radius.circular(ResponsiveHelper.getCardBorderRadius(context)),
+                ),
+                child: (product.images != null && product.images!.isNotEmpty)
                     ? Image.network(
-                        product.images!.first, // ✅ Add null assertion
+                        product.images!.first,
                         fit: BoxFit.cover,
                         width: double.infinity,
+                        height: ResponsiveHelper.getSearchImageHeight(context),
                         errorBuilder: (context, error, stackTrace) {
                           return Container(
                             color: Colors.grey[200],
-                            child: Icon(Icons.image_not_supported, color: Colors.grey),
+                            child: Center(
+                              child: Icon(
+                                Icons.image_not_supported,
+                                color: Colors.grey,
+                                size: ResponsiveHelper.getIconSize(context),
+                              ),
+                            ),
+                          );
+                        },
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Container(
+                            color: Colors.grey[200],
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Theme.of(context).primaryColor,
+                                ),
+                              ),
+                            ),
                           );
                         },
                       )
                     : Container(
-                        child: Icon(Icons.image_not_supported, color: Colors.grey),
+                        child: Center(
+                          child: Icon(
+                            Icons.image_not_supported,
+                            color: Colors.grey,
+                            size: ResponsiveHelper.getIconSize(context),
+                          ),
+                        ),
                       ),
               ),
             ),
             
-            // Product details
+            // Product details - responsive padding and text
             Expanded(
-              flex: 2,
               child: Padding(
-                padding: EdgeInsets.all(8),
+                padding: EdgeInsets.all(ResponsiveHelper.getCardPadding(context)),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      product.name ?? 'Unknown Product', // ✅ Add null check
-                      style: GoogleFonts.poppins(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
+                    // Product name - responsive font size with overflow protection
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        product.name ?? 'Unknown Product',
+                        style: GoogleFonts.poppins(
+                          fontSize: ResponsiveHelper.getBodyFontSize(context),
+                          fontWeight: FontWeight.w500,
+                          height: 1.2,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                     ),
-                    Spacer(),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          '₱${(product.sellingPrice ?? 0).toStringAsFixed(0)}', // ✅ Add null check
-                          style: GoogleFonts.poppins(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.green[600],
+                    
+                    SizedBox(height: ResponsiveHelper.isSmallScreen(context) ? 4 : 6),
+                    
+                    // Price and brand row - fixed height to prevent overflow
+                    SizedBox(
+                      height: ResponsiveHelper.isSmallScreen(context) ? 32 : 36,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Price
+                          Text(
+                            '₱${(product.sellingPrice ?? 0).toStringAsFixed(0)}',
+                            style: GoogleFonts.poppins(
+                              fontSize: ResponsiveHelper.getPriceFontSize(context),
+                              fontWeight: FontWeight.w600,
+                              color: Colors.green[600],
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                        Text(
-                          product.brand ?? 'Unknown', // ✅ Add null check
-                          style: GoogleFonts.poppins(
-                            fontSize: 10,
-                            color: Colors.grey[600],
+                          
+                          SizedBox(height: 2),
+                          
+                          // Brand - with overflow protection
+                          Expanded(
+                            child: Text(
+                              product.brand ?? 'Unknown',
+                              style: GoogleFonts.poppins(
+                                fontSize: ResponsiveHelper.getCaptionFontSize(context),
+                                color: Colors.grey[600],
+                                height: 1.1,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ],
                 ),
