@@ -257,7 +257,7 @@ class _PackageTrackingScreenState extends State<PackageTrackingScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Active Orders',
+          'Your Orders', // ✅ Changed from "Active Orders" to include all statuses
           style: GoogleFonts.poppins(
             fontSize: 20,
             fontWeight: FontWeight.bold,
@@ -283,6 +283,10 @@ class _PackageTrackingScreenState extends State<PackageTrackingScreen> {
   }
 
   Widget _buildOrderTrackingCard(OrderModel order) {
+    final isPending = order.status.toLowerCase() == 'pending';
+    final isCancelled = order.status.toLowerCase() == 'cancelled';
+    final isActive = !isPending && !isCancelled;
+    
     return Container(
       margin: EdgeInsets.only(bottom: 16),
       padding: EdgeInsets.all(16),
@@ -291,7 +295,7 @@ class _PackageTrackingScreenState extends State<PackageTrackingScreen> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: _getStatusColor(order.status).withOpacity(0.3),
-          width: 1,
+          width: isCancelled ? 2 : 1, // ✅ Thicker border for cancelled orders
         ),
         boxShadow: [
           BoxShadow(
@@ -304,31 +308,106 @@ class _PackageTrackingScreenState extends State<PackageTrackingScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Order Header - CHANGED TO USE ORDER NUMBER
+          // ✅ Order Header with Status Indicator
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                order.orderNumber ?? 'Order #${order.id}', // SHOW ORDER NUMBER
-                style: GoogleFonts.poppins(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: _getStatusColor(order.status).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
+              Expanded(
                 child: Text(
-                  _getStatusText(order.status),
+                  order.orderNumber ?? 'Order #${order.id}',
                   style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: _getStatusColor(order.status),
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    // ✅ Dim text for cancelled orders
+                    color: isCancelled ? Colors.grey[600] : Colors.black87,
+                    decoration: isCancelled ? TextDecoration.lineThrough : null,
                   ),
                 ),
+              ),
+              Row(
+                children: [
+                  // ✅ Special indicator for pending orders
+                  if (isPending) ...[
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      margin: EdgeInsets.only(right: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.orange[100],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.orange[300]!),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: Colors.orange[600],
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          SizedBox(width: 4),
+                          Text(
+                            'AWAITING',
+                            style: GoogleFonts.poppins(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.orange[700],
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  
+                  // ✅ Special indicator for cancelled orders
+                  if (isCancelled) ...[
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      margin: EdgeInsets.only(right: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.red[100],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.red[300]!),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.cancel, size: 12, color: Colors.red[600]),
+                          SizedBox(width: 4),
+                          Text(
+                            'CANCELLED',
+                            style: GoogleFonts.poppins(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.red[700],
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  
+                  // ✅ Regular status badge
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: _getStatusColor(order.status).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      _getStatusText(order.status),
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: _getStatusColor(order.status),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -341,7 +420,7 @@ class _PackageTrackingScreenState extends State<PackageTrackingScreen> {
               Icon(
                 Icons.store,
                 size: 16,
-                color: Colors.grey[600],
+                color: isCancelled ? Colors.grey[400] : Colors.grey[600],
               ),
               SizedBox(width: 6),
               Text(
@@ -350,21 +429,21 @@ class _PackageTrackingScreenState extends State<PackageTrackingScreen> {
                   : 'Unknown Seller',
                 style: GoogleFonts.poppins(
                   fontSize: 14,
-                  color: Colors.grey[600],
+                  color: isCancelled ? Colors.grey[400] : Colors.grey[600],
                 ),
               ),
               SizedBox(width: 16),
               Icon(
                 Icons.access_time,
                 size: 16,
-                color: Colors.grey[600],
+                color: isCancelled ? Colors.grey[400] : Colors.grey[600],
               ),
               SizedBox(width: 6),
               Text(
                 DateFormat('MMM d, yyyy').format(order.createdAt),
                 style: GoogleFonts.poppins(
                   fontSize: 14,
-                  color: Colors.grey[600],
+                  color: isCancelled ? Colors.grey[400] : Colors.grey[600],
                 ),
               ),
             ],
@@ -372,12 +451,67 @@ class _PackageTrackingScreenState extends State<PackageTrackingScreen> {
           
           SizedBox(height: 16),
           
-          // Tracking Progress
-          _buildTrackingProgress(order.status),
+          // ✅ Conditional content based on status
+          if (isPending) ...[
+            // Pending order message
+            Container(
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange[200]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.schedule, color: Colors.orange[600], size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Order is pending seller confirmation',
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        color: Colors.orange[700],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else if (isCancelled) ...[
+            // Cancelled order message
+            Container(
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red[200]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.cancel_outlined, color: Colors.red[600], size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'This order has been cancelled',
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        color: Colors.red[700],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            // Active order tracking progress
+            _buildTrackingProgress(order.status),
+          ],
           
           SizedBox(height: 16),
           
-          // Action Buttons
+          // ✅ Action Buttons with different styles for different statuses
           Row(
             children: [
               Expanded(
@@ -393,21 +527,34 @@ class _PackageTrackingScreenState extends State<PackageTrackingScreen> {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
+                    foregroundColor: isCancelled ? Colors.grey[600] : null,
+                    side: BorderSide(
+                      color: isCancelled ? Colors.grey[400]! : _getStatusColor(order.status),
+                    ),
                   ),
                 ),
               ),
               SizedBox(width: 12),
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () => _showTrackingDetails(order),
-                  icon: Icon(Icons.local_shipping, size: 16),
+                  onPressed: isActive ? () => _showTrackingDetails(order) : null,
+                  icon: Icon(
+                    isPending ? Icons.schedule : 
+                    isCancelled ? Icons.history : 
+                    Icons.local_shipping, 
+                    size: 16
+                  ),
                   label: Text(
+                    isPending ? 'Waiting' : 
+                    isCancelled ? 'History' : 
                     'Track Live',
                     style: GoogleFonts.poppins(fontSize: 12),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).primaryColor,
-                    foregroundColor: Colors.white,
+                    backgroundColor: isPending ? Colors.orange[400] : 
+                                   isCancelled ? null : 
+                                   Theme.of(context).primaryColor,
+                    foregroundColor: isCancelled ? null : Colors.white,
                     padding: EdgeInsets.symmetric(vertical: 8),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -542,6 +689,8 @@ class _PackageTrackingScreenState extends State<PackageTrackingScreen> {
 
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
+      case 'pending':
+        return Colors.orange; // ✅ Orange for pending
       case 'confirmed':
         return Colors.blue;
       case 'processing':
@@ -552,6 +701,8 @@ class _PackageTrackingScreenState extends State<PackageTrackingScreen> {
         return Colors.indigo;
       case 'delivered':
         return Colors.green;
+      case 'cancelled':
+        return Colors.red; // ✅ Red for cancelled
       default:
         return Colors.grey;
     }
@@ -559,6 +710,8 @@ class _PackageTrackingScreenState extends State<PackageTrackingScreen> {
 
   String _getStatusText(String status) {
     switch (status.toLowerCase()) {
+      case 'pending':
+        return 'Pending';
       case 'confirmed':
         return 'Confirmed';
       case 'processing':
@@ -569,6 +722,8 @@ class _PackageTrackingScreenState extends State<PackageTrackingScreen> {
         return 'Out for Delivery';
       case 'delivered':
         return 'Delivered';
+      case 'cancelled':
+        return 'Cancelled';
       default:
         return 'Unknown';
     }

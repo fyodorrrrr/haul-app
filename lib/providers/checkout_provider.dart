@@ -125,7 +125,7 @@ class CheckoutProvider extends ChangeNotifier {
       final String orderId = orderRef.id;
       final String orderNumber = _generateOrderNumber();
 
-      // ✅ Create order data with cleaned fields
+      // ✅ Create order data with structure that matches order detail screen
       final orderData = {
         'orderId': orderId,
         'orderNumber': orderNumber,
@@ -137,15 +137,17 @@ class CheckoutProvider extends ChangeNotifier {
           'productName': item.productName?.trim() ?? 'Unknown Product',
           'quantity': item.quantity ?? 1,
           'price': item.productPrice ?? 0.0,
+          // ✅ ADD BOTH imageUrl AND imageURL for compatibility
+          'imageUrl': item.imageURL?.trim() ?? '',
+          'imageURL': item.imageURL?.trim() ?? '',  // ✅ Order detail screen expects this
           'sellerId': item.sellerId?.trim() ?? '',
           'sellerName': item.sellerName?.trim() ?? 'Unknown Seller',
           'brand': item.brand?.trim() ?? '',
           'category': item.category?.trim() ?? '',
-          'imageUrl': item.imageURL?.trim() ?? '',
           'size': item.size?.trim() ?? '',
           'condition': item.condition?.trim() ?? '',
         }).toList(),
-        'sellerIds': sellerIds, // ✅ Only valid, non-empty seller IDs
+        'sellerIds': sellerIds,
         'shippingAddress': {
           'fullName': finalShippingAddress.fullName?.trim() ?? '',
           'addressLine1': finalShippingAddress.addressLine1?.trim() ?? '',
@@ -159,16 +161,30 @@ class CheckoutProvider extends ChangeNotifier {
         'paymentMethod': {
           'type': finalPaymentMethod.type?.trim() ?? '',
           'cardLastFour': finalPaymentMethod.cardLastFour?.trim() ?? '',
+          'last4': finalPaymentMethod.cardLastFour?.trim() ?? '', // ✅ Add both formats
           'cardType': finalPaymentMethod.cardType?.trim() ?? '',
+          'brand': finalPaymentMethod.cardType?.trim() ?? '', // ✅ Add both formats
+          'status': 'completed', // ✅ Add payment status
+          'paidAt': FieldValue.serverTimestamp(), // ✅ Add payment timestamp
         },
+        
+        // ✅ ADD: Top-level financial data (what order detail screen expects)
+        'subtotal': subtotal,
+        'shipping': shipping,
+        'tax': tax,
+        'total': total,
+        
+        // ✅ KEEP: Nested pricing for backward compatibility
         'pricing': {
           'subtotal': subtotal,
           'shipping': shipping,
           'tax': tax,
           'total': total,
         },
+        
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
+        'documentId': orderId, // ✅ Add document ID for easier access
       };
 
       // ✅ Validate the order data before sending

@@ -105,22 +105,22 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> {
                         children: [
                           Expanded(
                             child: Text(
-                              'Order #${order['orderNumber'] ?? order['orderId']}',
+                              'Order #${_getOrderNumber(order)}',
                               style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
                             ),
                           ),
                           Container(
                             padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: provider.getStatusColor(order['status']).withOpacity(0.2),
+                              color: provider.getStatusColor(order['status'] ?? 'pending').withOpacity(0.2),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
-                              order['status'].toString().toUpperCase(),
+                              (order['status'] ?? 'pending').toString().toUpperCase(),
                               style: GoogleFonts.poppins(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
-                                color: provider.getStatusColor(order['status']),
+                                color: provider.getStatusColor(order['status'] ?? 'pending'),
                               ),
                             ),
                           ),
@@ -134,9 +134,14 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> {
                             'Items: ${orderItems.length}',
                             style: GoogleFonts.poppins(fontSize: 13),
                           ),
+                          // ✅ Enhanced total calculation and display
                           Text(
-                            'Total: \$${order['total'].toStringAsFixed(2)}',
-                            style: GoogleFonts.poppins(fontSize: 13),
+                            'Total: \$${_calculateOrderTotal(order, orderItems)}',
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.green.shade700,
+                            ),
                           ),
                           if (createdAt != null)
                             Text(
@@ -146,47 +151,40 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> {
                         ],
                       ),
                     ),
-                    // Product images row
-                    SizedBox(
-                      height: 80,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        padding: EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: orderItems.length,
-                        itemBuilder: (context, itemIndex) {
-                          final item = orderItems[itemIndex];
-                          final hasImage = item['imageURL'] != null && item['imageURL'].toString().isNotEmpty;
-                          return Container(
-                            width: 70,
-                            margin: EdgeInsets.only(right: 8),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey.shade300),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            clipBehavior: Clip.antiAlias,
-                            child: hasImage
-                                ? Image.network(
-                                    item['imageURL'],
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => Center(
-                                      child: Icon(Icons.image_not_supported, color: Colors.grey),
-                                    ),
-                                  )
-                                : Center(
-                                    child: Icon(Icons.image_not_supported, color: Colors.grey),
-                                  ),
-                          );
-                        },
+                    
+                    // ✅ Enhanced product images with debug info
+                    if (orderItems.isNotEmpty)
+                      Container(
+                        height: 80,
+                        margin: EdgeInsets.only(bottom: 8),
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          padding: EdgeInsets.symmetric(horizontal: 16),
+                          itemCount: orderItems.length > 5 ? 5 : orderItems.length,
+                          itemBuilder: (context, itemIndex) {
+                            final item = orderItems[itemIndex];
+                            // ✅ Debug each item
+                            _debugItemData(item, itemIndex);
+                            return _buildEnhancedProductImage(
+                              item, 
+                              itemIndex == 4 && orderItems.length > 5 ? orderItems.length - 5 : 0
+                            );
+                          },
+                        ),
                       ),
-                    ),
-                    // Action buttons
+                    
+                    // Action buttons remain the same...
                     Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Row(
                         children: [
                           Expanded(
                             child: OutlinedButton(
-                              onPressed: () => _showOrderDetails(context, order, provider),
+                              onPressed: () {
+                                // ✅ Debug before navigation
+                                _debugOrderData(order);
+                                _showOrderDetails(context, order, provider);
+                              },
                               style: OutlinedButton.styleFrom(
                                 padding: EdgeInsets.symmetric(vertical: 12),
                                 shape: RoundedRectangleBorder(
@@ -224,8 +222,10 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> {
     );
   }
 
+  // ✅ Dialog methods
   void _showStatusUpdateDialog(BuildContext context, Map<String, dynamic> order, SellerOrdersProvider provider) {
-    String selectedStatus = order['status'];
+    final safeOrder = _getSafeOrderData(order);
+    String selectedStatus = safeOrder['status'];
 
     showDialog(
       context: context,
@@ -237,8 +237,16 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Order #${order['orderNumber']}',
+                  'Order #${safeOrder['orderNumber']}',
                   style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Total: \$${_formatOrderTotal(safeOrder['total'])}',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: Colors.grey.shade600,
+                  ),
                 ),
                 SizedBox(height: 16),
                 ...List.generate(provider.statusOptions.length, (index) {
@@ -273,26 +281,45 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> {
           ),
           TextButton(
             onPressed: () async {
-              Navigator.pop(context); // Close the dialog first
-              await Future.delayed(const Duration(milliseconds: 100)); // Ensure dialog is closed
+              Navigator.pop(context);
+              await Future.delayed(const Duration(milliseconds: 100));
 
-              if (selectedStatus != order['status']) {
-                final success = await provider.updateOrderStatus(order['documentId'], selectedStatus);
+              if (selectedStatus != safeOrder['status']) {
+                try {
+                  final success = await provider.updateOrderStatus(
+                    safeOrder['documentId'], 
+                    selectedStatus,
+                  );
 
-                // Use a post-frame callback to show snackbar after dialog is closed
-                if (mounted) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(success
-                              ? 'Order status updated to $selectedStatus'
-                              : 'Failed to update order status'),
-                          backgroundColor: success ? Colors.green : Colors.red,
-                        ),
-                      );
-                    }
-                  });
+                  if (mounted) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(success
+                                ? 'Order status updated to ${selectedStatus.toUpperCase()}'
+                                : 'Failed to update order status'),
+                            backgroundColor: success ? Colors.green : Colors.red,
+                            duration: Duration(seconds: 3),
+                          ),
+                        );
+                      }
+                    });
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Error updating order status: $e'),
+                            backgroundColor: Colors.red,
+                            duration: Duration(seconds: 3),
+                          ),
+                        );
+                      }
+                    });
+                  }
                 }
               }
             },
@@ -304,15 +331,312 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> {
   }
 
   void _showOrderDetails(BuildContext context, Map<String, dynamic> order, SellerOrdersProvider provider) {
+    final safeOrder = _getSafeOrderData(order);
+    
+    if (safeOrder['documentId'].isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Unable to load order details'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => OrderDetailScreen(
-          orderId: order['documentId'] ?? order['orderId'] ?? '',
-          orderData: order,
-          isSellerView: true,
+        orderId: order['orderId'] ?? order['documentId'],
+        isSellerView: true,
         ),
       ),
     );
+  }
+
+  // ✅ Data extraction methods
+  String _getOrderNumber(Map<String, dynamic> order) {
+    return order['orderNumber'] ?? 
+           order['orderId'] ?? 
+           order['id'] ?? 
+           order['documentId'] ?? 
+           'N/A';
+  }
+
+  // Enhanced order total calculation
+  String _calculateOrderTotal(Map<String, dynamic> order, List<Map<String, dynamic>> orderItems) {
+    // Try to get total from order
+    if (order['total'] != null) {
+      return _formatOrderTotal(order['total']);
+    }
+    
+    // Calculate from items if no total in order
+    double calculatedTotal = 0.0;
+    for (var item in orderItems) {
+      final price = _getItemPrice(item);
+      final quantity = _getItemQuantity(item);
+      calculatedTotal += price * quantity;
+    }
+    
+    return calculatedTotal.toStringAsFixed(2);
+  }
+
+  double _getItemPrice(Map<String, dynamic> item) {
+    // Try different possible price field names
+    final priceFields = ['price', 'productPrice', 'unitPrice', 'itemPrice'];
+    
+    for (String field in priceFields) {
+      if (item[field] != null) {
+        if (item[field] is num) {
+          return item[field].toDouble();
+        }
+        if (item[field] is String) {
+          final parsed = double.tryParse(item[field]);
+          if (parsed != null) return parsed;
+        }
+      }
+    }
+    
+    return 0.0;
+  }
+
+  int _getItemQuantity(Map<String, dynamic> item) {
+    if (item['quantity'] != null) {
+      if (item['quantity'] is num) {
+        return item['quantity'].toInt();
+      }
+      if (item['quantity'] is String) {
+        final parsed = int.tryParse(item['quantity']);
+        if (parsed != null) return parsed;
+      }
+    }
+    return 1; // Default quantity
+  }
+
+  String? _getItemImageUrl(Map<String, dynamic> item) {
+    // Try different possible image field names
+    final imageFields = ['imageURL', 'image', 'productImage', 'imageUrl', 'productImageUrl'];
+    
+    for (String field in imageFields) {
+      if (item[field] != null && item[field].toString().trim().isNotEmpty) {
+        return item[field].toString();
+      }
+    }
+    
+    return null;
+  }
+
+  String? _getItemName(Map<String, dynamic> item) {
+    // Try different possible name field names
+    final nameFields = ['productName', 'name', 'title', 'itemName'];
+    
+    for (String field in nameFields) {
+      if (item[field] != null && item[field].toString().trim().isNotEmpty) {
+        return item[field].toString();
+      }
+    }
+    
+    return 'Unknown Product';
+  }
+
+  // ✅ Helper methods
+  String _formatOrderTotal(dynamic total) {
+    if (total == null) return '0.00';
+    
+    if (total is num) {
+      return total.toStringAsFixed(2);
+    }
+    
+    if (total is String) {
+      final parsed = double.tryParse(total);
+      return parsed?.toStringAsFixed(2) ?? '0.00';
+    }
+    
+    return '0.00';
+  }
+
+  Map<String, dynamic> _getSafeOrderData(Map<String, dynamic> order) {
+    return {
+      'orderId': order['orderId'] ?? order['documentId'] ?? '',
+      'orderNumber': order['orderNumber'] ?? order['orderId'] ?? 'N/A',
+      'status': order['status'] ?? 'pending',
+      'total': order['total'] ?? 0.0,
+      'items': order['items'] ?? [],
+      'createdAt': order['createdAt'],
+      'documentId': order['documentId'] ?? order['orderId'] ?? '',
+    };
+  }
+
+  // ✅ Widget building methods
+  Widget _buildEnhancedProductImage(Map<String, dynamic> item, int extraCount) {
+    final imageUrl = _getItemImageUrl(item);
+    final productName = _getItemName(item);
+    final price = _getItemPrice(item);
+    final quantity = _getItemQuantity(item);
+    
+    final hasImage = imageUrl != null && imageUrl.isNotEmpty;
+    
+    return Container(
+      width: 70,
+      margin: EdgeInsets.only(right: 8),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(8),
+        color: Colors.grey.shade50,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        children: [
+          // Main image or placeholder
+          if (hasImage)
+            Image.network(
+              imageUrl,
+              fit: BoxFit.cover,
+              width: double.infinity,
+              height: double.infinity,
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return Center(
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      value: loadingProgress.expectedTotalBytes != null
+                          ? loadingProgress.cumulativeBytesLoaded /
+                              loadingProgress.expectedTotalBytes!
+                          : null,
+                    ),
+                  ),
+                );
+              },
+              errorBuilder: (context, error, stackTrace) {
+                print('❌ Image load error for $imageUrl: $error');
+                return _buildImagePlaceholder(productName, price, quantity);
+              },
+            )
+          else
+            _buildImagePlaceholder(productName, price, quantity),
+          
+          // Quantity badge
+          if (quantity > 1)
+            Positioned(
+              top: 4,
+              right: 4,
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.blue,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  'x$quantity',
+                  style: GoogleFonts.poppins(
+                    color: Colors.white,
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+        
+          // Extra items indicator
+          if (extraCount > 0)
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.7),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Center(
+                  child: Text(
+                    '+$extraCount',
+                    style: GoogleFonts.poppins(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ✅ Enhanced image placeholder with price info
+  Widget _buildImagePlaceholder(String? productName, double price, int quantity) {
+    return Container(
+      color: Colors.grey.shade100,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.image_not_supported,
+            color: Colors.grey.shade400,
+            size: 20,
+          ),
+          if (productName != null && productName.isNotEmpty)
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+              child: Text(
+                productName.length > 6 ? '${productName.substring(0, 6)}...' : productName,
+                style: GoogleFonts.poppins(
+                  fontSize: 7,
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          // ✅ Show price in placeholder
+          if (price > 0)
+            Padding(
+              padding: EdgeInsets.only(top: 1),
+              child: Text(
+                '\$${price.toStringAsFixed(2)}',
+                style: GoogleFonts.poppins(
+                  fontSize: 7,
+                  color: Colors.green.shade600,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ✅ Debug methods
+  void _debugOrderData(Map<String, dynamic> order) {
+    print('🔍 DEBUG ORDER DATA:');
+    print('Order keys: ${order.keys.toList()}');
+    print('Order total: ${order['total']} (type: ${order['total'].runtimeType})');
+    
+    if (order['items'] != null) {
+      final items = List<Map<String, dynamic>>.from(order['items']);
+      print('Items count: ${items.length}');
+      
+      for (int i = 0; i < items.length && i < 2; i++) {
+        print('Item $i keys: ${items[i].keys.toList()}');
+        print('Item $i imageURL: ${items[i]['imageURL']}');
+        print('Item $i productName: ${items[i]['productName']}');
+        print('Item $i price: ${items[i]['price']} (type: ${items[i]['price'].runtimeType})');
+      }
+    }
+  }
+
+  // ✅ Add this missing method
+  void _debugItemData(Map<String, dynamic> item, int index) {
+    print('🔍 DEBUG ITEM $index:');
+    print('Item keys: ${item.keys.toList()}');
+    print('Image URL: ${_getItemImageUrl(item)}');
+    print('Product Name: ${_getItemName(item)}');
+    print('Price: ${_getItemPrice(item)}');
+    print('Quantity: ${_getItemQuantity(item)}');
+    print('---');
   }
 }

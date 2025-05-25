@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:haul/screens/buyer/package_tracking_screen.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -30,15 +31,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
   @override
   void initState() {
-    super.initState();
-    if (widget.orderData != null) {
-      _orderData = widget.orderData;
-      _isLoading = false;
-    } else {
-      _loadOrderData();
-    }
+    _loadOrderData();
   }
 
+  // ✅ COMPLETELY REPLACE your _loadOrderData method with this:
   Future<void> _loadOrderData() async {
     try {
       setState(() {
@@ -53,10 +49,41 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
       if (doc.exists) {
         setState(() {
-          _orderData = doc.data();
+          // ✅ JUST USE THE RAW DATA - NO PROCESSING AT ALL
+          _orderData = Map<String, dynamic>.from(doc.data()!);
           _orderData!['documentId'] = doc.id;
+          
+          // ✅ ONLY fix total - DO NOT CALL _addMissingTotalOnly
+          if (_orderData!['total'] == null || _orderData!['total'] == 0.0) {
+            double calculatedTotal = 0.0;
+            if (_orderData!['items'] != null) {
+              final items = _orderData!['items'] as List;
+              for (var item in items) {
+                if (item is Map<String, dynamic>) {
+                  final price = (item['price'] ?? 0.0).toDouble();
+                  final qty = (item['quantity'] ?? 1).toInt();
+                  calculatedTotal += (price * qty);
+                }
+              }
+              _orderData!['total'] = calculatedTotal;
+            }
+          }
+          
           _isLoading = false;
         });
+        
+        // ✅ Debug IMMEDIATELY after loading
+        print('🔍 IMMEDIATE DEBUG - Order keys: ${_orderData!.keys.toList()}');
+        print('🔍 Has shipping: ${_orderData!.containsKey('shippingAddress')}');
+        print('🔍 Has payment: ${_orderData!.containsKey('paymentMethod')}');
+        
+        if (_orderData!.containsKey('shippingAddress')) {
+          print('✅ Shipping data: ${_orderData!['shippingAddress']}');
+        }
+        if (_orderData!.containsKey('paymentMethod')) {
+          print('✅ Payment data: ${_orderData!['paymentMethod']}');
+        }
+        
       } else {
         setState(() {
           _error = 'Order not found';
@@ -188,7 +215,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 
   // ✅ Enhanced _buildOrderHeader method with proper price handling:
-
   Widget _buildOrderHeader() {
     final orderNumber = _orderData!['orderNumber'] ?? _orderData!['orderId'] ?? widget.orderId;
     final createdAt = (_orderData!['createdAt'] as Timestamp?)?.toDate();
@@ -649,7 +675,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Widget _buildItemRow(Map<String, dynamic> item) {
     // ✅ Multiple fallbacks for image URL
     String? imageUrl;
-    final imageFields = ['imageURL', 'imageUrl', 'image', 'productImage', 'thumbnail'];
+    final imageFields = ['imageURL', 'imageUrl', 'image', 'productImage', 'productImageUrl'];
     for (String field in imageFields) {
       if (item[field] != null && item[field].toString().isNotEmpty) {
         imageUrl = item[field].toString();
@@ -881,8 +907,20 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     );
   }
 
+  // ✅ Enhanced shipping info with better field mapping and debugging
   Widget _buildShippingInfo() {
-    final shippingAddress = _orderData!['shippingAddress'];
+    print('🚚 DEBUG Shipping Info FIXED:');
+    print('Available order keys: ${_orderData!.keys.toList()}');
+    
+    // ✅ Direct access to shipping address
+    Map<String, dynamic>? shippingAddress = _orderData!['shippingAddress'] as Map<String, dynamic>?;
+    
+    if (shippingAddress != null) {
+      print('✅ Found shipping address: $shippingAddress');
+    } else {
+      print('❌ No shipping address found in _orderData');
+      print('❌ Full _orderData keys: ${_orderData!.keys.toList()}');
+    }
     
     return Card(
       elevation: 2,
@@ -906,20 +944,48 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               ],
             ),
             SizedBox(height: 12),
-            if (shippingAddress != null && shippingAddress is Map<String, dynamic>) ...[
-              _buildInfoRow('Name', shippingAddress['fullName'] ?? shippingAddress['name'] ?? 'N/A'),
-              _buildInfoRow('Address', _formatAddress(shippingAddress)),
-              if (shippingAddress['phoneNumber'] != null)
-                _buildInfoRow('Phone', shippingAddress['phoneNumber']),
+            
+            if (shippingAddress != null) ...[
+              _buildInfoRow('Name', _extractShippingName(shippingAddress)),
+              _buildInfoRow('Address', _formatShippingAddress(shippingAddress)),
+              if (_extractPhoneNumber(shippingAddress).isNotEmpty)
+                _buildInfoRow('Phone', _extractPhoneNumber(shippingAddress)),
+              if (shippingAddress['email'] != null)
+                _buildInfoRow('Email', shippingAddress['email'].toString()),
             ] else ...[
-              Text(
-                'No shipping information available',
-                style: GoogleFonts.poppins(color: Colors.grey[600]),
+              // ✅ Enhanced debug info
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'No shipping information found',
+                    style: GoogleFonts.poppins(color: Colors.grey[600]),
+                  ),
+                  SizedBox(height: 8),
+                  Container(
+                    padding: EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: Colors.red.shade200),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'DEBUG: Available fields in _orderData:',
+                          style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          _orderData!.keys.join(', '),
+                          style: GoogleFonts.robotoMono(fontSize: 10),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ],
-            if (_orderData!['trackingNumber'] != null) ...[
-              Divider(height: 20),
-              _buildInfoRow('Tracking Number', _orderData!['trackingNumber']),
             ],
           ],
         ),
@@ -927,8 +993,112 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     );
   }
 
+  // ✅ Helper methods for shipping data extraction
+  String _extractShippingName(Map<String, dynamic> shippingData) {
+    final nameFields = [
+      'fullName', 'name', 'firstName', 'customerName', 
+      'recipient', 'recipientName', 'buyerName'
+    ];
+    
+    for (String field in nameFields) {
+      if (shippingData[field] != null && shippingData[field].toString().isNotEmpty) {
+        return shippingData[field].toString();
+      }
+    }
+    
+    // Try to combine first and last name
+    final firstName = shippingData['firstName']?.toString() ?? '';
+    final lastName = shippingData['lastName']?.toString() ?? '';
+    if (firstName.isNotEmpty || lastName.isNotEmpty) {
+      return '$firstName $lastName'.trim();
+    }
+    
+    return 'N/A';
+  }
+
+  String _formatShippingAddress(Map<String, dynamic> address) {
+    List<String> parts = [];
+    
+    // Try different field name variations
+    final addressFields = [
+      ['addressLine1', 'address1', 'street', 'streetAddress'],
+      ['addressLine2', 'address2', 'apartment', 'apt', 'suite'],
+      ['city', 'locality'],
+      ['state', 'province', 'region'],
+      ['zipCode', 'zip', 'postalCode', 'postcode'],
+      ['country']
+    ];
+    
+    for (List<String> fieldGroup in addressFields) {
+      for (String field in fieldGroup) {
+        if (address[field] != null && address[field].toString().trim().isNotEmpty) {
+          parts.add(address[field].toString());
+          break; // Found a value for this group, move to next
+        }
+      }
+    }
+    
+    return parts.isNotEmpty ? parts.join(', ') : 'No address provided';
+  }
+
+  String _extractPhoneNumber(Map<String, dynamic> shippingData) {
+    final phoneFields = [
+      'phoneNumber', 'phone', 'mobile', 'contactNumber', 
+      'telephone', 'cellphone'
+    ];
+    
+    for (String field in phoneFields) {
+      if (shippingData[field] != null && shippingData[field].toString().isNotEmpty) {
+        return shippingData[field].toString();
+      }
+    }
+    
+    return '';
+  }
+
+  // ✅ Enhanced payment info with better field mapping and debugging
   Widget _buildPaymentInfo() {
-    final paymentMethod = _orderData!['paymentMethod'];
+    print('💳 DEBUG Payment Info:');
+    
+    // ✅ Try multiple possible field names for payment method
+    Map<String, dynamic>? paymentMethod;
+    String? paymentType;
+    
+    final paymentFields = [
+      'paymentMethod',
+      'payment_method',
+      'paymentInfo',
+      'payment',
+      'paymentDetails',
+      'billing'
+    ];
+    
+    for (String field in paymentFields) {
+      if (_orderData![field] != null) {
+        print('Found payment data in field: $field');
+        print('Payment data: ${_orderData![field]}');
+        
+        if (_orderData![field] is Map<String, dynamic>) {
+          paymentMethod = _orderData![field] as Map<String, dynamic>;
+          break;
+        } else if (_orderData![field] is String) {
+          paymentType = _orderData![field] as String;
+          break;
+        }
+      }
+    }
+    
+    // ✅ Try to get payment type from root level
+    if (paymentType == null && paymentMethod == null) {
+      final typeFields = ['paymentType', 'payment_type', 'method'];
+      for (String field in typeFields) {
+        if (_orderData![field] != null) {
+          paymentType = _orderData![field].toString();
+          print('Found payment type: $paymentType');
+          break;
+        }
+      }
+    }
     
     return Card(
       elevation: 2,
@@ -952,22 +1122,97 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               ],
             ),
             SizedBox(height: 12),
-            if (paymentMethod != null && paymentMethod is Map<String, dynamic>) ...[
-              _buildInfoRow('Method', paymentMethod['type'] ?? paymentMethod['name'] ?? 'N/A'),
-              if (paymentMethod['details'] != null) ...[
-                ...((paymentMethod['details'] as Map<String, dynamic>).entries.map(
-                  (entry) => _buildInfoRow(
-                    entry.key.toString().replaceAll('_', ' ').toUpperCase(),
-                    entry.value.toString(),
-                  ),
-                )),
-              ],
-            ] else if (paymentMethod is String) ...[
-              _buildInfoRow('Method', paymentMethod),
+            
+            if (paymentMethod != null) ...[
+              // ✅ Enhanced payment method display
+              _buildInfoRow(
+                'Method', 
+                _extractPaymentMethod(paymentMethod)
+              ),
+              
+              // ✅ Payment status
+              if (paymentMethod['status'] != null)
+                _buildInfoRow(
+                  'Status', 
+                  paymentMethod['status'].toString().toUpperCase()
+                ),
+                
+              // ✅ Transaction ID
+              if (paymentMethod['transactionId'] != null || paymentMethod['id'] != null)
+                _buildInfoRow(
+                  'Transaction ID', 
+                  (paymentMethod['transactionId'] ?? paymentMethod['id']).toString()
+                ),
+                
+              // ✅ Card details (if available and appropriate to show)
+              if (paymentMethod['last4'] != null)
+                _buildInfoRow(
+                  'Card', 
+                  '**** **** **** ${paymentMethod['last4']}'
+                ),
+                
+              // ✅ Payment date
+              // if (paymentMethod['paidAt'] != null || paymentMethod['paymentDate'] != null) {
+              //   final paymentDate = paymentMethod['paidAt'] ?? paymentMethod['paymentDate'];
+              //   String dateStr = 'N/A';
+                
+              //   if (paymentDate is Timestamp) {
+              //     dateStr = DateFormat('MMM dd, yyyy at h:mm a').format(paymentDate.toDate());
+              //   } else if (paymentDate is String) {
+              //     try {
+              //       final date = DateTime.parse(paymentDate);
+              //       dateStr = DateFormat('MMM dd, yyyy at h:mm a').format(date);
+              //     } catch (e) {
+              //       dateStr = paymentDate;
+              //     }
+              //   }
+                
+              //   _buildInfoRow('Payment Date', dateStr);
+              // }
+              
+            ] else if (paymentType != null) ...[
+              _buildInfoRow('Method', paymentType),
+              
             ] else ...[
-              Text(
-                'No payment information available',
-                style: GoogleFonts.poppins(color: Colors.grey[600]),
+              // ✅ No payment info found - show debug info
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'No payment information found',
+                    style: GoogleFonts.poppins(color: Colors.grey[600]),
+                  ),
+                  SizedBox(height: 8),
+                  ExpansionTile(
+                    title: Text(
+                      'Debug: Payment Related Fields',
+                      style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[500]),
+                    ),
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        padding: EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          _getPaymentDebugInfo(),
+                          style: GoogleFonts.robotoMono(fontSize: 10, color: Colors.grey[600]),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+            
+            // ✅ Payment amount breakdown
+            if (_orderData!['paymentAmount'] != null || _orderData!['amountPaid'] != null) ...[
+              Divider(height: 20),
+              _buildInfoRow(
+                'Amount Paid', 
+                '\$${((_orderData!['paymentAmount'] ?? _orderData!['amountPaid']) as num).toStringAsFixed(2)}'
               ),
             ],
           ],
@@ -976,71 +1221,48 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     );
   }
 
-  // ✅ Enhanced _buildPricingBreakdown method:
-
-  Widget _buildPricingBreakdown() {
-    // ✅ Calculate subtotal from items if missing
-    double calculatedSubtotal = 0.0;
-    final items = _orderData!['items'];
+  // ✅ Helper methods for payment data extraction
+  String _extractPaymentMethod(Map<String, dynamic> paymentData) {
+    final methodFields = [
+      'type', 'method', 'name', 'brand', 'provider'
+    ];
     
-    if (items is List) {
-      for (var item in items) {
-        if (item is Map<String, dynamic>) {
-          // Get price with multiple fallbacks
-          double itemPrice = 0.0;
-          final priceFields = ['productPrice', 'price', 'unitPrice', 'itemPrice'];
-          for (String field in priceFields) {
-            if (item[field] != null) {
-              try {
-                if (item[field] is String) {
-                  itemPrice = double.parse(item[field]);
-                } else if (item[field] is num) {
-                  itemPrice = item[field].toDouble();
-                }
-                if (itemPrice > 0) break;
-              } catch (e) {
-                print('❌ Error parsing item price: $e');
-              }
-            }
-          }
-          
-          // Get quantity with fallbacks
-          int quantity = 1;
-          final quantityFields = ['quantity', 'qty', 'count'];
-          for (String field in quantityFields) {
-            if (item[field] != null) {
-              try {
-                if (item[field] is String) {
-                  quantity = int.parse(item[field]);
-                } else if (item[field] is num) {
-                  quantity = item[field].toInt();
-                }
-                if (quantity > 0) break;
-              } catch (e) {
-                print('❌ Error parsing item quantity: $e');
-              }
-            }
-          }
-          
-          calculatedSubtotal += (itemPrice * quantity);
-        }
+    for (String field in methodFields) {
+      if (paymentData[field] != null && paymentData[field].toString().isNotEmpty) {
+        return paymentData[field].toString();
       }
     }
     
-    // ✅ Use order data or calculated values
-    final subtotal = _orderData!['subtotal'] ?? calculatedSubtotal;
-    final shipping = _orderData!['shipping'] ?? _orderData!['shippingFee'] ?? 0.0;
-    final tax = _orderData!['tax'] ?? 0.0;
-    final total = _orderData!['total'] ?? (subtotal + shipping + tax);
+    return 'N/A';
+  }
 
-    print('💰 Pricing Debug:');
-    print('  Calculated Subtotal: \$${calculatedSubtotal.toStringAsFixed(2)}');
-    print('  Order Subtotal: \$${(_orderData!['subtotal'] ?? 0.0).toStringAsFixed(2)}');
-    print('  Using Subtotal: \$${subtotal.toStringAsFixed(2)}');
-    print('  Shipping: \$${shipping.toStringAsFixed(2)}');
-    print('  Tax: \$${tax.toStringAsFixed(2)}');
-    print('  Total: \$${total.toStringAsFixed(2)}');
+  String _getPaymentDebugInfo() {
+    final paymentRelatedFields = _orderData!.keys
+        .where((key) => key.toLowerCase().contains('pay') || 
+                        key.toLowerCase().contains('bill') ||
+                        key.toLowerCase().contains('method') ||
+                        key.toLowerCase().contains('transaction'))
+        .toList();
+    
+    if (paymentRelatedFields.isEmpty) {
+      return 'No payment-related fields found';
+    }
+    
+    return paymentRelatedFields.map((field) => '$field: ${_orderData![field]}').join('\n');
+  }
 
+  // ✅ Enhanced _buildPricingBreakdown method:
+
+  Widget _buildPricingBreakdown() {
+    final pricing = _orderData!['pricing'] as Map<String, dynamic>?;
+    final topLevelTotal = _orderData!['total'];
+    
+    // Use nested pricing if available, otherwise use top-level values
+    final subtotal = pricing?['subtotal'] ?? _orderData!['subtotal'] ?? 0.0;
+    final shipping = pricing?['shipping'] ?? _orderData!['shipping'] ?? 0.0;
+    final tax = pricing?['tax'] ?? _orderData!['tax'] ?? 0.0;
+    final total = pricing?['total'] ?? topLevelTotal ?? 0.0;
+    
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -1062,12 +1284,36 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 ),
               ],
             ),
-            SizedBox(height: 16),
-            _buildPriceRow('Subtotal', subtotal),
-            if (shipping > 0) _buildPriceRow('Shipping', shipping),
-            if (tax > 0) _buildPriceRow('Tax', tax),
-            Divider(height: 24, thickness: 1),
-            _buildPriceRow('Total', total, isTotal: true),
+            SizedBox(height: 12),
+            
+            _buildInfoRow('Subtotal', '\$${subtotal.toStringAsFixed(2)}'),
+            if (shipping > 0)
+              _buildInfoRow('Shipping', '\$${shipping.toStringAsFixed(2)}'),
+            if (tax > 0)
+              _buildInfoRow('Tax', '\$${tax.toStringAsFixed(2)}'),
+            
+            Divider(height: 20),
+            
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Total',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  '\$${total.toStringAsFixed(2)}',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green.shade700,
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -1325,21 +1571,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     );
   }
 
-  String _formatAddress(Map<String, dynamic> address) {
-    List<String> parts = [];
-    
-    if (address['addressLine1'] != null) parts.add(address['addressLine1']);
-    if (address['addressLine2'] != null && address['addressLine2'].toString().isNotEmpty) {
-      parts.add(address['addressLine2']);
-    }
-    if (address['city'] != null) parts.add(address['city']);
-    if (address['state'] != null) parts.add(address['state']);
-    if (address['zipCode'] != null) parts.add(address['zipCode']);
-    if (address['country'] != null) parts.add(address['country']);
-    
-    return parts.join(', ');
-  }
-
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
       case 'delivered':
@@ -1471,10 +1702,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
   void _trackOrder() {
     // Navigate to package tracking screen
-    Navigator.pushNamed(
+    Navigator.push(
       context,
-      '/package-tracking',
-      arguments: widget.orderId,
+      MaterialPageRoute(
+        builder: (context) => PackageTrackingScreen(
+        ),
+      ),
     );
   }
 
@@ -1554,4 +1787,136 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     
     return totalCount > 0 ? totalCount : 1; // Return at least 1 if no items found
   }
+
+  // ✅ Enhanced helper methods in order_detail_screen.dart
+  double _getItemPrice(Map<String, dynamic> item) {
+    // Try different possible price field names
+    final priceFields = ['price', 'productPrice', 'unitPrice', 'itemPrice'];
+    
+    for (String field in priceFields) {
+      if (item[field] != null) {
+        if (item[field] is num) {
+          return item[field].toDouble();
+        }
+        if (item[field] is String) {
+          final parsed = double.tryParse(item[field]);
+          if (parsed != null) return parsed;
+        }
+      }
+    }
+    
+    return 0.0;
+  }
+
+  String? _getItemImageUrl(Map<String, dynamic> item) {
+    // ✅ Try both imageURL and imageUrl
+    final imageFields = ['imageURL', 'imageUrl', 'image', 'productImage', 'productImageUrl'];
+    
+    for (String field in imageFields) {
+      if (item[field] != null && item[field].toString().trim().isNotEmpty) {
+        return item[field].toString();
+      }
+    }
+    
+    return null;
+  }
+
+  // ✅ Enhanced total calculation with both pricing structures
+  String _calculateOrderTotal(Map<String, dynamic> order, List<Map<String, dynamic>> orderItems) {
+    // ✅ Try top-level total first (new format)
+    if (order['total'] != null && order['total'] != 0.0) {
+      return _formatOrderTotal(order['total']);
+    }
+    
+    // ✅ Try nested pricing total (your current format)
+    if (order['pricing'] != null && order['pricing']['total'] != null) {
+      return _formatOrderTotal(order['pricing']['total']);
+    }
+    
+    // ✅ Calculate from items if no total found
+    double calculatedTotal = 0.0;
+    for (var item in orderItems) {
+      final price = _getItemPrice(item);
+      final quantity = _getItemQuantity(item);
+      calculatedTotal += price * quantity;
+    }
+    
+    return calculatedTotal.toStringAsFixed(2);
+  }
+
+  // ✅ Add this missing method
+  String _formatOrderTotal(dynamic total) {
+    if (total == null) return '0.00';
+    
+    if (total is num) {
+      return total.toStringAsFixed(2);
+    }
+    
+    if (total is String) {
+      final parsed = double.tryParse(total);
+      return parsed?.toStringAsFixed(2) ?? '0.00';
+    }
+    
+    return '0.00';
+  }
+
+  // ✅ Add this missing method for quantity extraction
+  int _getItemQuantity(Map<String, dynamic> item) {
+    if (item['quantity'] != null) {
+      if (item['quantity'] is num) {
+        return item['quantity'].toInt();
+      }
+      if (item['quantity'] is String) {
+        final parsed = int.tryParse(item['quantity']);
+        if (parsed != null) return parsed;
+      }
+    }
+    return 1; // Default quantity
+  }
+
+  // ✅ Add missing total field only if it's not present
+  // void _addMissingTotalOnly(Map<String, dynamic> orderData) {
+  //   // ✅ Only calculate total if it's missing or 0
+  //   if (orderData['total'] == null || orderData['total'] == 0.0) {
+  //     if (orderData['items'] != null) {
+  //       double calculatedTotal = 0.0; // ✅ Define the variable here
+  //       final items = orderData['items'] as List;
+        
+  //       for (var item in items) {
+  //         if (item is Map<String, dynamic>) {
+  //           final price = (item['price'] ?? item['productPrice'] ?? 0.0).toDouble();
+  //           final quantity = (item['quantity'] ?? 1).toInt();
+  //           calculatedTotal += (price * quantity);
+  //         }
+  //       }
+        
+  //       // ✅ Only update total if it's missing or 0
+  //       if (orderData['total'] == null || orderData['total'] == 0.0) {
+  //         orderData['total'] = calculatedTotal;
+  //       }
+  //       if (orderData['subtotal'] == null) {
+  //         orderData['subtotal'] = calculatedTotal;
+  //       }
+        
+  //       print('💰 Calculated missing total: \$${calculatedTotal.toStringAsFixed(2)}');
+  //     }
+  //   }
+    
+  //   // ✅ Add imageURL field if only imageUrl exists (for compatibility)
+  //   if (orderData['items'] != null) {
+  //     final items = orderData['items'] as List;
+  //     for (var item in items) {
+  //       if (item is Map<String, dynamic>) {
+  //         // Add imageURL if only imageUrl exists
+  //         if (item['imageURL'] == null && item['imageUrl'] != null) {
+  //           item['imageURL'] = item['imageUrl'];
+  //         }
+  //         // Add imageUrl if only imageURL exists
+  //         if (item['imageUrl'] == null && item['imageURL'] != null) {
+  //           item['imageUrl'] = item['imageURL'];
+  //         }
+  //       }
+  //     }
+  //   }
+  // }
 }
