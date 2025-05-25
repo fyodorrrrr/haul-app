@@ -123,6 +123,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
           .where((product) => product != null)
           .cast<Product>()
           .where((product) => !_wishlistProductIds.contains(product.id))
+          .where((product) => userId == null || product.sellerId != userId) // <-- Hide own products
           .toList();
 
       // ✅ Randomize the products
@@ -159,21 +160,22 @@ class _ExploreScreenState extends State<ExploreScreen> {
           .get();
 
       List<Product> newProducts = result.docs
-          .map((doc) {
-            try {
-              final data = doc.data() as Map<String, dynamic>;
-              data['id'] = doc.id;
-              return Product.fromMap(data);
-            } catch (e) {
-              print('Error parsing product ${doc.id}: $e');
-              return null;
-            }
-          })
-          .where((product) => product != null)
-          .cast<Product>()
-          .where((product) => !_wishlistProductIds.contains(product.id))
-          .where((product) => !_featuredProducts.any((existing) => existing.id == product.id)) // ✅ Avoid duplicates
-          .toList();
+        .map((doc) {
+          try {
+            final data = doc.data() as Map<String, dynamic>;
+            data['id'] = doc.id;
+            return Product.fromMap(data);
+          } catch (e) {
+            print('Error parsing product ${doc.id}: $e');
+            return null;
+          }
+        })
+        .where((product) => product != null)
+        .cast<Product>()
+        .where((product) => !_wishlistProductIds.contains(product.id))
+        .where((product) => !_featuredProducts.any((existing) => existing.id == product.id))
+        .where((product) => userId == null || product.sellerId != userId) // <-- Hide own products
+        .toList();
 
       // ✅ Randomize the new products
       newProducts.shuffle();
@@ -256,20 +258,21 @@ class _ExploreScreenState extends State<ExploreScreen> {
           .get();
 
       List<Product> allProducts = result.docs
-          .map((doc) {
-            try {
-              final data = doc.data() as Map<String, dynamic>;
-              data['id'] = doc.id;
-              return Product.fromMap(data);
-            } catch (e) {
-              print('Error parsing product ${doc.id}: $e');
-              return null;
-            }
-          })
-          .where((product) => product != null)
-          .cast<Product>()
-          .where((product) => !_wishlistProductIds.contains(product.id))
-          .toList();
+        .map((doc) {
+          try {
+            final data = doc.data() as Map<String, dynamic>;
+            data['id'] = doc.id;
+            return Product.fromMap(data);
+          } catch (e) {
+            print('Error parsing product ${doc.id}: $e');
+            return null;
+          }
+        })
+        .where((product) => product != null)
+        .cast<Product>()
+        .where((product) => !_wishlistProductIds.contains(product.id))
+        .where((product) => userId == null || product.sellerId != userId) // <-- Hide own products
+        .toList();
 
       // ✅ Shuffle all products first
       allProducts.shuffle();
