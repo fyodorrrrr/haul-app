@@ -187,9 +187,125 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     );
   }
 
+  // ✅ Enhanced _buildOrderHeader method with proper price handling:
+
   Widget _buildOrderHeader() {
     final orderNumber = _orderData!['orderNumber'] ?? _orderData!['orderId'] ?? widget.orderId;
     final createdAt = (_orderData!['createdAt'] as Timestamp?)?.toDate();
+
+    // ✅ Enhanced total price calculation with multiple fallbacks
+    double totalPrice = 0.0;
+    
+    // Try to get total from different possible fields
+    final totalFields = ['total', 'totalAmount', 'totalPrice', 'grandTotal'];
+    for (String field in totalFields) {
+      if (_orderData![field] != null) {
+        try {
+          if (_orderData![field] is String) {
+            totalPrice = double.parse(_orderData![field]);
+          } else if (_orderData![field] is num) {
+            totalPrice = _orderData![field].toDouble();
+          }
+          if (totalPrice > 0) break;
+        } catch (e) {
+          print('❌ Error parsing total from field $field: ${_orderData![field]}');
+        }
+      }
+    }
+    
+    // ✅ If no total found, calculate from items + shipping + tax
+    if (totalPrice <= 0) {
+      double calculatedSubtotal = 0.0;
+      final items = _orderData!['items'];
+      
+      if (items is List) {
+        for (var item in items) {
+          if (item is Map<String, dynamic>) {
+            // Get price with multiple fallbacks
+            double itemPrice = 0.0;
+            final priceFields = ['productPrice', 'price', 'unitPrice', 'itemPrice'];
+            for (String field in priceFields) {
+              if (item[field] != null) {
+                try {
+                  if (item[field] is String) {
+                    itemPrice = double.parse(item[field]);
+                  } else if (item[field] is num) {
+                    itemPrice = item[field].toDouble();
+                  }
+                  if (itemPrice > 0) break;
+                } catch (e) {
+                  print('❌ Error parsing item price: $e');
+                }
+              }
+            }
+            
+            // Get quantity with fallbacks
+            int quantity = 1;
+            final quantityFields = ['quantity', 'qty', 'count'];
+            for (String field in quantityFields) {
+              if (item[field] != null) {
+                try {
+                  if (item[field] is String) {
+                    quantity = int.parse(item[field]);
+                  } else if (item[field] is num) {
+                    quantity = item[field].toInt();
+                  }
+                  if (quantity > 0) break;
+                } catch (e) {
+                  print('❌ Error parsing item quantity: $e');
+                }
+              }
+            }
+            
+            calculatedSubtotal += (itemPrice * quantity);
+          }
+        }
+      }
+      
+      // Add shipping and tax
+      double shipping = 0.0;
+      final shippingFields = ['shipping', 'shippingFee', 'shippingCost'];
+      for (String field in shippingFields) {
+        if (_orderData![field] != null) {
+          try {
+            if (_orderData![field] is String) {
+              shipping = double.parse(_orderData![field]);
+            } else if (_orderData![field] is num) {
+              shipping = _orderData![field].toDouble();
+            }
+            if (shipping > 0) break;
+          } catch (e) {
+            print('❌ Error parsing shipping: $e');
+          }
+        }
+      }
+      
+      double tax = 0.0;
+      final taxFields = ['tax', 'taxAmount', 'taxes'];
+      for (String field in taxFields) {
+        if (_orderData![field] != null) {
+          try {
+            if (_orderData![field] is String) {
+              tax = double.parse(_orderData![field]);
+            } else if (_orderData![field] is num) {
+              tax = _orderData![field].toDouble();
+            }
+            if (tax > 0) break;
+          } catch (e) {
+            print('❌ Error parsing tax: $e');
+          }
+        }
+      }
+      
+      totalPrice = calculatedSubtotal + shipping + tax;
+    }
+
+    // ✅ Debug logging for header price
+    print('💰 Order Header Price Debug:');
+    print('  Order ID: $orderNumber');
+    print('  Raw total from order data: ${_orderData!['total']}');
+    print('  Calculated total price: \$${totalPrice.toStringAsFixed(2)}');
+    print('  Available order data keys: ${_orderData!.keys.toList()}');
 
     return Card(
       elevation: 2,
@@ -230,18 +346,77 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               ],
             ),
             SizedBox(height: 12),
+            
+            // ✅ Enhanced total price display with better formatting
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.green.shade200),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.monetization_on,
+                    size: 20,
+                    color: Colors.green.shade700,
+                  ),
+                  SizedBox(width: 8),
+                  Text(
+                    'Total: ',
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.green.shade700,
+                    ),
+                  ),
+                  Text(
+                    '\$${totalPrice.toStringAsFixed(2)}',
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green.shade700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            // ✅ Add item count for better context
+            SizedBox(height: 8),
             Row(
               children: [
-                Icon(Icons.monetization_on, size: 20, color: Colors.green),
-                SizedBox(width: 8),
+                Icon(
+                  Icons.shopping_bag_outlined,
+                  size: 16,
+                  color: Colors.grey.shade600,
+                ),
+                SizedBox(width: 6),
                 Text(
-                  'Total: \$${(_orderData!['total'] ?? 0.0).toStringAsFixed(2)}',
+                  '${_getItemCount()} item${_getItemCount() == 1 ? '' : 's'}',
                   style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.green[700],
+                    fontSize: 14,
+                    color: Colors.grey.shade600,
                   ),
                 ),
+                if (_orderData!['status'] != null) ...[
+                  SizedBox(width: 16),
+                  Icon(
+                    Icons.info_outline,
+                    size: 16,
+                    color: Colors.grey.shade600,
+                  ),
+                  SizedBox(width: 6),
+                  Text(
+                    'Status: ${(_orderData!['status'] as String).toUpperCase()}',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
               ],
             ),
           ],
@@ -366,8 +541,36 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     );
   }
 
+  // ✅ Enhanced _buildOrderItems method:
+
   Widget _buildOrderItems() {
-    final items = List<Map<String, dynamic>>.from(_orderData!['items'] ?? []);
+    final items = _orderData!['items'];
+    
+    // ✅ Handle different data structures
+    List<Map<String, dynamic>> itemsList = [];
+    
+    if (items == null) {
+      print('⚠️ No items found in order data');
+    } else if (items is List) {
+      try {
+        itemsList = List<Map<String, dynamic>>.from(
+          items.map((item) => item is Map<String, dynamic> ? item : {})
+        );
+      } catch (e) {
+        print('❌ Error parsing items list: $e');
+        print('❌ Items data: $items');
+      }
+    } else {
+      print('⚠️ Items is not a list: ${items.runtimeType}');
+      print('⚠️ Items data: $items');
+    }
+    
+    // ✅ Debug logging
+    print('📦 Order Items Debug:');
+    print('  Total items: ${itemsList.length}');
+    for (int i = 0; i < itemsList.length; i++) {
+      print('  Item $i: ${itemsList[i]}');
+    }
     
     return Card(
       elevation: 2,
@@ -377,116 +580,293 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Items (${items.length})',
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
+            Row(
+              children: [
+                Icon(Icons.shopping_bag, color: Colors.blue),
+                SizedBox(width: 8),
+                Text(
+                  'Items (${itemsList.length})',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 16),
+            
+            if (itemsList.isEmpty) ...[
+              Container(
+                padding: EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.inbox_outlined,
+                      size: 48,
+                      color: Colors.grey[400],
+                    ),
+                    SizedBox(height: 12),
+                    Text(
+                      'No items found in this order',
+                      style: GoogleFonts.poppins(
+                        color: Colors.grey[600],
+                        fontSize: 14,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    ElevatedButton(
+                      onPressed: () {
+                        print('🔍 Full order data for debugging:');
+                        print(_orderData);
+                      },
+                      child: Text('Debug Order Data'),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            SizedBox(height: 12),
-            ListView.separated(
-              shrinkWrap: true,
-              physics: NeverScrollableScrollPhysics(),
-              itemCount: items.length,
-              separatorBuilder: (_, __) => Divider(height: 20),
-              itemBuilder: (context, index) {
-                final item = items[index];
-                return _buildItemRow(item);
-              },
-            ),
+            ] else ...[
+              ListView.separated(
+                shrinkWrap: true,
+                physics: NeverScrollableScrollPhysics(),
+                itemCount: itemsList.length,
+                separatorBuilder: (_, __) => Divider(
+                  height: 24,
+                  color: Colors.grey.shade300,
+                ),
+                itemBuilder: (context, index) {
+                  final item = itemsList[index];
+                  return _buildItemRow(item);
+                },
+              ),
+            ],
           ],
         ),
       ),
     );
   }
 
+  // ✅ Enhanced _buildItemRow method to handle different data structures:
   Widget _buildItemRow(Map<String, dynamic> item) {
-    final hasImage = item['imageURL'] != null && item['imageURL'].toString().isNotEmpty;
-    final productName = item['productName'] ?? item['name'] ?? 'Unknown Product';
-    final price = (item['productPrice'] ?? item['price'] ?? 0.0).toDouble();
-    final quantity = item['quantity'] ?? 1;
+    // ✅ Multiple fallbacks for image URL
+    String? imageUrl;
+    final imageFields = ['imageURL', 'imageUrl', 'image', 'productImage', 'thumbnail'];
+    for (String field in imageFields) {
+      if (item[field] != null && item[field].toString().isNotEmpty) {
+        imageUrl = item[field].toString();
+        break;
+      }
+    }
+    
+    // ✅ Multiple fallbacks for product name
+    String productName = 'Unknown Product';
+    final nameFields = ['productName', 'name', 'title', 'itemName'];
+    for (String field in nameFields) {
+      if (item[field] != null && item[field].toString().isNotEmpty) {
+        productName = item[field].toString();
+        break;
+      }
+    }
+    
+    // ✅ Multiple fallbacks for price with proper type conversion
+    double price = 0.0;
+    final priceFields = ['productPrice', 'price', 'unitPrice', 'itemPrice'];
+    for (String field in priceFields) {
+      if (item[field] != null) {
+        try {
+          if (item[field] is String) {
+            price = double.parse(item[field]);
+          } else if (item[field] is num) {
+            price = item[field].toDouble();
+          }
+          if (price > 0) break;
+        } catch (e) {
+          print('❌ Error parsing price from field $field: ${item[field]}');
+        }
+      }
+    }
+    
+    // ✅ Multiple fallbacks for quantity
+    int quantity = 1;
+    final quantityFields = ['quantity', 'qty', 'count'];
+    for (String field in quantityFields) {
+      if (item[field] != null) {
+        try {
+          if (item[field] is String) {
+            quantity = int.parse(item[field]);
+          } else if (item[field] is num) {
+            quantity = item[field].toInt();
+          }
+          if (quantity > 0) break;
+        } catch (e) {
+          print('❌ Error parsing quantity from field $field: ${item[field]}');
+        }
+      }
+    }
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Product Image
-        Container(
-          width: 60,
-          height: 60,
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
-            borderRadius: BorderRadius.circular(8),
+    // ✅ Debug logging
+    print('📦 Order Item Debug:');
+    print('  Name: $productName');
+    print('  Price: \$${price.toStringAsFixed(2)}');
+    print('  Quantity: $quantity');
+    print('  Image URL: ${imageUrl ?? "No image"}');
+    print('  Raw item data: $item');
+
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ✅ Enhanced Product Image with better error handling
+          Container(
+            width: 70,
+            height: 70,
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(8),
+              color: Colors.grey.shade100,
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: imageUrl != null && imageUrl.isNotEmpty
+                ? Image.network(
+                    imageUrl,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Center(
+                        child: CircularProgressIndicator(
+                          value: loadingProgress.expectedTotalBytes != null
+                              ? loadingProgress.cumulativeBytesLoaded /
+                                  loadingProgress.expectedTotalBytes!
+                              : null,
+                          strokeWidth: 2,
+                        ),
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      print('❌ Image load error for URL: $imageUrl');
+                      print('❌ Error: $error');
+                      return _buildImagePlaceholder();
+                    },
+                  )
+                : _buildImagePlaceholder(),
           ),
-          clipBehavior: Clip.antiAlias,
-          child: hasImage
-              ? Image.network(
-                  item['imageURL'],
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => _buildImagePlaceholder(),
-                )
-              : _buildImagePlaceholder(),
-        ),
-        SizedBox(width: 12),
-        // Product Details
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          SizedBox(width: 16),
+          
+          // ✅ Enhanced Product Details
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  productName,
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                SizedBox(height: 6),
+                
+                // ✅ Additional product details
+                if (item['brand'] != null && item['brand'].toString().isNotEmpty) ...[
+                  Text(
+                    'Brand: ${item['brand']}',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  SizedBox(height: 2),
+                ],
+                
+                if (item['size'] != null && item['size'].toString().isNotEmpty) ...[
+                  Text(
+                    'Size: ${item['size']}',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  SizedBox(height: 2),
+                ],
+                
+                if (item['condition'] != null && item['condition'].toString().isNotEmpty) ...[
+                  Text(
+                    'Condition: ${item['condition']}',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  SizedBox(height: 2),
+                ],
+                
+                Row(
+                  children: [
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'Qty: $quantity',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          
+          // ✅ Enhanced Price Display
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                productName,
+                '\$${price.toStringAsFixed(2)}',
                 style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.w500,
-                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                  color: Colors.green.shade700,
                 ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
               ),
-              SizedBox(height: 4),
-              if (item['size'] != null) ...[
+              if (quantity > 1) ...[
+                SizedBox(height: 4),
                 Text(
-                  'Size: ${item['size']}',
+                  'each',
                   style: GoogleFonts.poppins(
-                    fontSize: 12,
+                    fontSize: 11,
                     color: Colors.grey[600],
                   ),
                 ),
                 SizedBox(height: 2),
-              ],
-              Text(
-                'Qty: $quantity',
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  color: Colors.grey[600],
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: Colors.green.shade200),
+                  ),
+                  child: Text(
+                    'Total: \$${(price * quantity).toStringAsFixed(2)}',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.green.shade700,
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
-        ),
-        // Price
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              '\$${price.toStringAsFixed(2)}',
-              style: GoogleFonts.poppins(
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
-              ),
-            ),
-            if (quantity > 1) ...[
-              SizedBox(height: 2),
-              Text(
-                'Total: \$${(price * quantity).toStringAsFixed(2)}',
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                ),
-              ),
-            ],
-          ],
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -596,7 +976,71 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     );
   }
 
+  // ✅ Enhanced _buildPricingBreakdown method:
+
   Widget _buildPricingBreakdown() {
+    // ✅ Calculate subtotal from items if missing
+    double calculatedSubtotal = 0.0;
+    final items = _orderData!['items'];
+    
+    if (items is List) {
+      for (var item in items) {
+        if (item is Map<String, dynamic>) {
+          // Get price with multiple fallbacks
+          double itemPrice = 0.0;
+          final priceFields = ['productPrice', 'price', 'unitPrice', 'itemPrice'];
+          for (String field in priceFields) {
+            if (item[field] != null) {
+              try {
+                if (item[field] is String) {
+                  itemPrice = double.parse(item[field]);
+                } else if (item[field] is num) {
+                  itemPrice = item[field].toDouble();
+                }
+                if (itemPrice > 0) break;
+              } catch (e) {
+                print('❌ Error parsing item price: $e');
+              }
+            }
+          }
+          
+          // Get quantity with fallbacks
+          int quantity = 1;
+          final quantityFields = ['quantity', 'qty', 'count'];
+          for (String field in quantityFields) {
+            if (item[field] != null) {
+              try {
+                if (item[field] is String) {
+                  quantity = int.parse(item[field]);
+                } else if (item[field] is num) {
+                  quantity = item[field].toInt();
+                }
+                if (quantity > 0) break;
+              } catch (e) {
+                print('❌ Error parsing item quantity: $e');
+              }
+            }
+          }
+          
+          calculatedSubtotal += (itemPrice * quantity);
+        }
+      }
+    }
+    
+    // ✅ Use order data or calculated values
+    final subtotal = _orderData!['subtotal'] ?? calculatedSubtotal;
+    final shipping = _orderData!['shipping'] ?? _orderData!['shippingFee'] ?? 0.0;
+    final tax = _orderData!['tax'] ?? 0.0;
+    final total = _orderData!['total'] ?? (subtotal + shipping + tax);
+
+    print('💰 Pricing Debug:');
+    print('  Calculated Subtotal: \$${calculatedSubtotal.toStringAsFixed(2)}');
+    print('  Order Subtotal: \$${(_orderData!['subtotal'] ?? 0.0).toStringAsFixed(2)}');
+    print('  Using Subtotal: \$${subtotal.toStringAsFixed(2)}');
+    print('  Shipping: \$${shipping.toStringAsFixed(2)}');
+    print('  Tax: \$${tax.toStringAsFixed(2)}');
+    print('  Total: \$${total.toStringAsFixed(2)}');
+
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -605,23 +1049,25 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Order Summary',
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
+            Row(
+              children: [
+                Icon(Icons.receipt_long, color: Colors.green),
+                SizedBox(width: 8),
+                Text(
+                  'Order Summary',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
-            SizedBox(height: 12),
-            _buildPriceRow('Subtotal', _orderData!['subtotal']),
-            _buildPriceRow('Shipping', _orderData!['shipping']),
-            _buildPriceRow('Tax', _orderData!['tax']),
-            Divider(height: 20),
-            _buildPriceRow(
-              'Total',
-              _orderData!['total'],
-              isTotal: true,
-            ),
+            SizedBox(height: 16),
+            _buildPriceRow('Subtotal', subtotal),
+            if (shipping > 0) _buildPriceRow('Shipping', shipping),
+            if (tax > 0) _buildPriceRow('Tax', tax),
+            Divider(height: 24, thickness: 1),
+            _buildPriceRow('Total', total, isTotal: true),
           ],
         ),
       ),
@@ -1073,5 +1519,39 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         backgroundColor: Colors.orange,
       ),
     );
+  }
+
+  // ✅ Add this helper method to the _OrderDetailScreenState class:
+
+  int _getItemCount() {
+    final items = _orderData!['items'];
+    int totalCount = 0;
+    
+    if (items is List) {
+      for (var item in items) {
+        if (item is Map<String, dynamic>) {
+          // Get quantity with fallbacks
+          int quantity = 1;
+          final quantityFields = ['quantity', 'qty', 'count'];
+          for (String field in quantityFields) {
+            if (item[field] != null) {
+              try {
+                if (item[field] is String) {
+                  quantity = int.parse(item[field]);
+                } else if (item[field] is num) {
+                  quantity = item[field].toInt();
+                }
+                if (quantity > 0) break;
+              } catch (e) {
+                print('❌ Error parsing item quantity for count: $e');
+              }
+            }
+          }
+          totalCount += quantity;
+        }
+      }
+    }
+    
+    return totalCount > 0 ? totalCount : 1; // Return at least 1 if no items found
   }
 }

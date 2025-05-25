@@ -225,10 +225,94 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                           'Items: ${orderItems.length}',
                           style: GoogleFonts.poppins(fontSize: 13),
                         ),
-                        Text(
-                          'Total: \$${order['total']?.toStringAsFixed(2) ?? "0.00"}',
-                          style: GoogleFonts.poppins(fontSize: 13),
+                        
+                        // ✅ Enhanced price display with multiple fallbacks
+                        Builder(
+                          builder: (context) {
+                            double totalPrice = 0.0;
+                            
+                            // Try to get total from different possible fields
+                            final totalFields = ['total', 'totalAmount', 'totalPrice', 'grandTotal'];
+                            for (String field in totalFields) {
+                              if (order[field] != null) {
+                                try {
+                                  if (order[field] is String) {
+                                    totalPrice = double.parse(order[field]);
+                                  } else if (order[field] is num) {
+                                    totalPrice = order[field].toDouble();
+                                  }
+                                  if (totalPrice > 0) break;
+                                } catch (e) {
+                                  print('❌ Error parsing total from field $field: ${order[field]}');
+                                }
+                              }
+                            }
+                            
+                            // ✅ If no total found, calculate from items
+                            if (totalPrice <= 0) {
+                              for (var item in orderItems) {
+                                // Get price with multiple fallbacks
+                                double itemPrice = 0.0;
+                                final priceFields = ['productPrice', 'price', 'unitPrice', 'itemPrice'];
+                                for (String field in priceFields) {
+                                  if (item[field] != null) {
+                                    try {
+                                      if (item[field] is String) {
+                                        itemPrice = double.parse(item[field]);
+                                      } else if (item[field] is num) {
+                                        itemPrice = item[field].toDouble();
+                                      }
+                                      if (itemPrice > 0) break;
+                                    } catch (e) {
+                                      print('❌ Error parsing item price: $e');
+                                    }
+                                  }
+                                }
+                                
+                                // Get quantity
+                                int quantity = 1;
+                                final quantityFields = ['quantity', 'qty', 'count'];
+                                for (String field in quantityFields) {
+                                  if (item[field] != null) {
+                                    try {
+                                      if (item[field] is String) {
+                                        quantity = int.parse(item[field]);
+                                      } else if (item[field] is num) {
+                                        quantity = item[field].toInt();
+                                      }
+                                      if (quantity > 0) break;
+                                    } catch (e) {
+                                      print('❌ Error parsing quantity: $e');
+                                    }
+                                  }
+                                }
+                                
+                                totalPrice += (itemPrice * quantity);
+                              }
+                              
+                              // Add shipping and tax if available
+                              final shipping = double.tryParse(order['shipping']?.toString() ?? '0') ?? 0.0;
+                              final tax = double.tryParse(order['tax']?.toString() ?? '0') ?? 0.0;
+                              totalPrice += shipping + tax;
+                            }
+                            
+                            // ✅ Debug logging for price
+                            print('💰 Order History Price Debug:');
+                            print('  Order: ${order['orderNumber'] ?? order['orderId']}');
+                            print('  Calculated total: \$${totalPrice.toStringAsFixed(2)}');
+                            print('  Raw total from order: ${order['total']}');
+                            
+                            return Text(
+                              'Total: \$${totalPrice.toStringAsFixed(2)}',
+                              style: GoogleFonts.poppins(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.green.shade700,
+                              ),
+                            );
+                          },
                         ),
+                        
                         if (createdAt != null)
                           Text(
                             'Placed: ${DateFormat('MMM dd, yyyy').format(createdAt)}',
@@ -246,26 +330,60 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                       itemCount: orderItems.length,
                       itemBuilder: (context, itemIndex) {
                         final item = orderItems[itemIndex];
-                        final hasImage = item['imageURL'] != null && item['imageURL'].toString().isNotEmpty;
+                        
+                        // ✅ Multiple fallbacks for image URL
+                        String? imageUrl;
+                        final imageFields = ['imageURL', 'imageUrl', 'image', 'productImage', 'thumbnail'];
+                        for (String field in imageFields) {
+                          if (item[field] != null && item[field].toString().trim().isNotEmpty) {
+                            imageUrl = item[field].toString();
+                            break;
+                          }
+                        }
+                        
+                        // ✅ Debug logging for images
+                        if (itemIndex == 0) { // Only log for first item to avoid spam
+                          print('🖼️ Order History Image Debug:');
+                          print('  Item fields: ${item.keys.toList()}');
+                          print('  Image URL found: ${imageUrl ?? "No image"}');
+                        }
+                        
                         return Container(
                           width: 70,
+                          height: 70,
                           margin: EdgeInsets.only(right: 8),
                           decoration: BoxDecoration(
                             border: Border.all(color: Colors.grey.shade300),
                             borderRadius: BorderRadius.circular(8),
+                            color: Colors.grey.shade100,
                           ),
                           clipBehavior: Clip.antiAlias,
-                          child: hasImage
+                          child: imageUrl != null && imageUrl.isNotEmpty
                               ? Image.network(
-                                  item['imageURL'],
+                                  imageUrl,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Center(
-                                    child: Icon(Icons.image_not_supported, color: Colors.grey),
-                                  ),
+                                  loadingBuilder: (context, child, loadingProgress) {
+                                    if (loadingProgress == null) return child;
+                                    return Center(
+                                      child: SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          value: loadingProgress.expectedTotalBytes != null
+                                              ? loadingProgress.cumulativeBytesLoaded /
+                                                  loadingProgress.expectedTotalBytes!
+                                              : null,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  errorBuilder: (context, error, stackTrace) {
+                                    print('❌ Order history image error: $error');
+                                    return _buildImagePlaceholder();
+                                  },
                                 )
-                              : Center(
-                                  child: Icon(Icons.image_not_supported, color: Colors.grey),
-                                ),
+                              : _buildImagePlaceholder(),
                         );
                       },
                     ),
@@ -436,6 +554,34 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
         duration: Duration(seconds: 2),
         backgroundColor: Colors.blue[600],
         behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  // ✅ Add this helper method for image placeholders:
+
+  Widget _buildImagePlaceholder() {
+    return Container(
+      width: 70,
+      height: 70,
+      color: Colors.grey[100],
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.image_not_supported_outlined,
+            size: 20,
+            color: Colors.grey[400],
+          ),
+          SizedBox(height: 2),
+          Text(
+            'No Image',
+            style: GoogleFonts.poppins(
+              fontSize: 8,
+              color: Colors.grey[400],
+            ),
+          ),
+        ],
       ),
     );
   }
