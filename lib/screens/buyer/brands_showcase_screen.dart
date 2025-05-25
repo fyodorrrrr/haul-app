@@ -97,28 +97,34 @@ class _BrandsShowcaseScreenState extends State<BrandsShowcaseScreen> {
       padding: EdgeInsets.all(16),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
-        childAspectRatio: 0.8,
-        crossAxisSpacing: 16,
+        childAspectRatio: 0.75, // ✅ Slightly taller to accommodate text
+        crossAxisSpacing: 12, // ✅ Reduced spacing to give more room
         mainAxisSpacing: 16,
       ),
       itemCount: brands.length,
       itemBuilder: (context, index) {
         final brand = brands[index];
-        return BrandLogoWidget(
-          brandName: brand,
-          size: 80,
-          showText: true,
-          circular: true,
-          showBorder: true,
-          backgroundColor: Colors.white,
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => BrandProductsScreen(brandName: brand),
-              ),
-            );
-          },
+        return Container(
+          // ✅ Wrap in container with constraints
+          constraints: BoxConstraints(
+            maxWidth: (MediaQuery.of(context).size.width - 56) / 3, // Account for padding and spacing
+          ),
+          child: BrandLogoWidget(
+            brandName: brand,
+            size: 65, // ✅ Slightly smaller to prevent overflow
+            showText: true,
+            circular: true,
+            showBorder: true,
+            backgroundColor: Colors.white,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => BrandProductsScreen(brandName: brand),
+                ),
+              );
+            },
+          ),
         );
       },
     );

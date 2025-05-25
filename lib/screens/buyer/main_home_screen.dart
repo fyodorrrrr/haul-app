@@ -432,14 +432,16 @@ class _MainHomeScreenState extends State<MainHomeScreen> with RouteAware {
     final brandsList = uniqueBrands.toList();
 
     return SizedBox(
-      height: 100, // Increased height to accommodate logos and text
+      height: 110, // ✅ Increased height to accommodate text
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.symmetric(horizontal: 16),
         itemCount: brandsList.length,
         itemBuilder: (context, index) {
           final brand = brandsList[index];
           return Container(
-            margin: EdgeInsets.only(right: 16),
+            width: 80, // ✅ Fixed width to prevent overflow
+            margin: EdgeInsets.only(right: 12),
             child: BrandLogoWidget(
               brandName: brand,
               size: 60,
