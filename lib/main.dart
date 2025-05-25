@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:haul/providers/product_provider.dart';
 import 'package:haul/screens/buyer/welcome_screen.dart';
+import 'package:haul/screens/seller/order_detail_screen.dart';
 import 'theme/app_theme.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
@@ -77,6 +78,14 @@ class MainApp extends StatelessWidget {
         home: const WelcomeScreen(),
         routes: {
           '/login': (context) => LoginScreen(), // Add this line
+          '/order-detail': (context) {
+            final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+            return OrderDetailScreen(
+              orderId: args['orderId'],
+              orderData: args['orderData'],
+              isSellerView: args['isSellerView'] ?? false,
+            );
+          },
         },
         debugShowCheckedModeBanner: false,
         navigatorObservers: [routeObserver],
