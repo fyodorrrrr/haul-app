@@ -49,19 +49,6 @@ class BrandLogoService {
     'Gap': {'category': 'contemporary', 'hasLogo': true},
     'Forever 21': {'category': 'contemporary', 'hasLogo': true},
     
-    // Vintage Era Brands
-    'Vintage Nike': {'category': 'vintage', 'hasLogo': true},
-    'Vintage Adidas': {'category': 'vintage', 'hasLogo': true},
-    'Vintage Champion': {'category': 'vintage', 'hasLogo': true},
-    'Vintage Tommy': {'category': 'vintage', 'hasLogo': true},
-    'Vintage Levi\'s': {'category': 'vintage', 'hasLogo': true},
-    
-    // Era-specific
-    '80s Vintage': {'category': 'vintage', 'hasLogo': false},
-    '90s Vintage': {'category': 'vintage', 'hasLogo': false},
-    'Y2K': {'category': 'vintage', 'hasLogo': false},
-    '2000s Vintage': {'category': 'vintage', 'hasLogo': false},
-    
     // Generic/Other
     'Hanes': {'category': 'basic', 'hasLogo': true},
     'Fruit of the Loom': {'category': 'basic', 'hasLogo': true},

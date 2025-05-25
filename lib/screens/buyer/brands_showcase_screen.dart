@@ -44,7 +44,9 @@ class _BrandsShowcaseScreenState extends State<BrandsShowcaseScreen> {
       {'key': 'luxury', 'label': 'Luxury'},
       {'key': 'streetwear', 'label': 'Streetwear'},
       {'key': 'sports', 'label': 'Sports'},
-      {'key': 'vintage', 'label': 'Vintage'},
+      {'key': 'classic', 'label': 'Classic'},
+      {'key': 'contemporary', 'label': 'Contemporary'},
+      {'key': 'basic', 'label': 'Other Brands'},
     ];
 
     return Container(

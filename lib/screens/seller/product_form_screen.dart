@@ -265,7 +265,6 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       case 'streetwear': return 'Streetwear';
       case 'classic': return 'Classic Fashion';
       case 'contemporary': return 'Contemporary';
-      case 'vintage': return 'Vintage';
       case 'basic': return 'Basic & Essentials';
       default: return 'Other';
     }
@@ -554,19 +553,16 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                       ),
                       SizedBox(height: 16),
                       
-                      // SKU and Brand in same row
-                      Row(
+                      // SKU and Brand as vertical list
+                      Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: _buildSKUField(),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: _buildBrandSelector(),
-                          ),
+                          _buildSKUField(),
+                          const SizedBox(height: 20),
+                          _buildBrandSelector(),
                         ],
                       ),
+                      
                       const SizedBox(height: 16),
                       
                       // Pricing section
@@ -838,144 +834,296 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   }
   
   Widget _buildSKUField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'SKU (Optional)',
-          style: GoogleFonts.poppins(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: Colors.grey[700],
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.qr_code, size: 20, color: Colors.grey[600]),
+              SizedBox(width: 8),
+              Text(
+                'SKU (Stock Keeping Unit)',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey[800],
+                ),
+              ),
+              Spacer(),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.blue[200]!),
+                ),
+                child: Text(
+                  'Optional',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.blue[600],
+                  ),
+                ),
+              ),
+            ],
           ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: _skuController,
-          decoration: InputDecoration(
-            hintText: 'Auto-generated if empty',
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
+          SizedBox(height: 12),
+          
+          TextFormField(
+            controller: _skuController,
+            decoration: InputDecoration(
+              hintText: 'Enter SKU or leave empty for auto-generation',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: Colors.grey[300]!),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: Colors.grey[300]!),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: Colors.blue[400]!, width: 2),
+              ),
+              contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              filled: true,
+              fillColor: Colors.white,
+              suffixIcon: Container(
+                margin: EdgeInsets.all(4),
+                child: ElevatedButton.icon(
+                  onPressed: _generateSKU,
+                  icon: Icon(Icons.auto_fix_high, size: 16),
+                  label: Text(
+                    'Generate',
+                    style: GoogleFonts.poppins(fontSize: 12),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue[600],
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    minimumSize: Size(0, 0),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                ),
+              ),
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-            suffixIcon: IconButton(
-              icon: const Icon(Icons.auto_fix_high, size: 20),
-              onPressed: _generateSKU,
-              tooltip: 'Generate SKU',
-            ),
-          ),
-          inputFormatters: [
-            FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9_-]')),
-          ],
-          validator: (value) {
-            if (value != null && value.trim().isNotEmpty) {
-              if (value.trim().length < 3) {
-                return 'SKU must be at least 3 characters';
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9_-]')),
+            ],
+            validator: (value) {
+              if (value != null && value.trim().isNotEmpty) {
+                if (value.trim().length < 3) {
+                  return 'SKU must be at least 3 characters';
+                }
+                if (value.trim().length > 50) {
+                  return 'SKU must be less than 50 characters';
+                }
               }
-              if (value.trim().length > 50) {
-                return 'SKU must be less than 50 characters';
-              }
-            }
-            return null;
-          },
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'SKU helps you track inventory. Leave empty for auto-generation.',
-          style: GoogleFonts.poppins(
-            fontSize: 12,
-            color: Colors.grey[600],
+              return null;
+            },
           ),
-        ),
-      ],
-    );
-  }
-  
-  Widget _buildBrandSelector() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Brand *',
-          style: GoogleFonts.poppins(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: Colors.grey[700],
-          ),
-        ),
-        const SizedBox(height: 8),
-        
-        // Brand Category Filter
-        _buildBrandCategoryFilter(),
-        const SizedBox(height: 12),
-        
-        // Brand Search Field
-        TextFormField(
-          controller: _brandController,
-          focusNode: _brandFocusNode,
-          decoration: InputDecoration(
-            hintText: 'Search brand or type custom name',
-            border: OutlineInputBorder(
+          
+          SizedBox(height: 12),
+          
+          Container(
+            padding: EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.blue[50],
               borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.blue[100]!),
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-            prefixIcon: _buildBrandIcon(),
-            suffixIcon: Row(
-              mainAxisSize: MainAxisSize.min,
+            child: Row(
               children: [
-                if (_brandController.text.isNotEmpty)
-                  IconButton(
-                    icon: const Icon(Icons.clear, size: 20),
-                    onPressed: _clearBrandSelection,
+                Icon(Icons.info_outline, size: 16, color: Colors.blue[600]),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'SKU helps you track inventory. If left empty, we\'ll auto-generate one using brand and category.',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: Colors.blue[700],
+                    ),
                   ),
-                IconButton(
-                  icon: Icon(
-                    _showBrandDropdown ? Icons.expand_less : Icons.expand_more,
-                    size: 20,
-                  ),
-                  onPressed: () {
-                    setState(() {
-                      _showBrandDropdown = !_showBrandDropdown;
-                      if (_showBrandDropdown) {
-                        _brandFocusNode.requestFocus();
-                      } else {
-                        _brandFocusNode.unfocus();
-                      }
-                    });
-                  },
                 ),
               ],
             ),
           ),
-          onChanged: _onBrandSearchChanged,
-          onTap: () {
-            setState(() {
-              _showBrandDropdown = true;
-              if (_brandController.text.isEmpty) {
-                _filteredBrands = _availableBrands;
-              }
-            });
-          },
-          validator: (value) {
-            if (value == null || value.trim().isEmpty) {
-              return 'Please select or enter a brand';
-            }
-            if (value.trim().length > 50) {
-              return 'Brand name must be less than 50 characters';
-            }
-            return null;
-          },
-        ),
-        
-        // Brand Dropdown
-        if (_showBrandDropdown && _filteredBrands.isNotEmpty)
-          _buildBrandDropdown(),
-      
-        const SizedBox(height: 8),
-        _buildBrandHelper(),
-      ],
+        ],
+      ),
     );
   }
+  
+  Widget _buildBrandSelector() {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _buildBrandIcon(),
+              SizedBox(width: 8),
+              Text(
+                'Brand',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey[800],
+                ),
+              ),
+              Spacer(),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.red[50],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.red[200]!),
+                ),
+                child: Text(
+                  'Required',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.red[600],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 16),
+          
+          // Brand Category Filter
+          Text(
+            'Brand Category',
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey[700],
+            ),
+          ),
+          SizedBox(height: 8),
+          _buildBrandCategoryFilter(),
+          SizedBox(height: 16),
+          
+          // Brand Search Field
+          Text(
+            'Search or Enter Brand',
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey[700],
+            ),
+          ),
+          SizedBox(height: 8),
+          TextFormField(
+            controller: _brandController,
+            focusNode: _brandFocusNode,
+            decoration: InputDecoration(
+              hintText: 'Search brand or type custom name',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: Colors.grey[300]!),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: Colors.grey[300]!),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: Colors.blue[400]!, width: 2),
+              ),
+              contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              filled: true,
+              fillColor: Colors.white,
+              prefixIcon: Container(
+                padding: EdgeInsets.all(12),
+                child: BrandLogoWidget(
+                  brandName: _brandController.text.trim().isEmpty ? 'Default' : _brandController.text.trim(),
+                  size: 20,
+                  circular: true,
+                  showBorder: false,
+                ),
+              ),
+              suffixIcon: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_brandController.text.isNotEmpty)
+                    IconButton(
+                      icon: Icon(Icons.clear, size: 20, color: Colors.grey[600]),
+                      onPressed: _clearBrandSelection,
+                    ),
+                  IconButton(
+                    icon: Icon(
+                      _showBrandDropdown ? Icons.expand_less : Icons.expand_more,
+                      size: 20,
+                      color: Colors.grey[600],
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _showBrandDropdown = !_showBrandDropdown;
+                        if (_showBrandDropdown) {
+                          _brandFocusNode.requestFocus();
+                        } else {
+                          _brandFocusNode.unfocus();
+                        }
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ),
+            onChanged: _onBrandSearchChanged,
+            onTap: () {
+              setState(() {
+                _showBrandDropdown = true;
+                if (_brandController.text.isEmpty) {
+                  _filteredBrands = _availableBrands;
+                }
+              });
+            },
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return 'Please select or enter a brand';
+              }
+              if (value.trim().length > 50) {
+                return 'Brand name must be less than 50 characters';
+              }
+              return null;
+            },
+          ),
+          
+          // Brand Dropdown
+          if (_showBrandDropdown && _filteredBrands.isNotEmpty)
+            Container(
+              margin: EdgeInsets.only(top: 8),
+              child: _buildBrandDropdown(),
+            ),
+      
+        SizedBox(height: 12),
+        _buildBrandHelper(),
+      ],
+    )
+  );
+  }
+
+  // ✅ Alternative: Grid layout for brand categories:
 
   Widget _buildBrandCategoryFilter() {
     final categories = [
@@ -984,48 +1132,73 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       {'key': 'luxury', 'label': 'Luxury', 'icon': Icons.diamond},
       {'key': 'streetwear', 'label': 'Street', 'icon': Icons.style},
       {'key': 'classic', 'label': 'Classic', 'icon': Icons.history_edu},
-      {'key': 'vintage', 'label': 'Vintage', 'icon': Icons.history},
+      {'key': 'contemporary', 'label': 'Modern', 'icon': Icons.face},
+      {'key': 'basic', 'label': 'Basic', 'icon': Icons.check_circle_outline},
     ];
 
-    return SizedBox(
-      height: 40,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
+    return Container(
+      width: double.infinity,
+      child: GridView.builder(
+        shrinkWrap: true,
+        physics: NeverScrollableScrollPhysics(),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 4, // ✅ 4 buttons per row
+          childAspectRatio: 1.5, // ✅ Width to height ratio
+          crossAxisSpacing: 8,
+          mainAxisSpacing: 8,
+        ),
         itemCount: categories.length,
         itemBuilder: (context, index) {
           final category = categories[index];
           final isSelected = _selectedBrandCategory == category['key'];
           
-          return Container(
-            margin: EdgeInsets.only(right: 8),
-            child: FilterChip(
-              avatar: Icon(
-                category['icon'] as IconData,
-                size: 16,
-                color: isSelected ? Colors.white : Colors.grey[600],
-              ),
-              label: Text(
-                category['label'] as String,
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: isSelected ? Colors.white : Colors.grey[700],
+          return GestureDetector(
+            onTap: () {
+              setState(() {
+                _selectedBrandCategory = category['key'] as String;
+                _filteredBrands = _availableBrands;
+                if (_brandController.text.isNotEmpty) {
+                  _onBrandSearchChanged(_brandController.text);
+                }
+              });
+            },
+            child: Container(
+              decoration: BoxDecoration(
+                color: isSelected ? Colors.blue[600] : Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: isSelected ? Colors.blue[600]! : Colors.grey[300]!,
+                  width: 1.5,
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 4,
+                    offset: Offset(0, 2),
+                  ),
+                ],
               ),
-              selected: isSelected,
-              onSelected: (selected) {
-                setState(() {
-                  _selectedBrandCategory = category['key'] as String;
-                  _filteredBrands = _availableBrands;
-                  if (_brandController.text.isNotEmpty) {
-                    _onBrandSearchChanged(_brandController.text);
-                  }
-                });
-              },
-              backgroundColor: Colors.grey[200],
-              selectedColor: Colors.black,
-              checkmarkColor: Colors.white,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    category['icon'] as IconData,
+                    size: 16,
+                    color: isSelected ? Colors.white : Colors.grey[600],
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    category['label'] as String,
+                    style: GoogleFonts.poppins(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      color: isSelected ? Colors.white : Colors.grey[700],
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
             ),
           );
         },
@@ -1055,7 +1228,6 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
 
   Widget _buildBrandDropdown() {
     return Container(
-      margin: const EdgeInsets.only(top: 4),
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border.all(color: Colors.grey[300]!),
@@ -1063,69 +1235,117 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
+            blurRadius: 8,
+            offset: Offset(0, 4),
           ),
         ],
       ),
-      constraints: const BoxConstraints(maxHeight: 200),
-      child: ListView.builder(
-        shrinkWrap: true,
-        padding: EdgeInsets.zero,
-        itemCount: _filteredBrands.length,
-        itemBuilder: (context, index) {
-          final brand = _filteredBrands[index];
-          final isKnownBrand = BrandLogoService.isKnownBrand(brand);
-          final hasLogo = BrandLogoService.hasBrandLogo(brand);
-          final category = BrandLogoService.getBrandCategory(brand);
-          final isSelected = _brandController.text == brand;
-          
-          return Container(
+      constraints: BoxConstraints(maxHeight: 240),
+      child: Column(
+        children: [
+          // Header
+          Container(
+            padding: EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: isSelected ? Theme.of(context).primaryColor.withOpacity(0.1) : null,
-              border: index < _filteredBrands.length - 1 
-                  ? Border(bottom: BorderSide(color: Colors.grey[200]!))
-                  : null,
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+              border: Border(bottom: BorderSide(color: Colors.grey[200]!)),
             ),
-            child: ListTile(
-              dense: true,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              leading: BrandLogoWidget(
-                brandName: brand,
-                size: 32,
-                circular: true,
-                showBorder: true,
-              ),
-              title: Text(
-                brand,
-                style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                  color: isSelected ? Theme.of(context).primaryColor : null,
-                ),
-              ),
-              subtitle: Row(
-                children: [
-                  if (hasLogo)
-                    Icon(Icons.verified, size: 12, color: Colors.green),
-                  if (hasLogo)
-                    SizedBox(width: 4),
-                  Text(
-                    isKnownBrand ? _getCategoryDisplayName(category) : 'Custom Brand',
-                    style: GoogleFonts.poppins(
-                      fontSize: 11,
-                      color: isKnownBrand ? Colors.blue[600] : Colors.orange[600],
-                    ),
+            child: Row(
+              children: [
+                Icon(Icons.search, size: 16, color: Colors.grey[600]),
+                SizedBox(width: 8),
+                Text(
+                  '${_filteredBrands.length} brands found',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.grey[700],
                   ),
-                ],
-              ),
-              trailing: !isKnownBrand 
-                  ? Icon(Icons.edit, size: 16, color: Colors.grey[400])
-                  : null,
-              onTap: () => _selectBrand(brand),
+                ),
+                Spacer(),
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _showBrandDropdown = false;
+                    });
+                  },
+                  child: Icon(Icons.close, size: 16, color: Colors.grey[600]),
+                ),
+              ],
             ),
-          );
-        },
+          ),
+          
+          // Brand List
+          Expanded(
+            child: ListView.builder(
+              padding: EdgeInsets.zero,
+              itemCount: _filteredBrands.length,
+              itemBuilder: (context, index) {
+                final brand = _filteredBrands[index];
+                final isKnownBrand = BrandLogoService.isKnownBrand(brand);
+                final hasLogo = BrandLogoService.hasBrandLogo(brand);
+                final category = BrandLogoService.getBrandCategory(brand);
+                final isSelected = _brandController.text == brand;
+                
+                return Container(
+                  decoration: BoxDecoration(
+                    color: isSelected ? Colors.blue[50] : null,
+                    border: index < _filteredBrands.length - 1 
+                        ? Border(bottom: BorderSide(color: Colors.grey[100]!))
+                        : null,
+                  ),
+                  child: ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    leading: Container(
+                      width: 40,
+                      height: 40,
+                      child: BrandLogoWidget(
+                        brandName: brand,
+                        size: 40,
+                        circular: true,
+                        showBorder: true,
+                      ),
+                    ),
+                    title: Text(
+                      brand,
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                        color: isSelected ? Colors.blue[700] : Colors.grey[800],
+                      ),
+                    ),
+                    subtitle: Row(
+                      children: [
+                        if (hasLogo) ...[
+                          Icon(Icons.verified, size: 12, color: Colors.green),
+                          SizedBox(width: 4),
+                        ],
+                        Expanded(
+                          child: Text(
+                            isKnownBrand ? _getCategoryDisplayName(category) : 'Custom Brand',
+                            style: GoogleFonts.poppins(
+                              fontSize: 11,
+                              color: isKnownBrand ? Colors.blue[600] : Colors.orange[600],
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    trailing: isSelected 
+                        ? Icon(Icons.check_circle, size: 20, color: Colors.blue[600])
+                        : (isKnownBrand 
+                            ? Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey[400])
+                            : Icon(Icons.edit, size: 16, color: Colors.orange[400])),
+                    onTap: () => _selectBrand(brand),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1134,11 +1354,27 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     final brandName = _brandController.text.trim();
     
     if (brandName.isEmpty) {
-      return Text(
-        'Search from our curated brand list or add your own custom brand.',
-        style: GoogleFonts.poppins(
-          fontSize: 12,
-          color: Colors.grey[600],
+      return Container(
+        padding: EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.blue[50],
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.blue[100]!),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.lightbulb_outline, size: 16, color: Colors.blue[600]),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Search from our curated brand list or add your own custom brand.',
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: Colors.blue[700],
+                ),
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -1147,43 +1383,59 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     final hasLogo = BrandLogoService.hasBrandLogo(brandName);
     
     if (isKnown) {
-      return Row(
-        children: [
-          Icon(
-            hasLogo ? Icons.verified : Icons.check_circle_outline,
-            size: 14,
-            color: Colors.green,
-          ),
-          SizedBox(width: 4),
-          Expanded(
-            child: Text(
-              hasLogo 
-                  ? 'Verified brand with logo'
-                  : 'Verified brand (logo coming soon)',
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                color: Colors.green[600],
-                fontWeight: FontWeight.w500,
+      return Container(
+        padding: EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.green[50],
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.green[100]!),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              hasLogo ? Icons.verified : Icons.check_circle_outline,
+              size: 16,
+              color: Colors.green[600],
+            ),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                hasLogo 
+                    ? 'Verified brand with logo - customers will see the brand logo'
+                    : 'Verified brand (logo coming soon)',
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: Colors.green[700],
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       );
     } else {
-      return Row(
-        children: [
-          Icon(Icons.info_outline, size: 14, color: Colors.orange),
-          SizedBox(width: 4),
-          Expanded(
-            child: Text(
-              'Custom brand - will be categorized as "Other Brands"',
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                color: Colors.orange[600],
+      return Container(
+        padding: EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.orange[50],
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.orange[100]!),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.info_outline, size: 16, color: Colors.orange[600]),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Custom brand - will be categorized as "Other Brands" in search filters',
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: Colors.orange[700],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       );
     }
   }
