@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:haul/screens/seller/inventory_dashboard_screen.dart';
 import 'package:haul/screens/seller/inventory_list_screen.dart';
+import 'package:haul/screens/seller/order_detail_screen.dart';
 import 'package:haul/screens/seller/seller_profile_navigation_screen.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
@@ -39,9 +40,11 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
     'totalSalesWeek': 0.0,
   };
 
+  // ✅ Add these variables to your class if not already present
   List<Map<String, dynamic>> _recentOrders = [];
   bool _ordersLoading = true;
   String? _ordersError;
+  StreamSubscription<QuerySnapshot>? _ordersSubscription;
 
   final List<String> _requiredProfileFields = [
     'businessName',
@@ -52,43 +55,44 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
     'profileImageUrl',
   ];
 
-  StreamSubscription<QuerySnapshot>? _ordersSubscription;
-
   @override
   void initState() {
     super.initState();
+    // Load dashboard data
     _loadDashboardData();
-    _setupOrdersListener();
     
-    // Load analytics with delay to ensure provider is ready
+    // ✅ Make sure this is called
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        final analyticsProvider = Provider.of<AnalyticsProvider>(context, listen: false);
-        print('Loading analytics from dashboard...');
-        analyticsProvider.fetchAnalytics().then((_) {
-          print('Analytics loading completed');
-        }).catchError((error) {
-          print('Analytics loading failed: $error');
-        });
-        
-        // ADD THIS: Load products when dashboard opens
-        final productProvider = Provider.of<ProductProvider>(context, listen: false);
-        print('Loading products from dashboard...');
-        productProvider.loadProducts().then((_) {
-          print('Products loading completed');
-        }).catchError((error) {
-          print('Products loading failed: $error');
-        });
-      }
+      _setupOrdersListener();
+      
+      // Load analytics with delay to ensure provider is ready
+      final analyticsProvider = Provider.of<AnalyticsProvider>(context, listen: false);
+      print('Loading analytics from dashboard...');
+      analyticsProvider.fetchAnalytics().then((_) {
+        print('Analytics loading completed');
+      }).catchError((error) {
+        print('Analytics loading failed: $error');
+      });
+      
+      // Load products when dashboard opens
+      final productProvider = Provider.of<ProductProvider>(context, listen: false);
+      print('Loading products from dashboard...');
+      productProvider.loadProducts().then((_) {
+        print('Products loading completed');
+      }).catchError((error) {
+        print('Products loading failed: $error');
+      });
     });
   }
 
   @override
   void dispose() {
+    // ✅ Clean up subscription
     _ordersSubscription?.cancel();
     super.dispose();
   }
 
+  // ✅ Enhanced orders listener with multiple query strategies
   void _setupOrdersListener() {
     setState(() {
       _ordersLoading = true;
@@ -97,46 +101,239 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
     
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) throw Exception('User not authenticated');
+      if (user == null) {
+        setState(() {
+          _ordersError = 'User not authenticated';
+          _ordersLoading = false;
+        });
+        return;
+      }
 
-      final ordersStream = FirebaseFirestore.instance
-          .collection('orders')
-          .where('sellerIds', arrayContains: user.uid)
-          .orderBy('createdAt', descending: true)
-          .limit(3)
-          .snapshots();
-      
-      _ordersSubscription = ordersStream.listen(
-        (snapshot) {
-          if (mounted) {
-            final orders = snapshot.docs.map((doc) {
-              final data = doc.data();
-              data['documentId'] = doc.id;
-              return data;
-            }).toList();
-            
-            setState(() {
-              _recentOrders = orders;
-              _ordersLoading = false;
-            });
-          }
-        },
-        onError: (error) {
-          if (mounted) {
-            setState(() {
-              _ordersError = error.toString();
-              _ordersLoading = false;
-            });
-          }
-        }
-      );
+      print('🔍 Setting up orders listener for seller: ${user.uid}');
+      _tryOrdersQuery(user.uid);
+
     } catch (e) {
+      print('❌ Error in _setupOrdersListener: $e');
       if (mounted) {
         setState(() {
           _ordersError = e.toString();
           _ordersLoading = false;
         });
       }
+    }
+  }
+
+  // ✅ Try multiple query strategies to find orders
+  void _tryOrdersQuery(String sellerId) async {
+    print('🔍 Trying orders query strategies...');
+    
+    // Strategy 1: Use where clause with map key (since sellerIds is a Map)
+    try {
+      print('✅ Strategy 1: Trying sellerIds map key');
+      
+      _ordersSubscription?.cancel();
+      _ordersSubscription = FirebaseFirestore.instance
+          .collection('orders')
+          .where('sellerIds.$sellerId', isEqualTo: true)  // ✅ Query map key directly
+          .orderBy('createdAt', descending: true)
+          .limit(5)
+          .snapshots()
+          .listen(
+        (snapshot) {
+          print('📦 Strategy 1 - Got ${snapshot.docs.length} orders');
+          if (snapshot.docs.isNotEmpty) {
+            _processOrdersSnapshot(snapshot);
+            return;
+          }
+          
+          // If no results, try strategy 2
+          print('🔄 Strategy 1 failed, trying strategy 2...');
+          _tryStrategy2(sellerId);
+        },
+        onError: (error) {
+          print('❌ Strategy 1 error: $error');
+          _tryStrategy2(sellerId);
+        }
+      );
+      
+    } catch (e) {
+      print('❌ Strategy 1 setup error: $e');
+      _tryStrategy2(sellerId);
+    }
+  }
+
+  // ✅ Strategy 2: Try sellerId field
+  void _tryStrategy2(String sellerId) async {
+    try {
+      print('✅ Strategy 2: Trying sellerId field');
+      
+      _ordersSubscription?.cancel();
+      _ordersSubscription = FirebaseFirestore.instance
+          .collection('orders')
+          .where('sellerId', isEqualTo: sellerId)
+          .orderBy('createdAt', descending: true)
+          .limit(5)
+          .snapshots()
+          .listen(
+        (snapshot) {
+          print('📦 Strategy 2 - Got ${snapshot.docs.length} orders');
+          if (snapshot.docs.isNotEmpty) {
+            _processOrdersSnapshot(snapshot);
+            return;
+          }
+          
+          // If no results, try strategy 3
+          print('🔄 Strategy 2 failed, trying strategy 3...');
+          _tryStrategy3(sellerId);
+        },
+        onError: (error) {
+          print('❌ Strategy 2 error: $error');
+          _tryStrategy3(sellerId);
+        }
+      );
+      
+    } catch (e) {
+      print('❌ Strategy 2 setup error: $e');
+      _tryStrategy3(sellerId);
+    }
+  }
+
+  // ✅ Strategy 3: Manual query to debug what's in the database
+  void _tryStrategy3(String sellerId) async {
+    try {
+      print('✅ Strategy 3: Manual query - fetching all orders to debug');
+      
+      // Get all recent orders and filter manually
+      final QuerySnapshot allOrdersSnapshot = await FirebaseFirestore.instance
+          .collection('orders')
+          .orderBy('createdAt', descending: true)
+          .limit(20) // Get more to filter from
+          .get();
+      
+      print('📦 Strategy 3 - Got ${allOrdersSnapshot.docs.length} total orders');
+      
+      // Filter manually for debugging
+      List<QueryDocumentSnapshot> relevantOrders = [];
+      
+      for (var doc in allOrdersSnapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        print('🔍 Checking order ${doc.id}:');
+        print('  - sellerIds: ${data['sellerIds']}');
+        print('  - sellerId: ${data['sellerId']}');
+        print('  - items: ${data['items']?.length ?? 0} items');
+        
+        // Check if this order belongs to current seller
+        bool isSellerOrder = false;
+        
+        // Check sellerIds array
+        if (data['sellerIds'] is List && (data['sellerIds'] as List).contains(sellerId)) {
+          isSellerOrder = true;
+          print('  ✅ Found via sellerIds array');
+        }
+        
+        // Check sellerId field
+        if (data['sellerId'] == sellerId) {
+          isSellerOrder = true;
+          print('  ✅ Found via sellerId field');
+        }
+        
+        // Check items for sellerId
+        if (data['items'] is List) {
+          for (var item in data['items']) {
+            if (item is Map && item['sellerId'] == sellerId) {
+              isSellerOrder = true;
+              print('  ✅ Found via item sellerId');
+              break;
+            }
+          }
+        }
+        
+        if (isSellerOrder) {
+          relevantOrders.add(doc);
+          print('  🎯 Added to relevant orders');
+        }
+      }
+      
+      print('📦 Found ${relevantOrders.length} relevant orders for seller');
+      
+      // Process the filtered results
+      if (relevantOrders.isNotEmpty) {
+        final orders = relevantOrders.take(5).map((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          data['documentId'] = doc.id;
+          return data;
+        }).toList();
+        
+        if (mounted) {
+          setState(() {
+            _recentOrders = orders;
+            _ordersLoading = false;
+            _ordersError = null;
+          });
+        }
+      } else {
+        // No orders found
+        if (mounted) {
+          setState(() {
+            _recentOrders = [];
+            _ordersLoading = false;
+            _ordersError = null; // Not an error, just no orders
+          });
+        }
+      }
+      
+    } catch (e) {
+      print('❌ Strategy 3 error: $e');
+      if (mounted) {
+        setState(() {
+          _ordersError = 'Failed to load orders: $e';
+          _ordersLoading = false;
+        });
+      }
+    }
+  }
+
+  // ✅ Process successful orders snapshot
+  // ✅ Enhanced order processing with total calculation
+  void _processOrdersSnapshot(QuerySnapshot snapshot) {
+    if (mounted) {
+      final orders = snapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        data['documentId'] = doc.id;
+        
+        // ✅ Calculate total if missing
+        if (data['total'] == null || data['total'] == 0.0) {
+          double calculatedTotal = 0.0;
+          if (data['items'] is List) {
+            final items = data['items'] as List;
+            for (var item in items) {
+              if (item is Map<String, dynamic>) {
+                final price = (item['price'] ?? 0.0).toDouble();
+                final quantity = (item['quantity'] ?? 1).toInt();
+                calculatedTotal += (price * quantity);
+              }
+            }
+          }
+          data['total'] = calculatedTotal;
+          print('📋 Calculated total for order ${doc.id}: ₱${calculatedTotal.toStringAsFixed(2)}');
+        }
+        
+        // Debug each order
+        print('📋 Processing order: ${doc.id}');
+        print('  - Total: ${data['total']} (calculated if was null)');
+        print('  - Status: ${data['status']}');
+        print('  - Items: ${data['items']?.length ?? 0}');
+        
+        return data;
+      }).toList();
+      
+      setState(() {
+        _recentOrders = orders;
+        _ordersLoading = false;
+        _ordersError = null;
+      });
+      
+      print('✅ Successfully processed ${orders.length} orders with totals');
     }
   }
 
@@ -304,24 +501,58 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                     ),
                     
                     SizedBox(height: 24),
-                    Consumer<AnalyticsProvider>(
-                      builder: (context, provider, _) {
-                        if (provider.isLoading) {
-                          return Center(child: CircularProgressIndicator());
-                        }
-                        return Column(
+                    
+                    // Simple analytics using existing _salesMetrics
+                    Card(
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _buildAnalyticsSummary(),
-                            if (provider.error != null)
-                              TextButton(
-                                onPressed: () {
-                                  Provider.of<AnalyticsProvider>(context, listen: false).fetchAnalytics();
-                                },
-                                child: Text('Retry loading analytics'),
-                              ),
+                            Row(
+                              children: [
+                                Icon(Icons.analytics_outlined, color: Colors.blue[600]),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Performance Overview',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: 16),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceAround,
+                              children: [
+                                _buildSimpleMetric(
+                                  'Revenue',
+                                  '₱${_salesMetrics['totalSales'].toStringAsFixed(2)}',
+                                  Icons.monetization_on,
+                                  Colors.green,
+                                ),
+                                _buildSimpleMetric(
+                                  'Orders',
+                                  '${_salesMetrics['ordersCount']}',
+                                  Icons.shopping_bag,
+                                  Colors.blue,
+                                ),
+                                _buildSimpleMetric(
+                                  'Views',
+                                  '${_salesMetrics['viewCount']}',
+                                  Icons.visibility,
+                                  Colors.purple,
+                                ),
+                              ],
+                            ),
                           ],
-                        );
-                      },
+                        ),
+                      ),
                     ),
                     
                     SizedBox(height: 32),
@@ -479,6 +710,38 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  // ✅ Add this simple helper method
+  Widget _buildSimpleMetric(String label, String value, IconData icon, Color color) {
+    return Column(
+      children: [
+        Container(
+          padding: EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: color, size: 20),
+        ),
+        SizedBox(height: 8),
+        Text(
+          value,
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: Colors.grey[800],
+          ),
+        ),
+        Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 10,
+            color: Colors.grey[600],
+          ),
+        ),
+      ],
     );
   }
 
@@ -1202,9 +1465,22 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
     if (_ordersLoading) {
       return Container(
         height: 120,
-        child: Center(child: CircularProgressIndicator()),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 8),
+              Text(
+                'Loading orders...',
+                style: GoogleFonts.poppins(color: Colors.grey[600]),
+              ),
+            ],
+          ),
+        ),
       );
     }
+    
     if (_ordersError != null) {
       return Container(
         height: 120,
@@ -1227,180 +1503,254 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                   fontWeight: FontWeight.w500,
                 ),
               ),
+              SizedBox(height: 4),
+              Text(
+                _ordersError!,
+                style: GoogleFonts.poppins(
+                  color: Colors.red[600],
+                  fontSize: 12,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              SizedBox(height: 8),
+              ElevatedButton.icon(
+                onPressed: () {
+                  final user = FirebaseAuth.instance.currentUser;
+                  if (user != null) {
+                    _setupOrdersListener();
+                  }
+                },
+                icon: Icon(Icons.refresh, size: 16),
+                label: Text('Retry'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                ),
+              ),
             ],
           ),
         ),
       );
     }
+    
     if (_recentOrders.isEmpty) {
       return Container(
-        // Remove fixed height to let content determine height
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: Colors.grey.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.withOpacity(0.3)),
-        ),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min, // Use min to avoid expanding unnecessarily
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.shopping_bag_outlined, color: Colors.grey[600], size: 32),
-              SizedBox(height: 8),
-              Text(
-                'No recent orders',
-                style: GoogleFonts.poppins(
-                  color: Colors.grey[600],
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              Text(
-                'Orders will appear here once customers start buying',
-                style: GoogleFonts.poppins(
-                  color: Colors.grey[500],
-                  fontSize: 12,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 2, // Limit to 2 lines
-                overflow: TextOverflow.ellipsis, // Add ellipsis if text overflows
-              ),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Colors.orange.withOpacity(0.05),
+              Colors.purple.withOpacity(0.05),
             ],
           ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.orange.withOpacity(0.1)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.shopping_bag_outlined,
+                size: 32,
+                color: Colors.orange[600],
+              ),
+            ),
+            SizedBox(height: 16),
+            Text(
+              'No Orders Yet',
+              style: GoogleFonts.poppins(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey[800],
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Orders will appear here once customers start buying your products',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: Colors.grey[600],
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
       );
     }
 
-    // Horizontal scrollable order cards with different layout
+    // ✅ Enhanced horizontal scrollable order cards
     return Container(
-      height: 140,
+      height: 160,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: _recentOrders.length,
         itemBuilder: (context, index) {
           final order = _recentOrders[index];
-          final createdAt = order['createdAt'] is Timestamp
-              ? (order['createdAt'] as Timestamp).toDate()
-              : null;
-          final orderItems = order['items'] is List ? List<Map<String, dynamic>>.from(order['items']) : [];
-          String? imageUrl;
-          if (orderItems.isNotEmpty && orderItems[0]['imageURL'] != null) {
-            imageUrl = orderItems[0]['imageURL'];
-          }
-          
-          // Get status color
-          Color statusColor = Colors.orange;
-          String status = order['status'] ?? 'pending';
-          switch (status.toLowerCase()) {
-            case 'delivered':
-              statusColor = Colors.green;
-              break;
-            case 'processing':
-              statusColor = Colors.blue;
-              break;
-            case 'cancelled':
-              statusColor = Colors.red;
-              break;
-            default:
-              statusColor = Colors.orange;
-          }
+          return _buildEnhancedOrderCard(order, index);
+        },
+      ),
+    );
+  }
 
-          return Container(
-            width: 200,
-            margin: EdgeInsets.only(right: 12),
-            child: Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+  // ✅ Enhanced order card with better data handling
+  Widget _buildEnhancedOrderCard(Map<String, dynamic> order, int index) {
+    final createdAt = order['createdAt'] is Timestamp
+        ? (order['createdAt'] as Timestamp).toDate()
+        : null;
+    
+    final orderItems = order['items'] is List 
+        ? List<Map<String, dynamic>>.from(order['items']) 
+        : <Map<String, dynamic>>[];
+    
+    // Enhanced image URL extraction
+    String? imageUrl;
+    if (orderItems.isNotEmpty) {
+      final firstItem = orderItems[0];
+      imageUrl = firstItem['imageURL'] ?? firstItem['imageUrl'] ?? firstItem['image'];
+    }
+    
+    // Enhanced total calculation with fallback
+    double total = 0.0;
+    if (order['total'] != null && order['total'] != 0) {
+      total = (order['total'] is num) ? order['total'].toDouble() : 0.0;
+    } else {
+      // Calculate from items if total is missing
+      for (var item in orderItems) {
+        final price = (item['price'] ?? 0.0).toDouble();
+        final quantity = (item['quantity'] ?? 1).toInt();
+        total += (price * quantity);
+      }
+    }
+    
+    // Status handling
+    String status = order['status'] ?? 'pending';
+    Color statusColor = _getOrderStatusColor(status);
+    
+    return Container(
+      width: 220,
+      margin: EdgeInsets.only(right: 12),
+      child: Card(
+        elevation: 3,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () {
+            final orderId = order['orderId'] ?? order['documentId'];
+            if (orderId != null) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => OrderDetailScreen(
+                    orderId: orderId,
+                    isSellerView: true,
+                  ),
+                ),
+              );
+            }
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header with image and order number
+                Row(
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                            color: Colors.grey[200],
-                          ),
-                          child: imageUrl != null
-                              ? ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Image.network(
-                                    imageUrl,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => Icon(
-                                      Icons.shopping_bag_outlined,
-                                      color: Colors.grey[600],
-                                      size: 20,
-                                    ),
-                                  ),
-                                )
-                              : Icon(
-                                  Icons.shopping_bag_outlined,
-                                  color: Colors.grey[600],
-                                  size: 20,
-                                ),
-                        ),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Order #${order['orderNumber'] ?? order['orderId'] ?? ''}',
-                                style: GoogleFonts.poppins(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 13,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                    Container(
+                      width: 45,
+                      height: 45,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        color: Colors.grey[200],
+                      ),
+                      child: imageUrl != null
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: Image.network(
+                                imageUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => _buildOrderImagePlaceholder(),
                               ),
-                              if (createdAt != null)
-                                Text(
-                                  '${createdAt.day}/${createdAt.month}/${createdAt.year}',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 11,
-                                    color: Colors.grey[600],
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ],
+                            )
+                          : _buildOrderImagePlaceholder(),
                     ),
-                    SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          '₱${order['total']?.toStringAsFixed(2) ?? '0.00'}', // Fixed: Changed from '$' to '₱'
-                          style: GoogleFonts.poppins(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.green[700],
-                          ),
-                        ),
-                        Container(
-                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: statusColor.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            status.toUpperCase(),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Order #${order['orderNumber'] ?? order['orderId'] ?? order['documentId'] ?? ''}',
                             style: GoogleFonts.poppins(
-                              fontSize: 10,
                               fontWeight: FontWeight.w600,
-                              color: statusColor,
+                              fontSize: 13,
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                      ],
+                          if (createdAt != null)
+                            Text(
+                              '${createdAt.day}/${createdAt.month}/${createdAt.year}',
+                              style: GoogleFonts.poppins(
+                                fontSize: 11,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
-                    SizedBox(height: 8),
+                  ],
+                ),
+                
+                SizedBox(height: 12),
+                
+                // Status and total
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: statusColor.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        status.toUpperCase(),
+                        style: GoogleFonts.poppins(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: statusColor,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '₱${total.toStringAsFixed(2)}',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green[700],
+                      ),
+                    ),
+                  ],
+                ),
+                
+                SizedBox(height: 8),
+                
+                // Items count and action hint
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
                     Text(
                       '${orderItems.length} item${orderItems.length != 1 ? 's' : ''}',
                       style: GoogleFonts.poppins(
@@ -1408,128 +1758,55 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                         color: Colors.grey[600],
                       ),
                     ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildAnalyticsSummary() {
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Sales Overview',
-              style: GoogleFonts.poppins(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'This Week',
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      '₱${_salesMetrics['totalSalesWeek'] ?? 0}', // Fixed: Changed from '$' to '₱'
-                      style: GoogleFonts.poppins(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green[700],
-                      ),
+                    Icon(
+                      Icons.arrow_forward_ios,
+                      size: 12,
+                      color: Colors.grey[400],
                     ),
                   ],
-                ),
-                Container(
-                  width: 150,
-                  height: 50,
-                  child: Consumer<AnalyticsProvider>(
-                    builder: (context, provider, _) {
-                      // Add error handling for debugging
-                      print('Analytics provider state: isLoading=${provider.isLoading}, hasError=${provider.error != null}');
-                      
-                      if (provider.isLoading) {
-                        return Center(child: CircularProgressIndicator(strokeWidth: 2));
-                      }
-                      
-                      if (provider.error != null) {
-                        print('Error in provider: ${provider.error}');
-                        return Center(child: Text('Error', style: TextStyle(color: Colors.red)));
-                      }
-                      
-                      final analytics = provider.analytics;
-                      print('SalesData points: ${analytics.salesByDate.length}');
-                      
-                      // Prepare chart data with defensive programming
-                      List<SalesData> chartData = [];
-                      
-                      // Only try to map data if we have some
-                      if (analytics.salesByDate.isNotEmpty) {
-                        try {
-                          chartData = analytics.salesByDate.map((dataPoint) {
-                            // Convert the date string to a numeric index for the chart
-                            // This is crude but will work for visualization
-                            final dateIndex = analytics.salesByDate.indexOf(dataPoint).toDouble();
-                            return SalesData(dateIndex, dataPoint.sales);
-                          }).toList();
-                        } catch (e) {
-                          print('Chart data conversion error: $e');
-                          chartData = [SalesData(0, 0), SalesData(1, 0)]; 
-                        }
-                      } else {
-                        // Fallback data 
-                        chartData = [SalesData(0, 0), SalesData(1, 0)];
-                      }
-                      
-                      return SfCartesianChart(
-                        plotAreaBorderWidth: 0,
-                        primaryXAxis: NumericAxis(isVisible: false),
-                        primaryYAxis: NumericAxis(isVisible: false),
-                        series: <CartesianSeries<SalesData, double>>[
-                          SplineAreaSeries<SalesData, double>(
-                            dataSource: chartData,
-                            xValueMapper: (SalesData data, _) => data.day,
-                            yValueMapper: (SalesData data, _) => data.sales,
-                            color: Colors.blue.withOpacity(0.2),
-                            borderColor: Colors.blue,
-                            borderWidth: 2,
-                          )
-                        ],
-                      );
-                    },
-                  ),
                 ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  // Fixed: Changed parameter from 'int stock' to 'int currentStock'
-  Color _getStockColor(int currentStock) {
-    if (currentStock <= 0) return Colors.red;
-    if (currentStock <= 5) return Colors.orange;
-    return Colors.green;
+  Widget _buildOrderImagePlaceholder() {
+    return Icon(
+      Icons.shopping_bag_outlined,
+      color: Colors.grey[600],
+      size: 24,
+    );
+  }
+
+  Color _getOrderStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'delivered':
+        return Colors.green;
+      case 'processing':
+      case 'shipped':
+        return Colors.blue;
+      case 'cancelled':
+        return Colors.red;
+      case 'pending':
+      default:
+        return Colors.orange;
+    }
+  }
+
+  // ✅ Add this missing method for stock color coding
+  Color _getStockColor(int stock) {
+    if (stock == 0) {
+      return Colors.red; // Out of stock
+    } else if (stock <= 5) {
+      return Colors.orange; // Low stock
+    } else if (stock <= 10) {
+      return Colors.yellow[700]!; // Medium stock
+    } else {
+      return Colors.green; // Good stock
+    }
   }
 }
 
