@@ -14,7 +14,6 @@ import '/widgets/not_logged_in.dart';
 
 class WishlistScreen extends StatefulWidget {
   const WishlistScreen({Key? key}) : super(key: key);
-  
 
   @override
   State<WishlistScreen> createState() => _WishlistScreenState();
@@ -32,7 +31,6 @@ class _WishlistScreenState extends State<WishlistScreen> {
 
   @override
   Widget build(BuildContext context) {
-
     return Consumer<UserProfileProvider>(
       builder: (context, userProfileProvider, child) {
         if (!userProfileProvider.isProfileLoaded) {
@@ -44,125 +42,12 @@ class _WishlistScreenState extends State<WishlistScreen> {
 
         return Consumer<WishlistProvider>(
           builder: (context, wishlistProvider, child) {
-<<<<<<< HEAD
             final cartProvider = Provider.of<CartProvider>(context);
             final filteredItems = _getFilteredAndSortedItems(wishlistProvider);
 
             return Scaffold(
               appBar: _buildAppBar(wishlistProvider, cartProvider),
               body: _buildBody(filteredItems, wishlistProvider, cartProvider),
-=======
-            final cartProvider = Provider.of<CartProvider>(context); // Access CartProvider
-            final productCount = wishlistProvider.wishlist.length;
-            final recentlyAddedProducts = wishlistProvider.wishlist.where((item) => item.isRecent).toList();
-
-            if (wishlistProvider.wishlist.isEmpty) {  
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.favorite_border,
-                      size: 64,
-                      color: Colors.grey.shade400,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Your wishlist is empty',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        color: Colors.grey.shade700,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }
-
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(top: 16.0, bottom: 16.0),
-                    child: Text(
-                      'Your Wishlist',
-                      style: GoogleFonts.poppins(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-
-                  // Stats bar
-                  Container(
-                    padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(12.0),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        _buildStat(productCount.toString(), 'Items'),
-                        _buildDivider(),
-                        _buildStat(recentlyAddedProducts.length.toString(), 'Recently added'),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Sorting options
-                  Row(
-                    children: [
-                      Text(
-                        'Sort by:',
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade200,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          children: [
-                            Text(
-                              'Recently Added',
-                              style: GoogleFonts.poppins(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            const Icon(Icons.arrow_drop_down, size: 18),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Wishlist Items
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: wishlistProvider.wishlist.length,
-                      itemBuilder: (context, index) {
-                        final wishlistItem = wishlistProvider.wishlist[index];
-                        return _buildWishlistItem(context, wishlistItem, wishlistProvider, cartProvider);
-                      },
-                    ),
-                  ),
-                ],
-              ),
->>>>>>> 989222f6bb823e82966bb57fcf1a121fc5e4154b
             );
           },
         );
@@ -292,7 +177,6 @@ class _WishlistScreenState extends State<WishlistScreen> {
                       Colors.red,
                     ),
                   ),
-<<<<<<< HEAD
                   Container(
                     width: 1,
                     color: Colors.grey.shade300,
@@ -318,66 +202,6 @@ class _WishlistScreenState extends State<WishlistScreen> {
                       Icons.monetization_on,
                       Colors.green,
                     ),
-=======
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '\$${wishlistItem.productPrice.toStringAsFixed(2)}',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 1, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: isInCart ? Colors.grey : Colors.black, // Change color if in cart
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Align(
-                            alignment: Alignment.centerRight,
-                            child: InkWell(
-                            onTap: isInCart
-                              ? null // Disable button if already in cart
-                              : () {
-                                  // Add to Cart Logic
-                                  cartProvider.addToCart(
-                                    CartModel(
-                                      productId: wishlistItem.productId,
-                                      userId: wishlistItem.userId,
-                                      productName: wishlistItem.productName,
-                                      imageURL: wishlistItem.productImage,
-                                      productPrice: wishlistItem.productPrice,
-                                      addedAt: DateTime.now(),
-                                    ),
-                                  );
-
-                                  // Show confirmation message
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        '${wishlistItem.productName} added to cart!',
-                                        style: GoogleFonts.poppins(),
-                                      ),
-                                      duration: const Duration(seconds: 2),
-                                    ),
-                                  );
-                                },
-                            child: Text(
-                              isInCart ? 'Added' : 'Add to Cart', // Dynamic button text
-                              style: GoogleFonts.poppins(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.white,
-                            ),
-                          ),
-                        ),
-                          )
-                      ),
-                    ],
->>>>>>> 989222f6bb823e82966bb57fcf1a121fc5e4154b
                   ),
                 ],
               ),
