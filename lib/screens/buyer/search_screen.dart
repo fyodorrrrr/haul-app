@@ -21,8 +21,6 @@ class _SearchScreenState extends State<SearchScreen> {
   
   List<String> _selectedBrands = [];
   List<String> _selectedCategories = [];
-  List<String> _selectedConditions = [];
-  RangeValues _priceRange = RangeValues(0, 10000);
   String _sortBy = 'newest';
   
   List<Product> _searchResults = [];
@@ -100,13 +98,9 @@ class _SearchScreenState extends State<SearchScreen> {
 
     try {
       final productProvider = Provider.of<ProductProvider>(context, listen: false);
-      
-      // Get all products first, then filter
       List<Product> allProducts = await productProvider.getAllProducts();
       
-      // ✅ Apply search filters with better null checking
       List<Product> filteredProducts = allProducts.where((product) {
-        // ✅ Null check for product properties
         if (product == null) return false;
         
         // Text search with null checks
@@ -124,11 +118,10 @@ class _SearchScreenState extends State<SearchScreen> {
                        productCategory.contains(query);
         }
 
-        // Brand filter with null checks
+        // Brand filter
         bool matchesBrand = true;
         if (_selectedBrands.isNotEmpty && product.brand != null) {
           if (_selectedBrands.contains('Other Brands')) {
-            // Check if brand is not in known brands list
             final knownBrands = BrandLogoService.getAllKnownBrands();
             matchesBrand = !knownBrands.contains(product.brand!) ||
                          _selectedBrands.any((brand) => brand != 'Other Brands' && brand == product.brand);
@@ -136,22 +129,18 @@ class _SearchScreenState extends State<SearchScreen> {
             matchesBrand = _selectedBrands.contains(product.brand!);
           }
         } else if (_selectedBrands.isNotEmpty && product.brand == null) {
-          matchesBrand = false; // If no brand but brand filter is active
+          matchesBrand = false;
         }
 
-        // Category filter with null checks
+        // Category filter
         bool matchesCategory = _selectedCategories.isEmpty || 
-                              (product.category != null && _selectedCategories.contains(product.category!));
+                            (product.category != null && _selectedCategories.contains(product.category!));
 
-        // Price filter with null checks
-        final sellingPrice = product.sellingPrice ?? 0;
-        bool matchesPrice = sellingPrice >= _priceRange.start && 
-                           sellingPrice <= _priceRange.end;
+        // ✅ Remove price filter logic completely
 
-        return matchesText && matchesBrand && matchesCategory && matchesPrice;
+        return matchesText && matchesBrand && matchesCategory;
       }).toList();
 
-      // Apply sorting
       _sortProducts(filteredProducts);
 
       setState(() {
@@ -166,10 +155,7 @@ class _SearchScreenState extends State<SearchScreen> {
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error searching products: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Error searching products: $e')),
         );
       }
     }
@@ -287,30 +273,47 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
+  // ✅ Remove price range from active filters:
+
   Widget _buildActiveFilters() {
     List<Widget> filterChips = [];
 
     // Brand filters
     for (String brand in _selectedBrands) {
       filterChips.add(
-        FilterChip(
-          label: Text(brand),
-          selected: true, // ✅ Add selected parameter
-          onSelected: (selected) { // ✅ Add onSelected parameter
-            if (!selected) {
-              setState(() {
-                _selectedBrands.remove(brand);
-              });
-              _performSearch();
-            }
-          },
-          onDeleted: () {
-            setState(() {
-              _selectedBrands.remove(brand);
-            });
-            _performSearch();
-          },
-          deleteIcon: Icon(Icons.close, size: 16),
+        Container(
+          margin: EdgeInsets.only(right: 8, bottom: 6),
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.blue[100],
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.blue[300]!),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.business, size: 14, color: Colors.blue[700]),
+              SizedBox(width: 4),
+              Text(
+                brand,
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.blue[700],
+                ),
+              ),
+              SizedBox(width: 4),
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _selectedBrands.remove(brand);
+                  });
+                  _performSearch();
+                },
+                child: Icon(Icons.close, size: 14, color: Colors.blue[700]),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -318,103 +321,91 @@ class _SearchScreenState extends State<SearchScreen> {
     // Category filters
     for (String category in _selectedCategories) {
       filterChips.add(
-        FilterChip(
-          label: Text(category),
-          selected: true, // ✅ Add selected parameter
-          onSelected: (selected) { // ✅ Add onSelected parameter
-            if (!selected) {
-              setState(() {
-                _selectedCategories.remove(category);
-              });
-              _performSearch();
-            }
-          },
-          onDeleted: () {
-            setState(() {
-              _selectedCategories.remove(category);
-            });
-            _performSearch();
-          },
-          deleteIcon: Icon(Icons.close, size: 16),
+        Container(
+          margin: EdgeInsets.only(right: 8, bottom: 6),
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.green[100],
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.green[300]!),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.category, size: 14, color: Colors.green[700]),
+              SizedBox(width: 4),
+              Text(
+                category,
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.green[700],
+                ),
+              ),
+              SizedBox(width: 4),
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _selectedCategories.remove(category);
+                  });
+                  _performSearch();
+                },
+                child: Icon(Icons.close, size: 14, color: Colors.green[700]),
+              ),
+            ],
+          ),
         ),
       );
     }
 
-    // Condition filters
-    for (String condition in _selectedConditions) {
-      filterChips.add(
-        FilterChip(
-          label: Text(condition),
-          selected: true, // ✅ Add selected parameter
-          onSelected: (selected) { // ✅ Add onSelected parameter
-            if (!selected) {
-              setState(() {
-                _selectedConditions.remove(condition);
-              });
-              _performSearch();
-            }
-          },
-          onDeleted: () {
-            setState(() {
-              _selectedConditions.remove(condition);
-            });
-            _performSearch();
-          },
-          deleteIcon: Icon(Icons.close, size: 16),
-        ),
-      );
-    }
-
-    // Price filter
-    if (_priceRange.start > 0 || _priceRange.end < 10000) {
-      filterChips.add(
-        FilterChip(
-          label: Text('₱${_priceRange.start.round()}-₱${_priceRange.end.round()}'),
-          selected: true, // ✅ Add selected parameter
-          onSelected: (selected) { // ✅ Add onSelected parameter
-            if (!selected) {
-              setState(() {
-                _priceRange = RangeValues(0, 10000);
-              });
-              _performSearch();
-            }
-          },
-          onDeleted: () {
-            setState(() {
-              _priceRange = RangeValues(0, 10000);
-            });
-            _performSearch();
-          },
-          deleteIcon: Icon(Icons.close, size: 16),
-        ),
-      );
+    if (filterChips.isEmpty) {
+      return SizedBox.shrink();
     }
 
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      width: double.infinity,
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        border: Border(bottom: BorderSide(color: Colors.grey[200]!)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
                 'Active Filters',
                 style: GoogleFonts.poppins(
                   fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.grey[700],
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey[800],
                 ),
               ),
-              TextButton(
-                onPressed: _clearAllFilters,
-                child: Text('Clear All'),
+              Spacer(),
+              GestureDetector(
+                onTap: _clearAllFilters,
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.red[50],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.red[200]!),
+                  ),
+                  child: Text(
+                    'Clear All',
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.red[600],
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
+          SizedBox(height: 12),
           Wrap(
-            spacing: 8,
-            runSpacing: 4,
             children: filterChips,
           ),
         ],
@@ -689,67 +680,87 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
+  // ✅ Complete filter redesign - replace entire _showFilterBottomSheet method:
+
   void _showFilterBottomSheet() {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.8,
+        height: MediaQuery.of(context).size.height * 0.7, // ✅ Reduced height
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(
           children: [
+            // Handle
+            Container(
+              width: 40,
+              height: 4,
+              margin: EdgeInsets.only(top: 12, bottom: 8),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            
             // Header
             Container(
-              padding: EdgeInsets.all(16),
+              padding: EdgeInsets.fromLTRB(24, 8, 24, 16),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
                     'Filters',
                     style: GoogleFonts.poppins(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
+                  Spacer(),
                   TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _selectedBrands.clear();
+                        _selectedCategories.clear();
+                        // ✅ Remove price range reset
+                      });
+                    },
+                    child: Text('Reset'),
+                  ),
+                  SizedBox(width: 8),
+                  ElevatedButton(
                     onPressed: () {
                       Navigator.pop(context);
                       _performSearch();
                     },
-                    child: Text('Done'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: Text('Apply'),
                   ),
                 ],
               ),
             ),
             
-            // Filter content
+            // Content - ✅ Remove price filter
             Expanded(
               child: SingleChildScrollView(
-                padding: EdgeInsets.all(16),
+                padding: EdgeInsets.symmetric(horizontal: 24),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Brand filter
-                    BrandFilterWidget(
-                      selectedBrands: _selectedBrands,
-                      onBrandsChanged: (brands) {
-                        setState(() {
-                          _selectedBrands = brands;
-                        });
-                      },
-                    ),
-                    
-                    SizedBox(height: 24),
-                    
-                    // Other filters
-                    _buildPriceFilter(),
-                    SizedBox(height: 24),
-                    _buildCategoryFilter(),
-                    SizedBox(height: 24),
-                    _buildConditionFilter(),
+                    // ✅ Remove: _buildNewPriceFilter(),
+                    _buildNewCategoryFilter(),
+                    SizedBox(height: 32),
+                    _buildNewBrandFilter(),
+                    SizedBox(height: 50),
                   ],
                 ),
               ),
@@ -760,134 +771,236 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  Widget _buildPriceFilter() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Price Range',
-          style: GoogleFonts.poppins(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        SizedBox(height: 12),
-        RangeSlider(
-          values: _priceRange,
-          min: 0,
-          max: 10000,
-          divisions: 100,
-          labels: RangeLabels(
-            '₱${_priceRange.start.round()}',
-            '₱${_priceRange.end.round()}',
-          ),
-          onChanged: (values) {
-            setState(() {
-              _priceRange = values;
-            });
-          },
-        ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  // ✅ Add this new category filter design:
+
+  Widget _buildNewCategoryFilter() {
+    final categories = [
+      {'name': 'Tops', 'icon': Icons.checkroom},
+      {'name': 'Bottoms', 'icon': Icons.architecture},
+      {'name': 'Dresses', 'icon': Icons.woman},
+      {'name': 'Outerwear', 'icon': Icons.dry_cleaning},
+      {'name': 'Footwear', 'icon': Icons.emoji_people},
+      {'name': 'Accessories', 'icon': Icons.watch},
+    ];
+
+    return StatefulBuilder(
+      builder: (BuildContext context, StateSetter setModalState) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('₱0', style: GoogleFonts.poppins(fontSize: 12)),
-            Text('₱10,000+', style: GoogleFonts.poppins(fontSize: 12)),
+            Row(
+              children: [
+                Text(
+                  'Categories',
+                  style: GoogleFonts.poppins(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Spacer(),
+                if (_selectedCategories.isNotEmpty)
+                  Text(
+                    '${_selectedCategories.length} selected',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: Colors.blue[600],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+              ],
+            ),
+            SizedBox(height: 16),
+            
+            GridView.builder(
+              shrinkWrap: true,
+              physics: NeverScrollableScrollPhysics(),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 3.5,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+              ),
+              itemCount: categories.length,
+              itemBuilder: (context, index) {
+                final category = categories[index];
+                final isSelected = _selectedCategories.contains(category['name']);
+                
+                return GestureDetector(
+                  onTap: () {
+                    // ✅ Update both states
+                    setState(() {
+                      if (isSelected) {
+                        _selectedCategories.remove(category['name']);
+                      } else {
+                        _selectedCategories.add(category['name'] as String);
+                      }
+                    });
+                    setModalState(() {}); // ✅ Update modal state
+                  },
+                  child: AnimatedContainer(
+                    duration: Duration(milliseconds: 200),
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: isSelected ? Colors.blue[100] : Colors.grey[50],
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isSelected ? Colors.blue[400]! : Colors.grey[300]!,
+                        width: isSelected ? 2 : 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          category['icon'] as IconData,
+                          size: 20,
+                          color: isSelected ? Colors.blue[700] : Colors.grey[600],
+                        ),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            category['name'] as String,
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                              color: isSelected ? Colors.blue[800] : Colors.grey[700],
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (isSelected)
+                          Icon(
+                            Icons.check_circle,
+                            size: 18,
+                            color: Colors.blue[600],
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
           ],
-        ),
-      ],
+        );
+      },
     );
   }
 
-  Widget _buildCategoryFilter() {
-    final categories = ['Tops', 'Bottoms', 'Dresses', 'Outerwear', 'Footwear', 'Accessories'];
-    
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Categories',
-          style: GoogleFonts.poppins(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: categories.map((category) {
-            final isSelected = _selectedCategories.contains(category);
-            return FilterChip(
-              label: Text(category),
-              selected: isSelected,
-              onSelected: (selected) {
-                setState(() {
-                  if (selected) {
-                    _selectedCategories.add(category);
-                  } else {
-                    _selectedCategories.remove(category);
-                  }
-                });
-              },
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
+  // ✅ Replace _buildCategoryFilter with overflow-safe version:
+  Widget _buildNewBrandFilter() {
+    // ✅ Use real brands from your products
+    final popularBrands = [
+      'Nike', 'Adidas', 'Supreme', 'Gucci', 'Louis Vuitton', 
+      'Prada', 'Chanel', 'Versace', 'Balenciaga', 'Off-White',
+      'Vintage', 'Uniqlo', 'H&M', 'Zara', 'Forever 21'
+    ];
 
-  Widget _buildConditionFilter() {
-    final conditions = ['Like New', 'Gently Used', 'Vintage Condition', 'Well Loved'];
-    
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Condition',
-          style: GoogleFonts.poppins(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: conditions.map((condition) {
-            final isSelected = _selectedConditions.contains(condition);
-            return FilterChip(
-              label: Text(condition),
-              selected: isSelected,
-              onSelected: (selected) {
-                setState(() {
-                  if (selected) {
-                    _selectedConditions.add(condition);
-                  } else {
-                    _selectedConditions.remove(condition);
-                  }
-                });
-              },
-            );
-          }).toList(),
-        ),
-      ],
+    return StatefulBuilder(
+      builder: (BuildContext context, StateSetter setModalState) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  'Brands',
+                  style: GoogleFonts.poppins(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Spacer(),
+                if (_selectedBrands.isNotEmpty)
+                  Text(
+                    '${_selectedBrands.length} selected',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: Colors.blue[600],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+              ],
+            ),
+            SizedBox(height: 16),
+            
+            Container(
+              child: Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: popularBrands.map((brand) {
+                  final isSelected = _selectedBrands.contains(brand);
+                  return GestureDetector(
+                    onTap: () {
+                      // ✅ Update both states
+                      setState(() {
+                        if (isSelected) {
+                          _selectedBrands.remove(brand);
+                        } else {
+                          _selectedBrands.add(brand);
+                        }
+                      });
+                      setModalState(() {}); // ✅ Update modal state
+                    },
+                    child: AnimatedContainer(
+                      duration: Duration(milliseconds: 200),
+                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: isSelected ? Colors.black : Colors.white,
+                        borderRadius: BorderRadius.circular(25),
+                        border: Border.all(
+                          color: isSelected ? Colors.black : Colors.grey[300]!,
+                          width: 1.5,
+                        ),
+                        boxShadow: isSelected ? [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 4,
+                            offset: Offset(0, 2),
+                          ),
+                        ] : null,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (isSelected) ...[
+                            Icon(
+                              Icons.check,
+                              size: 16,
+                              color: Colors.white,
+                            ),
+                            SizedBox(width: 6),
+                          ],
+                          Text(
+                            brand,
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: isSelected ? Colors.white : Colors.grey[800],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
   bool _hasActiveFilters() {
     return _selectedBrands.isNotEmpty ||
-           _selectedCategories.isNotEmpty ||
-           _selectedConditions.isNotEmpty ||
-           _priceRange.start > 0 ||
-           _priceRange.end < 10000;
+           _selectedCategories.isNotEmpty;
+           // ✅ Remove price range checks
   }
 
   void _clearAllFilters() {
     setState(() {
       _selectedBrands.clear();
       _selectedCategories.clear();
-      _selectedConditions.clear();
-      _priceRange = RangeValues(0, 10000);
+      // ✅ Remove: _priceRange = RangeValues(0, 10000);
       _sortBy = 'newest';
       _searchController.clear();
       _searchResults.clear();

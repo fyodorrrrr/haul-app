@@ -93,42 +93,56 @@ class _BrandFilterWidgetState extends State<BrandFilterWidget> {
       brands = BrandLogoService.getBrandsByCategory(_selectedCategory);
     }
 
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: brands.map((brand) {
-        final isSelected = widget.selectedBrands.contains(brand);
-        final isOtherBrand = brand == 'Other Brands';
-        
-        return FilterChip(
-          avatar: isOtherBrand 
-              ? Icon(Icons.more_horiz, size: 16)
-              : BrandLogoWidget(
-                  brandName: brand,
-                  size: 20,
-                  circular: true,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Container(
+          width: constraints.maxWidth,
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: brands.map((brand) {
+              final isSelected = widget.selectedBrands.contains(brand);
+              
+              return Container(
+                constraints: BoxConstraints(
+                  maxWidth: constraints.maxWidth * 0.45, // Max 45% width
                 ),
-          label: Text(
-            brand,
-            style: GoogleFonts.poppins(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
+                child: FilterChip(
+                  avatar: brand == 'Other Brands' 
+                      ? Icon(Icons.more_horiz, size: 16)
+                      : BrandLogoWidget(
+                          brandName: brand,
+                          size: 20,
+                          circular: true,
+                        ),
+                  label: Text(
+                    brand,
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  selected: isSelected,
+                  onSelected: (selected) {
+                    List<String> newSelection = List.from(widget.selectedBrands);
+                    
+                    if (selected) {
+                      newSelection.add(brand);
+                    } else {
+                      newSelection.remove(brand);
+                    }
+                    
+                    widget.onBrandsChanged(newSelection);
+                  },
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                ),
+              );
+            }).toList(),
           ),
-          selected: isSelected,
-          onSelected: (selected) {
-            List<String> newSelection = List.from(widget.selectedBrands);
-            
-            if (selected) {
-              newSelection.add(brand);
-            } else {
-              newSelection.remove(brand);
-            }
-            
-            widget.onBrandsChanged(newSelection);
-          },
         );
-      }).toList(),
+      },
     );
   }
 }
