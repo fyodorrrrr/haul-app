@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:haul/screens/buyer/help_center_screen.dart';
 import 'package:haul/screens/buyer/notification_preferences_screen.dart';
 import 'package:haul/screens/buyer/payment_methods_screen.dart';
 import 'package:intl/intl.dart';
@@ -170,7 +171,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _buildMenuItem(
               icon: Icons.help_outline, 
               title: 'Help Center',
-              onTap: () {},
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => HelpCenterScreen()),
+                );
+              },
             ),
             
             const SizedBox(height: 16),
