@@ -29,136 +29,199 @@ class CartScreen extends StatelessWidget {
           builder: (context, cartProvider, child) {
             final cart = cartProvider.cart;
 
-            // Calculate totals
-            final subtotal = cart.fold(0.0, (sum, item) => sum + item.productPrice);
+            // Fixed calculations with null safety
+            final subtotal = cart.fold(0.0, (sum, item) {
+              final price = item.productPrice ?? 0.0;
+              final quantity = item.quantity;
+              return sum + (price * quantity);
+            });
+            
             final shipping = cart.isNotEmpty ? 5.99 : 0.0;
             final tax = subtotal * 0.1; // 10% tax
             final total = subtotal + shipping + tax;
 
             if (cart.isEmpty) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.shopping_cart_outlined,
-                      size: 64,
-                      color: Colors.grey.shade400,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Your cart is empty',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        color: Colors.grey.shade700,
+              return Scaffold(
+                appBar: AppBar(
+                  title: Text(
+                    'Shopping Cart',
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                body: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.shopping_cart_outlined,
+                        size: 64,
+                        color: Colors.grey.shade400,
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 16),
+                      Text(
+                        'Your cart is empty',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               );
             }
 
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Header
-                  Padding(
-                    padding: const EdgeInsets.only(top: 16.0, bottom: 16.0),
-                    child: Text(
-                      'Your Cart',
-                      style: GoogleFonts.poppins(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+            return Scaffold(
+              appBar: AppBar(
+                title: Text(
+                  'Shopping Cart (${cart.length})',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                ),
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.black,
+                elevation: 0,
+              ),
+              body: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    // Cart Items
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: cart.length,
+                        itemBuilder: (context, index) {
+                          final cartItem = cart[index];
+                          return _buildCartItem(context, cartItem, cartProvider);
+                        },
                       ),
                     ),
-                  ),
 
-                  // Cart Items
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: cart.length,
-                      itemBuilder: (context, index) {
-                        final cartItem = cart[index];
-                        return _buildCartItem(context, cartItem, cartProvider);
-                      },
-                    ),
-                  ),
-
-                  // Order Summary
-                  Container(
-                    padding: const EdgeInsets.all(16.0),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade50,
-                      borderRadius: BorderRadius.circular(12.0),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.1),
-                          spreadRadius: 1,
-                          blurRadius: 4,
-                          offset: const Offset(0, -2),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        _buildSummaryRow('Subtotal', CurrencyFormatter.format(subtotal)),
-                        const SizedBox(height: 8),
-                        _buildSummaryRow('Shipping', '\$${shipping.toStringAsFixed(2)}'),
-                        const SizedBox(height: 8),
-                        _buildSummaryRow('Tax', '\$${tax.toStringAsFixed(2)}'),
-                        const Divider(height: 24),
-                        _buildSummaryRow(
-                          'Total',
-                          CurrencyFormatter.format(total),
-                          isTotal: true,
-                        ),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: () async {
-                              final cartProvider = Provider.of<CartProvider>(context, listen: false);
-                              await cartProvider.updateCartItemsWithSellerId();
-
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => ChangeNotifierProvider(
-                                    create: (_) => CheckoutProvider(),
-                                    child: CheckoutScreen(
-                                      cartItems: cart,
-                                      subtotal: subtotal,
-                                      shipping: shipping,
-                                      tax: tax,
-                                      total: total,
+                    // Order Summary
+                    Container(
+                      padding: const EdgeInsets.all(16.0),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(12.0),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.withOpacity(0.1),
+                            spreadRadius: 1,
+                            blurRadius: 4,
+                            offset: const Offset(0, -2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          _buildSummaryRow('Subtotal', '\$${subtotal.toStringAsFixed(2)}'),
+                          const SizedBox(height: 8),
+                          _buildSummaryRow('Shipping', '\$${shipping.toStringAsFixed(2)}'),
+                          const SizedBox(height: 8),
+                          _buildSummaryRow('Tax', '\$${tax.toStringAsFixed(2)}'),
+                          const Divider(height: 24),
+                          _buildSummaryRow(
+                            'Total',
+                            '\$${total.toStringAsFixed(2)}',
+                            isTotal: true,
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          // Fixed checkout button
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: () async {
+                                final cartProvider = Provider.of<CartProvider>(context, listen: false);
+                                
+                                try {
+                                  // Show loading indicator
+                                  showDialog(
+                                    context: context,
+                                    barrierDismissible: false,
+                                    builder: (context) => const Center(
+                                      child: CircularProgressIndicator(),
                                     ),
-                                  ),
+                                  );
+                                  
+                                  // ✅ Update cart items with seller info first
+                                  await cartProvider.updateCartItemsWithSellerInfo();
+                                  
+                                  // Hide loading indicator
+                                  Navigator.of(context).pop();
+                                  
+                                  // Validate cart after update
+                                  if (!cartProvider.validateCartForCheckout()) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Some items in your cart are missing seller information. Please try again or remove the problematic items.'),
+                                        backgroundColor: Colors.red,
+                                        duration: Duration(seconds: 4),
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                  
+                                  // Check for empty cart
+                                  if (cartProvider.cart.isEmpty) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Your cart is empty'),
+                                        backgroundColor: Colors.orange,
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                  
+                                  // Proceed to checkout
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => CheckoutScreen(
+                                        cartItems: cartProvider.cart,
+                                        subtotal: cartProvider.subtotal,
+                                        shipping: cartProvider.shippingFee,
+                                        tax: cartProvider.tax,
+                                        total: cartProvider.total,
+                                      ),
+                                    ),
+                                  );
+                                  
+                                } catch (e) {
+                                  // Hide loading indicator if still showing
+                                  if (Navigator.canPop(context)) {
+                                    Navigator.of(context).pop();
+                                  }
+                                  
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Error preparing checkout: ${e.toString()}'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.black,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
-                              );
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.black,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
+                                padding: const EdgeInsets.symmetric(vertical: 14),
                               ),
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                            ),
-                            child: Text(
-                              'Proceed to Checkout',
-                              style: GoogleFonts.poppins(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
+                              child: Text(
+                                'Proceed to Checkout (\$${total.toStringAsFixed(2)})',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             );
           },
@@ -194,14 +257,14 @@ class CartScreen extends StatelessWidget {
                 topLeft: Radius.circular(12),
                 bottomLeft: Radius.circular(12),
               ),
-              image: cartItem.imageURL.isNotEmpty
+              image: (cartItem.imageURL?.isNotEmpty == true)
                   ? DecorationImage(
-                      image: NetworkImage(cartItem.imageURL),
+                      image: NetworkImage(cartItem.imageURL!),
                       fit: BoxFit.cover,
                     )
                   : null,
             ),
-            child: cartItem.imageURL.isEmpty
+            child: (cartItem.imageURL?.isEmpty ?? true)
                 ? Icon(
                     Icons.image_not_supported,
                     color: Colors.grey.shade400,
@@ -216,24 +279,87 @@ class CartScreen extends StatelessWidget {
               padding: const EdgeInsets.all(12.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    cartItem.productName,
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        cartItem.productName ?? 'Unknown Product',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      if (cartItem.brand?.isNotEmpty == true)
+                        Text(
+                          cartItem.brand!,
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                    ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '\$${cartItem.productPrice.toStringAsFixed(2)}',
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '\$${(cartItem.productPrice ?? 0.0).toStringAsFixed(2)}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green.shade600,
+                        ),
+                      ),
+                      
+                      // Quantity controls
+                      Row(
+                        children: [
+                          IconButton(
+                            onPressed: () {
+                              if (cartItem.quantity > 1) {
+                                cartProvider.updateQuantity(
+                                  cartItem.id!,
+                                  cartItem.quantity - 1,
+                                );
+                              }
+                            },
+                            icon: Icon(Icons.remove_circle_outline, size: 20),
+                            padding: EdgeInsets.zero,
+                            constraints: BoxConstraints(minWidth: 30, minHeight: 30),
+                          ),
+                          
+                          Container(
+                            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.grey.shade300),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              '${cartItem.quantity}',
+                              style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+                            ),
+                          ),
+                          
+                          IconButton(
+                            onPressed: () {
+                              cartProvider.updateQuantity(
+                                cartItem.id!,
+                                cartItem.quantity + 1,
+                              );
+                            },
+                            icon: Icon(Icons.add_circle_outline, size: 20),
+                            padding: EdgeInsets.zero,
+                            constraints: BoxConstraints(minWidth: 30, minHeight: 30),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -244,14 +370,16 @@ class CartScreen extends StatelessWidget {
           Container(
             width: 40,
             alignment: Alignment.topCenter,
-            padding: const EdgeInsets.only(top: 12.0, right: 12.0),
+            padding: const EdgeInsets.only(top: 8.0, right: 8.0),
             child: IconButton(
-              onPressed: () => cartProvider.removeFromCart(cartItem.productId),
+              onPressed: () => cartProvider.removeFromCartById(cartItem.id!),
               icon: Icon(
                 Icons.close,
                 size: 18,
                 color: Colors.grey.shade500,
               ),
+              padding: EdgeInsets.zero,
+              constraints: BoxConstraints(minWidth: 30, minHeight: 30),
             ),
           ),
         ],

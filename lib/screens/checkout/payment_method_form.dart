@@ -199,15 +199,21 @@ class _PaymentMethodFormState extends State<PaymentMethodForm> {
                   onPressed: _selectedMethod != null ? () {
                     // ✅ Create PaymentMethod with all required parameters
                     final paymentMethod = PaymentMethod(
+                      id: _generatePaymentMethodId(),
                       type: _getPaymentType(),
-                      name: _selectedMethod!,
-                      details: _getPaymentDetails(),
+                      cardLastFour: _getCardLastFour(),
+                      cardType: _getCardType(),
+                      cardholderName: _getCardholderName(),
+                      expiryMonth: _getExpiryMonth(),
+                      expiryYear: _getExpiryYear(),
+                      isDefault: _isDefaultPaymentMethod(),
                     );
                     
                     print('Selected payment method:');
+                    print('  ID: ${paymentMethod.id}');
                     print('  Type: ${paymentMethod.type}');
-                    print('  Name: ${paymentMethod.name}');
-                    print('  Details: ${paymentMethod.details}');
+                    print('  Card Last Four: ${paymentMethod.cardLastFour}');
+                    print('  Card Type: ${paymentMethod.cardType}');
                     
                     widget.onContinue(paymentMethod);
                   } : null,
@@ -411,7 +417,7 @@ class _PaymentMethodFormState extends State<PaymentMethodForm> {
   
   // ✅ Add this method to extract clean payment type
   String _getPaymentType() {
-    if (_selectedMethod == null) return '';
+    if (_selectedMethod == null) return 'Cash on Delivery';
     
     // Check if it's a saved payment method
     for (var method in _savedPaymentMethods) {
@@ -424,17 +430,120 @@ class _PaymentMethodFormState extends State<PaymentMethodForm> {
     // Map default payment methods to clean types
     switch (_selectedMethod) {
       case 'Cash on Delivery':
-        return 'cod';
+        return 'Cash on Delivery';
       case 'Credit/Debit Card':
-        return 'card';
+        return 'Credit/Debit Card';
       case 'PayPal':
-        return 'paypal';
+        return 'PayPal';
       case 'GCash':
-        return 'gcash';
+        return 'GCash';
       case 'Maya (PayMaya)':
-        return 'maya';
+        return 'Maya';
       default:
-        return _selectedMethod!.toLowerCase().replaceAll(' ', '_');
+        return _selectedMethod ?? 'Cash on Delivery';
     }
+  }
+  
+  // ✅ Add these helper methods to _PaymentMethodFormState:
+
+  String _generatePaymentMethodId() {
+    // Generate a unique ID for the payment method
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final random = (timestamp % 10000).toString();
+    return 'pm_$random';
+  }
+
+  String? _getCardLastFour() {
+    if (_selectedMethod == null) return null;
+    
+    // Check if it's a saved payment method with card info
+    for (var method in _savedPaymentMethods) {
+      final displayName = '${method['name']} (${method['type']})';
+      if (_selectedMethod == displayName) {
+        return method['lastFour']; // Return saved card last four
+      }
+    }
+    
+    // For new card selections, return null (would be filled in card form)
+    if (_selectedMethod == 'Credit/Debit Card') {
+      return null; // This would be filled when user enters card details
+    }
+    
+    return null;
+  }
+
+  String? _getCardType() {
+    if (_selectedMethod == null) return null;
+    
+    // Check if it's a saved payment method with card info
+    for (var method in _savedPaymentMethods) {
+      final displayName = '${method['name']} (${method['type']})';
+      if (_selectedMethod == displayName) {
+        return method['cardType']; // Return saved card type
+      }
+    }
+    
+    // For new card selections, return null
+    if (_selectedMethod == 'Credit/Debit Card') {
+      return null; // This would be determined when user enters card details
+    }
+    
+    return null;
+  }
+
+  String? _getCardholderName() {
+    if (_selectedMethod == null) return null;
+    
+    // Check if it's a saved payment method
+    for (var method in _savedPaymentMethods) {
+      final displayName = '${method['name']} (${method['type']})';
+      if (_selectedMethod == displayName) {
+        return method['cardholderName'];
+      }
+    }
+    
+    return null;
+  }
+
+  String? _getExpiryMonth() {
+    if (_selectedMethod == null) return null;
+    
+    // Check if it's a saved payment method
+    for (var method in _savedPaymentMethods) {
+      final displayName = '${method['name']} (${method['type']})';
+      if (_selectedMethod == displayName) {
+        return method['expiryMonth'];
+      }
+    }
+    
+    return null;
+  }
+
+  String? _getExpiryYear() {
+    if (_selectedMethod == null) return null;
+    
+    // Check if it's a saved payment method
+    for (var method in _savedPaymentMethods) {
+      final displayName = '${method['name']} (${method['type']})';
+      if (_selectedMethod == displayName) {
+        return method['expiryYear'];
+      }
+    }
+    
+    return null;
+  }
+
+  bool _isDefaultPaymentMethod() {
+    if (_selectedMethod == null) return false;
+    
+    // Check if it's a saved payment method marked as default
+    for (var method in _savedPaymentMethods) {
+      final displayName = '${method['name']} (${method['type']})';
+      if (_selectedMethod == displayName) {
+        return method['isDefault'] ?? false;
+      }
+    }
+    
+    return false;
   }
 }

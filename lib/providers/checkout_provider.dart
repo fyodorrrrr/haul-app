@@ -57,28 +57,28 @@ class CheckoutProvider extends ChangeNotifier {
     }
   }
 
-  // ✅ Update method signature by adding optional parameters
+  // ✅ Single, corrected placeOrder method
   Future<bool> placeOrder({
     required List<CartModel> cartItems,
     required double subtotal,
     required double shipping,
     required double tax,
     required double total,
-    // ✅ Add these as optional parameters to maintain backward compatibility
     ShippingAddress? shippingAddress,
     PaymentMethod? paymentMethod,
   }) async {
     print('placeOrder called at ${DateTime.now()}');
+    
     if (_isProcessingOrder) {
       print('Order submission already in progress, ignoring duplicate request');
       return false;
     }
 
-    // ✅ Use provided parameters or fall back to stored values
+    // Use provided parameters or fall back to stored values
     final finalShippingAddress = shippingAddress ?? _shippingAddress;
     final finalPaymentMethod = paymentMethod ?? _paymentMethod;
 
-    // Existing validation code with updated variables
+    // Validation
     if (finalShippingAddress == null) {
       _errorMessage = "Shipping address is required";
       notifyListeners();
@@ -87,6 +87,12 @@ class CheckoutProvider extends ChangeNotifier {
 
     if (finalPaymentMethod == null) {
       _errorMessage = "Payment method is required";
+      notifyListeners();
+      return false;
+    }
+
+    if (cartItems.isEmpty) {
+      _errorMessage = "Cart is empty";
       notifyListeners();
       return false;
     }
@@ -100,41 +106,90 @@ class CheckoutProvider extends ChangeNotifier {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception("User not authenticated");
 
-      // Create a batch for atomic operations
-      final batch = FirebaseFirestore.instance.batch();
+      // ✅ Clean sellerIds map to remove empty keys
+      Map<String, dynamic> sellerIds = {};
+      for (var item in cartItems) {
+        final sellerId = item.sellerId?.trim();
+        if (sellerId != null && sellerId.isNotEmpty) {
+          sellerIds[sellerId] = true;
+        }
+      }
+
+      // ✅ Validate we have at least one valid seller
+      if (sellerIds.isEmpty) {
+        throw Exception('No valid sellers found in cart items');
+      }
 
       // Create order document
       final orderRef = FirebaseFirestore.instance.collection('orders').doc();
       final String orderId = orderRef.id;
-      final String orderNumber = 'ORD-${DateTime.now().millisecondsSinceEpoch}';
+      final String orderNumber = _generateOrderNumber();
 
-      final sellerIds = cartItems.map((item) => item.sellerId).toSet().toList();
+      // ✅ Create order data with cleaned fields
       final orderData = {
         'orderId': orderId,
         'orderNumber': orderNumber,
         'userId': user.uid,
-        'items': cartItems.map((item) => item.toMap()).toList(),
-        'shippingAddress': finalShippingAddress.toMap(), // ✅ Use final variable
-        'paymentMethod': finalPaymentMethod.toMap(),     // ✅ Use final variable
-        'subtotal': subtotal,
-        'shipping': shipping,
-        'tax': tax,
-        'total': total,
+        'userEmail': user.email,
         'status': 'pending',
+        'items': cartItems.map((item) => {
+          'productId': item.productId?.trim() ?? '',
+          'productName': item.productName?.trim() ?? 'Unknown Product',
+          'quantity': item.quantity ?? 1,
+          'price': item.productPrice ?? 0.0,
+          'sellerId': item.sellerId?.trim() ?? '',
+          'sellerName': item.sellerName?.trim() ?? 'Unknown Seller',
+          'brand': item.brand?.trim() ?? '',
+          'category': item.category?.trim() ?? '',
+          'imageUrl': item.imageURL?.trim() ?? '',
+          'size': item.size?.trim() ?? '',
+          'condition': item.condition?.trim() ?? '',
+        }).toList(),
+        'sellerIds': sellerIds, // ✅ Only valid, non-empty seller IDs
+        'shippingAddress': {
+          'fullName': finalShippingAddress.fullName?.trim() ?? '',
+          'addressLine1': finalShippingAddress.addressLine1?.trim() ?? '',
+          'addressLine2': finalShippingAddress.addressLine2?.trim() ?? '',
+          'city': finalShippingAddress.city?.trim() ?? '',
+          'state': finalShippingAddress.state?.trim() ?? '',
+          'zipCode': finalShippingAddress.zipCode?.trim() ?? '',
+          'country': finalShippingAddress.country?.trim() ?? '',
+          'phoneNumber': finalShippingAddress.phoneNumber?.trim() ?? '',
+        },
+        'paymentMethod': {
+          'type': finalPaymentMethod.type?.trim() ?? '',
+          'cardLastFour': finalPaymentMethod.cardLastFour?.trim() ?? '',
+          'cardType': finalPaymentMethod.cardType?.trim() ?? '',
+        },
+        'pricing': {
+          'subtotal': subtotal,
+          'shipping': shipping,
+          'tax': tax,
+          'total': total,
+        },
         'createdAt': FieldValue.serverTimestamp(),
-        'sellerIds': {for (var id in sellerIds) id: true},
+        'updatedAt': FieldValue.serverTimestamp(),
       };
+
+      // ✅ Validate the order data before sending
+      _validateOrderData(orderData);
+
+      // Create a batch for atomic operations
+      final batch = FirebaseFirestore.instance.batch();
 
       // Add order to batch
       batch.set(orderRef, orderData);
       
-      // ✅ Rest of your existing code remains exactly the same
+      // ✅ Update product stock
       Map<String, int> productQuantities = {};
       for (var item in cartItems) {
-        if (productQuantities.containsKey(item.productId)) {
-          productQuantities[item.productId] = productQuantities[item.productId]! + 1;
-        } else {
-          productQuantities[item.productId] = 1;
+        final productId = item.productId?.trim();
+        if (productId != null && productId.isNotEmpty) {
+          if (productQuantities.containsKey(productId)) {
+            productQuantities[productId] = productQuantities[productId]! + (item.quantity ?? 1);
+          } else {
+            productQuantities[productId] = item.quantity ?? 1;
+          }
         }
       }
       
@@ -145,28 +200,33 @@ class CheckoutProvider extends ChangeNotifier {
         
         final productRef = FirebaseFirestore.instance.collection('products').doc(productId);
         
-        // Get current product data
-        final productDoc = await productRef.get();
-        if (productDoc.exists) {
-          final productData = productDoc.data()!;
-          
-          // Calculate new stock
-          int currentStock = productData['stock'] ?? 0;
-          int newStock = currentStock - quantity;
-          
-          // Prevent negative stock
-          if (newStock < 0) newStock = 0;
-          
-          // Prepare update data
-          Map<String, dynamic> updateData = {'stock': newStock};
-          
-          // If stock is zero, mark product as inactive
-          if (newStock == 0) {
-            updateData['isActive'] = false;
+        try {
+          // Get current product data
+          final productDoc = await productRef.get();
+          if (productDoc.exists) {
+            final productData = productDoc.data()!;
+            
+            // Calculate new stock
+            int currentStock = productData['stock'] ?? 0;
+            int newStock = currentStock - quantity;
+            
+            // Prevent negative stock
+            if (newStock < 0) newStock = 0;
+            
+            // Prepare update data
+            Map<String, dynamic> updateData = {'stock': newStock};
+            
+            // If stock is zero, mark product as inactive
+            if (newStock == 0) {
+              updateData['isActive'] = false;
+            }
+            
+            // Add product update to batch
+            batch.update(productRef, updateData);
           }
-          
-          // Add product update to batch
-          batch.update(productRef, updateData);
+        } catch (e) {
+          print('Warning: Could not update stock for product $productId: $e');
+          // Continue with order even if stock update fails
         }
       }
       
@@ -180,10 +240,12 @@ class CheckoutProvider extends ChangeNotifier {
       _isLoading = false;
       _isProcessingOrder = false;
       notifyListeners();
+      
+      print('✅ Order placed successfully with ID: $orderId');
       return true;
 
     } catch (e) {
-      print('Error placing order: $e');
+      print('❌ Error placing order: $e');
       _isLoading = false;
       _isProcessingOrder = false;
       _errorMessage = e.toString();
@@ -192,7 +254,42 @@ class CheckoutProvider extends ChangeNotifier {
     }
   }
 
-  // Helper method to clear cart after successful order
+  // ✅ Validation method
+  void _validateOrderData(Map<String, dynamic> orderData) {
+    // Check sellerIds
+    final sellerIds = orderData['sellerIds'] as Map<String, dynamic>?;
+    if (sellerIds == null || sellerIds.isEmpty) {
+      throw Exception('No valid sellers found');
+    }
+
+    // Check for empty keys in sellerIds
+    for (String key in sellerIds.keys) {
+      if (key.trim().isEmpty) {
+        throw Exception('Empty seller ID found');
+      }
+    }
+
+    // Check items
+    final items = orderData['items'] as List<dynamic>?;
+    if (items == null || items.isEmpty) {
+      throw Exception('No items in order');
+    }
+
+    // Validate each item has required fields
+    for (var item in items) {
+      final itemMap = item as Map<String, dynamic>;
+      if ((itemMap['productId'] as String?)?.trim().isEmpty ?? true) {
+        throw Exception('Item missing product ID');
+      }
+      if ((itemMap['sellerId'] as String?)?.trim().isEmpty ?? true) {
+        throw Exception('Item missing seller ID');
+      }
+    }
+
+    print('✅ Order data validation passed');
+  }
+
+  // ✅ Helper method to clear cart after successful order
   Future<void> _clearCart(String userId) async {
     try {
       final cartRef = FirebaseFirestore.instance.collection('carts');
@@ -205,17 +302,44 @@ class CheckoutProvider extends ChangeNotifier {
         }
         await batch.commit();
       }
+      
+      print('✅ Cart cleared after order placement');
     } catch (e) {
-      print('Error clearing cart: $e');
+      print('⚠️ Warning: Failed to clear cart: $e');
+      // Don't throw error here as order was successful
     }
   }
 
+  // ✅ Order number generation
+  String _generateOrderNumber() {
+    final now = DateTime.now();
+    final timestamp = now.millisecondsSinceEpoch;
+    final random = (timestamp % 10000).toString().padLeft(4, '0');
+    return 'ORD-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}-$random';
+  }
+
+  // Reset checkout state
   void resetCheckout() {
     _currentStep = 0;
     _shippingAddress = null;
     _paymentMethod = null;
     _orderId = null;
     _errorMessage = null;
+    _isProcessingOrder = false;
     notifyListeners();
+  }
+
+  // Clear error message
+  void clearError() {
+    _errorMessage = null;
+    notifyListeners();
+  }
+
+  // Set current step manually
+  void setCurrentStep(int step) {
+    if (step >= 0 && step <= 3) {
+      _currentStep = step;
+      notifyListeners();
+    }
   }
 }
