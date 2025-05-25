@@ -29,6 +29,7 @@ class MainHomeScreen extends StatefulWidget {
 
 class _MainHomeScreenState extends State<MainHomeScreen> with RouteAware {
   List<Product> products = [];
+  int _productsToShow = 10; // <-- Add this line
   final String imageUrl = 'https://firebasestorage.googleapis.com/v0/b/haul-thrift-shop.firebasestorage.app/o/product.png?alt=media&token=8a229200-6b08-44c6-95ae-cf0efa4b1b5a'; 
   String? userId; // User ID to be used for wishlist
   Set<String> uniqueBrands = {};
@@ -323,9 +324,14 @@ class _MainHomeScreenState extends State<MainHomeScreen> with RouteAware {
     final bool isSmallScreen = size.width < 350;
 
     return RefreshIndicator(
-      onRefresh: fetchProducts, // <-- Add this line
+      onRefresh: () async {
+        await fetchProducts();
+        setState(() {
+          _productsToShow = 10; // Reset on refresh
+        });
+      },
       child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(), // Ensure scroll even if content is short
+        physics: const AlwaysScrollableScrollPhysics(),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
           child: Column(
@@ -357,6 +363,25 @@ class _MainHomeScreenState extends State<MainHomeScreen> with RouteAware {
               _buildSectionHeader('For You', showSubtitle: true),
               const SizedBox(height: 12),
               _buildForYouGrid(context),
+              
+              if (products.length > _productsToShow)
+                Center(
+                  child: TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _productsToShow += 10;
+                      });
+                    },
+                    child: Text(
+                      'See More',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.blue,
+                      ),
+                    ),
+                  ),
+                ),
               
               // Add space at the bottom
               const SizedBox(height: 20),
@@ -482,16 +507,18 @@ class _MainHomeScreenState extends State<MainHomeScreen> with RouteAware {
   Widget _buildForYouGrid(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final isSmallScreen = size.width < 360;
-    final itemWidth = (size.width - 48) / 2; // Account for padding and spacing
-    final itemHeight = itemWidth * 1.35; // Maintain aspect ratio
+    final itemWidth = (size.width - 48) / 2;
+    final itemHeight = itemWidth * 1.35;
 
     final wishlistProvider = Provider.of<WishlistProvider>(context);
 
     if (products.isEmpty) {
       return const Center(
-        child: CircularProgressIndicator(), // Show a loader if no products are available
+        child: CircularProgressIndicator(),
       );
     }
+
+    final productsToDisplay = products.take(_productsToShow).toList(); // <-- Only show limited products
 
     return GridView.builder(
       shrinkWrap: true,
@@ -502,9 +529,9 @@ class _MainHomeScreenState extends State<MainHomeScreen> with RouteAware {
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
       ),
-      itemCount: products.length,
+      itemCount: productsToDisplay.length,
       itemBuilder: (context, index) {
-        final product = products[index];
+        final product = productsToDisplay[index];
         final isInWishlist = wishlistProvider.isInWishlist(product.id);
 
         return GestureDetector(
