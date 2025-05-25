@@ -377,11 +377,20 @@ class WishlistScreen extends StatelessWidget {
         // Create a Product object
         final product = Product.fromMap(productData);
         
-        // Navigate to product detail screen
+        // ✅ Get current user ID
+        final userProfileProvider = Provider.of<UserProfileProvider>(context, listen: false);
+        final userId = userProfileProvider.userProfile != null
+            ? userProfileProvider.userProfile!.uid
+            : null; // Get user ID from provider, handle null
+        
+        // Navigate to product detail screen with userId
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => ProductDetailsScreen(product: product),
+            builder: (context) => ProductDetailsScreen(
+              product: product,
+              userId: userId, // ✅ Pass the user ID
+            ),
           ),
         );
       } else {
