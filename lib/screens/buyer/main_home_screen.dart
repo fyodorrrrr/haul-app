@@ -322,42 +322,46 @@ class _MainHomeScreenState extends State<MainHomeScreen> with RouteAware {
     final size = MediaQuery.of(context).size;
     final bool isSmallScreen = size.width < 350;
 
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 16),
-            
-            // 30% OFF Banner
-            _buildPromotionBanner(context),
-            
-            const SizedBox(height: 24),
-            
-            // Brands Section
-            _buildSectionHeader(
-              'Brands', 
-              onViewAll: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => BrandsShowcaseScreen()),
-                );
-              },
-            ),
-            const SizedBox(height: 12),
-            _buildBrandsRow(),
-            
-            const SizedBox(height: 24),
-            
-            // For You Section
-            _buildSectionHeader('For You', showSubtitle: true),
-            const SizedBox(height: 12),
-            _buildForYouGrid(context),
-            
-            // Add space at the bottom
-            const SizedBox(height: 20),
-          ],
+    return RefreshIndicator(
+      onRefresh: fetchProducts, // <-- Add this line
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(), // Ensure scroll even if content is short
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 16),
+              
+              // 30% OFF Banner
+              _buildPromotionBanner(context),
+              
+              const SizedBox(height: 24),
+              
+              // Brands Section
+              _buildSectionHeader(
+                'Brands', 
+                onViewAll: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => BrandsShowcaseScreen()),
+                  );
+                },
+              ),
+              const SizedBox(height: 12),
+              _buildBrandsRow(),
+              
+              const SizedBox(height: 24),
+              
+              // For You Section
+              _buildSectionHeader('For You', showSubtitle: true),
+              const SizedBox(height: 12),
+              _buildForYouGrid(context),
+              
+              // Add space at the bottom
+              const SizedBox(height: 20),
+            ],
+          ),
         ),
       ),
     );
