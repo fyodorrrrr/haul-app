@@ -6,8 +6,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import '../../models/product.dart';
 import '../../models/wishlist_model.dart';
+import '../../providers/user_profile_provider.dart';
 import '../../providers/wishlist_providers.dart';
 import '../../utils/snackbar_helper.dart';
+import '../../widgets/not_logged_in.dart';
 
 class ExploreScreen extends StatefulWidget {
   const ExploreScreen({Key? key}) : super(key: key);
@@ -201,6 +203,14 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final userProfileProvider = Provider.of<UserProfileProvider>(context, listen: true);
+    if (!userProfileProvider.isProfileLoaded) {
+      return const NotLoggedInScreen(
+        message: 'Please sign in to access Ukay.',
+        icon: Icons.swap_horiz_outlined,
+      );
+    }
+
     // Listen for wishlist changes
     if (userId != null) {
       final wishlistProvider = Provider.of<WishlistProvider>(context);
