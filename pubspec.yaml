@@ -44,6 +44,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/animations/
+    - assets/brand_logos/
     - assets/images/philippines_flag.png
     - assets/haul_logo.png
     - assets/images/onboarding1.jpg
