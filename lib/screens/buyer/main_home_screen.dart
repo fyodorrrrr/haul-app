@@ -72,43 +72,49 @@ class _MainHomeScreenState extends State<MainHomeScreen> with RouteAware {
   }
 
   Future<void> fetchProducts() async {
-    try {
-      print('Fetching active products from Firestore...');
-      
-      // Add where clause to only get active products
-      final snapshot = await FirebaseFirestore.instance
-          .collection('products')
-          .where('isActive', isEqualTo: true) // Only get active products
-          .get();
+  try {
+    print('Fetching active products from Firestore...');
+    
+    final snapshot = await FirebaseFirestore.instance
+        .collection('products')
+        .where('isActive', isEqualTo: true)
+        .get();
 
-      final fetchedProducts = snapshot.docs.map((doc) {
-        try {
-          // Updated to use enhanced Product model
-          final data = doc.data() as Map<String, dynamic>;
-          data['id'] = doc.id; // Add document ID to data
-          return Product.fromMap(data);
-        } catch (e) {
-          print('Error parsing product ${doc.id}: $e');
-          return null;
-        }
-      }).where((product) => product != null).cast<Product>().toList();
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final myUid = currentUser?.uid;
 
-      setState(() {
-        products = fetchedProducts;
-        uniqueBrands = extractUniqueBrands(fetchedProducts);
-      });
+    final fetchedProducts = snapshot.docs.map((doc) {
+      try {
+        final data = doc.data() as Map<String, dynamic>;
+        data['id'] = doc.id;
+        return Product.fromMap(data);
+      } catch (e) {
+        print('Error parsing product ${doc.id}: $e');
+        return null;
+      }
+    })
+    .where((product) => product != null)
+    .cast<Product>()
+    // Hide own products
+    .where((product) => myUid == null || product.sellerId != myUid)
+    .toList();
 
-      print('Fetched ${products.length} active products.');
-      print('Extracted brands: $uniqueBrands');
-    } catch (e) {
-      print('Error fetching products: $e');
-      SnackBarHelper.showSnackBar(
-        context,
-        'Failed to fetch products. Please try again later.',
-        isError: true,
-      );
-    }
+    setState(() {
+      products = fetchedProducts;
+      uniqueBrands = extractUniqueBrands(fetchedProducts);
+    });
+
+    print('Fetched ${products.length} active products.');
+    print('Extracted brands: $uniqueBrands');
+  } catch (e) {
+    print('Error fetching products: $e');
+    SnackBarHelper.showSnackBar(
+      context,
+      'Failed to fetch products. Please try again later.',
+      isError: true,
+    );
   }
+}
 
   void fetchUserId() {
     final user = FirebaseAuth.instance.currentUser;
