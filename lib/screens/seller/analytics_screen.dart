@@ -184,33 +184,52 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
           final orderTotal = orderData['total'];
           if (orderTotal != null) {
             sellerOrderTotal = _ensureDouble(orderTotal);
-          } else {
-            // Calculate from items
-            final items = orderData['items'] as List<dynamic>?;
-            if (items != null) {
-              for (var item in items) {
-                if (item is Map<String, dynamic> && item['sellerId'] == user.uid) {
-                  final price = _ensureDouble(item['price']);
-                  final quantity = (item['quantity'] ?? 1).toInt();
-                  sellerOrderTotal += price * quantity;
-                  
-                  // Track product performance
-                  final productId = item['productId'];
-                  if (productId != null) {
-                    if (!productSales.containsKey(productId)) {
-                      productSales[productId] = {
-                        'productId': productId,
-                        'name': item['name'] ?? 'Unknown Product',
-                        'units': 0,
-                        'revenue': 0.0,
-                        'imageUrl': item['imageURL'] ?? '',
-                      };
-                    }
-                    
-                    productSales[productId]!['units'] += quantity;
-                    productSales[productId]!['revenue'] = 
-                        (productSales[productId]!['revenue'] as double) + (price * quantity);
+          }
+          
+          // ✅ Always process items for product tracking
+          final items = orderData['items'] as List<dynamic>?;
+          if (items != null) {
+            for (var item in items) {
+              if (item is Map<String, dynamic> && item['sellerId'] == user.uid) {
+                final price = _ensureDouble(item['price']);
+                final quantity = (item['quantity'] ?? 1).toInt();
+                final itemTotal = price * quantity;
+                
+                // ✅ If no order total, calculate from items
+                if (orderTotal == null) {
+                  sellerOrderTotal += itemTotal;
+                }
+                
+                // ✅ Enhanced product tracking with better data extraction
+                final productId = item['productId']?.toString();
+                final productName = item['name']?.toString() ?? 
+                                  item['productName']?.toString() ?? 
+                                  'Unknown Product';
+                final imageUrl = item['imageURL']?.toString() ?? 
+                                item['imageUrl']?.toString() ?? 
+                                item['image']?.toString() ?? '';
+                
+                print('📦 Processing product: $productName (ID: $productId, Qty: $quantity, Price: ${CurrencyFormatter.format(price)})');
+                
+                if (productId != null && productId.isNotEmpty) {
+                  if (!productSales.containsKey(productId)) {
+                    productSales[productId] = {
+                      'productId': productId,
+                      'name': productName,
+                      'units': 0,
+                      'revenue': 0.0,
+                      'imageUrl': imageUrl,
+                    };
+                    print('✅ Created new product entry: $productName');
                   }
+                  
+                  // ✅ Update product metrics
+                  productSales[productId]!['units'] = (productSales[productId]!['units'] as int) + quantity;
+                  productSales[productId]!['revenue'] = (productSales[productId]!['revenue'] as double) + itemTotal;
+                  
+                  print('📊 Updated ${productName}: ${productSales[productId]!['units']} units, ${CurrencyFormatter.format(productSales[productId]!['revenue'] as double)} revenue');
+                } else {
+                  print('⚠️ Missing productId for item: $productName');
                 }
               }
             }
