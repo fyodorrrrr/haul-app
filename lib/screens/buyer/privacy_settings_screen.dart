@@ -30,7 +30,35 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
   @override
   void initState() {
     super.initState();
-    _loadPrivacySettings();
+    _ensureUserDocumentExists().then((_) => _loadPrivacySettings());
+  }
+
+  Future<void> _ensureUserDocumentExists() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final userDoc = FirebaseFirestore.instance.collection('users').doc(user.uid);
+      final docSnapshot = await userDoc.get();
+      
+      if (!docSnapshot.exists) {
+        // ✅ Create user document with default privacy settings
+        await userDoc.set({
+          'email': user.email,
+          'createdAt': FieldValue.serverTimestamp(),
+          'privacySettings': {
+            'profileVisibility': true,
+            'showPurchaseHistory': false,
+            'allowReviewDisplay': true,
+            'shareDataWithPartners': false,
+            'personalizedAds': true,
+            'activityTracking': true,
+            'locationServices': false,
+            'marketingEmails': true,
+            'smsNotifications': false,
+            'dataCollection': true,
+          },
+        });
+      }
+    }
   }
 
   Future<void> _loadPrivacySettings() async {
@@ -42,23 +70,24 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
         final doc = await FirebaseFirestore.instance
             .collection('users')
             .doc(user.uid)
-            .collection('privacy_settings')
-            .doc('preferences')
             .get();
         
         if (doc.exists) {
           final data = doc.data()!;
+          // ✅ Get privacy settings from main user document
+          final privacySettings = data['privacySettings'] as Map<String, dynamic>? ?? {};
+          
           setState(() {
-            _profileVisibility = data['profileVisibility'] ?? true;
-            _showPurchaseHistory = data['showPurchaseHistory'] ?? false;
-            _allowReviewDisplay = data['allowReviewDisplay'] ?? true;
-            _shareDataWithPartners = data['shareDataWithPartners'] ?? false;
-            _personalizedAds = data['personalizedAds'] ?? true;
-            _activityTracking = data['activityTracking'] ?? true;
-            _locationServices = data['locationServices'] ?? false;
-            _marketingEmails = data['marketingEmails'] ?? true;
-            _smsNotifications = data['smsNotifications'] ?? false;
-            _dataCollection = data['dataCollection'] ?? true;
+            _profileVisibility = privacySettings['profileVisibility'] ?? true;
+            _showPurchaseHistory = privacySettings['showPurchaseHistory'] ?? false;
+            _allowReviewDisplay = privacySettings['allowReviewDisplay'] ?? true;
+            _shareDataWithPartners = privacySettings['shareDataWithPartners'] ?? false;
+            _personalizedAds = privacySettings['personalizedAds'] ?? true;
+            _activityTracking = privacySettings['activityTracking'] ?? true;
+            _locationServices = privacySettings['locationServices'] ?? false;
+            _marketingEmails = privacySettings['marketingEmails'] ?? true;
+            _smsNotifications = privacySettings['smsNotifications'] ?? false;
+            _dataCollection = privacySettings['dataCollection'] ?? true;
           });
         }
       }
@@ -75,23 +104,24 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
+        // ✅ Save to main user document instead of subcollection
         await FirebaseFirestore.instance
             .collection('users')
             .doc(user.uid)
-            .collection('privacy_settings')
-            .doc('preferences')
-            .set({
-          'profileVisibility': _profileVisibility,
-          'showPurchaseHistory': _showPurchaseHistory,
-          'allowReviewDisplay': _allowReviewDisplay,
-          'shareDataWithPartners': _shareDataWithPartners,
-          'personalizedAds': _personalizedAds,
-          'activityTracking': _activityTracking,
-          'locationServices': _locationServices,
-          'marketingEmails': _marketingEmails,
-          'smsNotifications': _smsNotifications,
-          'dataCollection': _dataCollection,
-          'updatedAt': FieldValue.serverTimestamp(),
+            .update({
+          'privacySettings': {
+            'profileVisibility': _profileVisibility,
+            'showPurchaseHistory': _showPurchaseHistory,
+            'allowReviewDisplay': _allowReviewDisplay,
+            'shareDataWithPartners': _shareDataWithPartners,
+            'personalizedAds': _personalizedAds,
+            'activityTracking': _activityTracking,
+            'locationServices': _locationServices,
+            'marketingEmails': _marketingEmails,
+            'smsNotifications': _smsNotifications,
+            'dataCollection': _dataCollection,
+          },
+          'privacySettingsUpdatedAt': FieldValue.serverTimestamp(),
         });
         
         ScaffoldMessenger.of(context).showSnackBar(
