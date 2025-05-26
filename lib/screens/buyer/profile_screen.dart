@@ -4,6 +4,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:haul/screens/buyer/help_center_screen.dart';
 import 'package:haul/screens/buyer/notification_preferences_screen.dart';
 import 'package:haul/screens/buyer/payment_methods_screen.dart';
+import 'package:haul/screens/buyer/privacy_settings_screen.dart';
+import 'package:haul/screens/buyer/return_status_screen.dart';
+import 'package:haul/screens/buyer/start_return_screen.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '/providers/user_profile_provider.dart';
@@ -145,7 +148,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _buildMenuItem(
               icon: Icons.undo, 
               title: 'Returns',
-              onTap: () {},
+              subtitle: 'Return policy and requests',
+              onTap: () {
+                _showReturnsBottomSheet(context);
+              },
             ),
             
             const SizedBox(height: 16),
@@ -166,7 +172,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _buildMenuItem(
               icon: Icons.lock_outline, 
               title: 'Privacy Settings',
-              onTap: () {},
+              subtitle: 'Control your data and privacy',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => PrivacySettingsScreen()),
+                );
+              },
             ),
             _buildMenuItem(
               icon: Icons.help_outline, 
@@ -528,6 +540,207 @@ class _ProfileScreenState extends State<ProfileScreen> {
         );
       }
     });
+  }
+
+  // Returns bottom sheet
+  void _showReturnsBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => Container(
+        padding: EdgeInsets.all(24),
+        height: MediaQuery.of(context).size.height * 0.8,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Returns & Refunds',
+              style: GoogleFonts.poppins(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            SizedBox(height: 16),
+            
+            // Quick Actions
+            Row(
+              children: [
+                Expanded(
+                  child: _buildQuickActionCard(
+                    'Start Return',
+                    Icons.keyboard_return,
+                    Colors.blue,
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => StartReturnScreen()),
+                    ),
+                  ),
+                ),
+                SizedBox(width: 12),
+                Expanded(
+                  child: _buildQuickActionCard(
+                    'Return Status',
+                    Icons.track_changes,
+                    Colors.green,
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => ReturnStatusScreen()),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            
+            SizedBox(height: 24),
+            
+            // Return Policy
+            Text(
+              'Return Policy',
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            SizedBox(height: 12),
+            
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildPolicyItem(
+                      '30-Day Return Window',
+                      'Items can be returned within 30 days of delivery',
+                      Icons.schedule,
+                    ),
+                    _buildPolicyItem(
+                      'Original Condition',
+                      'Items must be in original, unused condition with tags',
+                      Icons.check_circle_outline,
+                    ),
+                    _buildPolicyItem(
+                      'Free Return Shipping',
+                      'We provide prepaid return labels for most items',
+                      Icons.local_shipping,
+                    ),
+                    _buildPolicyItem(
+                      'Quick Refunds',
+                      'Refunds processed within 3-5 business days',
+                      Icons.monetization_on,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            
+            SizedBox(height: 16),
+            
+            // Action Buttons
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text('Close'),
+                  ),
+                ),
+                SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => StartReturnScreen()),
+                      );
+                    },
+                    child: Text('Start Return'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickActionCard(String title, IconData icon, Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.3)),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 32),
+            SizedBox(height: 8),
+            Text(
+              title,
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPolicyItem(String title, String description, IconData icon) {
+    return Container(
+      margin: EdgeInsets.only(bottom: 16),
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: Colors.blue, size: 20),
+          ),
+          SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  description,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
