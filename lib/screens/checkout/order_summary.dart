@@ -6,6 +6,7 @@ import '/models/shipping_address.dart';
 import '/models/payment_method.dart';
 import '/providers/checkout_provider.dart';
 import '/screens/checkout/order_confirmation.dart';
+import '../../utils/currency_formatter.dart'; // ✅ Add this import
 
 class OrderSummary extends StatefulWidget {
   final List<CartModel> cartItems;
@@ -76,11 +77,11 @@ class _OrderSummaryState extends State<OrderSummary> {
 
                   // Order Total Section
                   _buildSectionHeader('Order Total'),
-                  _buildPriceRow('Subtotal', '\$${widget.subtotal.toStringAsFixed(2)}'),
-                  _buildPriceRow('Shipping', '\$${widget.shipping.toStringAsFixed(2)}'),
-                  _buildPriceRow('Tax', '\$${widget.tax.toStringAsFixed(2)}'),
+                  _buildPriceRow('Subtotal', CurrencyFormatter.format(widget.subtotal)), // ✅ Changed from $ to ₱
+                  _buildPriceRow('Shipping', CurrencyFormatter.format(widget.shipping)), // ✅ Changed from $ to ₱
+                  _buildPriceRow('Tax', CurrencyFormatter.format(widget.tax)), // ✅ Changed from $ to ₱
                   const Divider(thickness: 1),
-                  _buildPriceRow('Total', '\$${widget.total.toStringAsFixed(2)}', isTotal: true),
+                  _buildPriceRow('Total', CurrencyFormatter.format(widget.total), isTotal: true), // ✅ Changed from $ to ₱
                 ],
               ),
             ),
@@ -424,14 +425,14 @@ class _OrderSummaryState extends State<OrderSummary> {
                         children: [
                           if (item.quantity > 1)
                             Text(
-                              '\$${(item.productPrice ?? 0.0).toStringAsFixed(2)} each',
+                              CurrencyFormatter.format(item.productPrice ?? 0.0) + ' each', // ✅ Changed from $ to ₱
                               style: GoogleFonts.poppins(
                                 fontSize: 11,
                                 color: Colors.grey.shade600,
                               ),
                             ),
                           Text(
-                            '\$${itemTotal.toStringAsFixed(2)}',
+                            CurrencyFormatter.format(itemTotal), // ✅ Changed from $ to ₱
                             style: GoogleFonts.poppins(
                               fontWeight: FontWeight.w600,
                               fontSize: 14,

@@ -14,6 +14,7 @@ import 'brands_showcase_screen.dart';
 import '../../widgets/brand_logo_widget.dart';
 import 'search_screen.dart';
 import 'brands_showcase_screen.dart';
+import '../../utils/currency_formatter.dart'; // ✅ Add this import
 
 class MainHomeScreen extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -615,10 +616,11 @@ class _MainHomeScreenState extends State<MainHomeScreen> with RouteAware {
                             ),
                             // Updated to use effectivePrice (shows sale price if available, otherwise selling price)
                             Text(
-                              '₱${product.effectivePrice.toStringAsFixed(2)}',
+                              CurrencyFormatter.format(product.effectivePrice), // ✅ Changed from $ to ₱
                               style: GoogleFonts.poppins(
-                                fontSize: isSmallScreen ? 14 : 16,
+                                fontSize: isSmallScreen ? 12 : 14,
                                 fontWeight: FontWeight.bold,
+                                color: Colors.green[600],
                               ),
                             ),
                           ],

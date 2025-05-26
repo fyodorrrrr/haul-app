@@ -114,15 +114,15 @@ class CartScreen extends StatelessWidget {
                       ),
                       child: Column(
                         children: [
-                          _buildSummaryRow('Subtotal', '\$${subtotal.toStringAsFixed(2)}'),
+                          _buildSummaryRow('Subtotal', CurrencyFormatter.format(subtotal)),
                           const SizedBox(height: 8),
-                          _buildSummaryRow('Shipping', '\$${shipping.toStringAsFixed(2)}'),
+                          _buildSummaryRow('Shipping', CurrencyFormatter.format(shipping)),
                           const SizedBox(height: 8),
-                          _buildSummaryRow('Tax', '\$${tax.toStringAsFixed(2)}'),
+                          _buildSummaryRow('Tax', CurrencyFormatter.format(tax)),
                           const Divider(height: 24),
                           _buildSummaryRow(
                             'Total',
-                            '\$${total.toStringAsFixed(2)}',
+                            CurrencyFormatter.format(total),
                             isTotal: true,
                           ),
                           const SizedBox(height: 16),
@@ -210,7 +210,7 @@ class CartScreen extends StatelessWidget {
                                 padding: const EdgeInsets.symmetric(vertical: 14),
                               ),
                               child: Text(
-                                'Proceed to Checkout (\$${total.toStringAsFixed(2)})',
+                                'Proceed to Checkout (${CurrencyFormatter.format(total)})', // ✅ Changed from $ to ₱
                                 style: GoogleFonts.poppins(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
@@ -322,7 +322,7 @@ class CartScreen extends StatelessWidget {
                       Flexible(
                         flex: 2,
                         child: Text(
-                          '\$${(cartItem.productPrice ?? 0.0).toStringAsFixed(2)}',
+                          CurrencyFormatter.format(cartItem.productPrice ?? 0.0), // ✅ Changed from $ to ₱
                           style: GoogleFonts.poppins(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
@@ -589,7 +589,7 @@ class CartScreen extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                           Text(
-                            'Qty: ${cartItem.quantity} • \$${(cartItem.productPrice ?? 0.0).toStringAsFixed(2)}',
+                            'Qty: ${cartItem.quantity} • ${CurrencyFormatter.format(cartItem.productPrice ?? 0.0)}',
                             style: GoogleFonts.poppins(
                               fontSize: 11,
                               color: Colors.grey.shade600,

@@ -1462,7 +1462,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                 controller: _costPriceController,
                 decoration: InputDecoration(
                   labelText: 'Cost Price',
-                  prefixText: '₱',
+                  prefixText: '₱', // ✅ Changed from $ to ₱
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -1488,7 +1488,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                 controller: _sellingPriceController,
                 decoration: InputDecoration(
                   labelText: 'Selling Price',
-                  prefixText: '₱',
+                  prefixText: '₱', // ✅ Changed from $ to ₱
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -1517,7 +1517,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
           controller: _salePriceController,
           decoration: InputDecoration(
             labelText: 'Sale Price (Optional)',
-            prefixText: '₱',
+            prefixText: '₱', // ✅ Changed from $ to ₱
             hintText: 'Leave empty if not on sale',
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),

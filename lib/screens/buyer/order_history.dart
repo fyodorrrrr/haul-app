@@ -8,6 +8,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '/widgets/not_logged_in.dart';
 import '/providers/user_profile_provider.dart';
+import '../../../utils/currency_formatter.dart'; // ✅ Add this import
 
 class OrderHistoryScreen extends StatefulWidget {
   const OrderHistoryScreen({Key? key}) : super(key: key);
@@ -303,11 +304,11 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                             print('  Raw total from order: ${order['total']}');
                             
                             return Text(
-                              'Total: \$${totalPrice.toStringAsFixed(2)}',
+                              CurrencyFormatter.format(totalPrice), // ✅ Changed from $ to ₱
                               style: GoogleFonts.poppins(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.green.shade700,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green[600],
                               ),
                             );
                           },

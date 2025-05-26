@@ -5,7 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 import 'package:intl/intl.dart';
 import '../../models/order_model.dart';
-
+import '../../utils/currency_formatter.dart';
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({Key? key}) : super(key: key);
 
@@ -99,7 +99,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
           for (var item in items) {
             // Only count this seller's items
             if (item['sellerId'] == user.uid) {
-              final price = (item['price'] ?? 0).toDouble();
+              final price = (item['price'] is int) 
+                  ? (item['price'] as int).toDouble() 
+                  : (item['price'] ?? 0).toDouble(); // ✅ Ensure double type
               final quantity = (item['quantity'] ?? 1).toInt();
               final productId = item['productId'];
               final productTotal = price * quantity;
@@ -114,13 +116,14 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
                     'productId': productId,
                     'name': item['name'] ?? 'Unknown Product',
                     'units': 0,
-                    'revenue': 0.0,
+                    'revenue': 0.0, // ✅ Ensure double type
                     'imageUrl': item['imageURL'] ?? '',
                   };
                 }
                 
                 productSales[productId]!['units'] += quantity;
-                productSales[productId]!['revenue'] += productTotal;
+                productSales[productId]!['revenue'] = 
+                    (productSales[productId]!['revenue'] as double) + productTotal; // ✅ Ensure double addition
               }
             }
           }
@@ -151,7 +154,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
               dateKey = DateFormat('MM/dd').format(date);
           }
           
-          salesByDate[dateKey] = (salesByDate[dateKey] ?? 0) + (orderData['total'] ?? 0).toDouble();
+          salesByDate[dateKey] = (salesByDate[dateKey] ?? 0.0) + 
+              ((orderData['total'] is int) 
+                  ? (orderData['total'] as int).toDouble() 
+                  : (orderData['total'] ?? 0.0).toDouble());
         }
       }
       
@@ -186,7 +192,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
         _metricsData = {
           'totalSales': totalSales,
           'totalOrders': totalOrders,
-          'averageOrderValue': totalOrders > 0 ? totalSales / totalOrders : 0,
+          'averageOrderValue': totalOrders > 0 ? totalSales / totalOrders : 0.0,
           'viewCount': viewCount,
         };
         _isLoading = false;
@@ -197,6 +203,24 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to load analytics data'), backgroundColor: Colors.red),
       );
+    }
+  }
+
+  // ✅ Add helper method for safe double conversion
+  double _ensureDouble(dynamic value) {
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? 0.0;
+    return 0.0;
+  }
+
+  // ✅ Update _formatRevenue method
+  String _formatRevenue(dynamic amount) {
+    final doubleAmount = _ensureDouble(amount);
+    if (doubleAmount >= 100000) {
+      return CurrencyFormatter.formatWithCommas(doubleAmount);
+    } else {
+      return CurrencyFormatter.format(doubleAmount);
     }
   }
 
@@ -275,7 +299,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
             children: [
               _buildMetricCard(
                 'Total Sales', 
-                '\$${_metricsData['totalSales'].toStringAsFixed(2)}',
+                _formatRevenue(_metricsData['totalSales']), // ✅ Enhanced formatting
                 Icons.attach_money,
                 Colors.green
               ),
@@ -287,7 +311,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
               ),
               _buildMetricCard(
                 'Avg. Order', 
-                '\$${_metricsData['averageOrderValue'].toStringAsFixed(2)}',
+                CurrencyFormatter.format(_metricsData['averageOrderValue']), // ✅ Changed from $ to ₱
                 Icons.insights,
                 Colors.purple
               ),
@@ -373,7 +397,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
                         ),
                       ),
                       Text(
-                        '\$${_metricsData['totalSales'].toStringAsFixed(2)}',
+                        CurrencyFormatter.formatWithCommas(_ensureDouble(_metricsData['totalSales'])), // ✅ Safe conversion
                         style: GoogleFonts.poppins(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -395,7 +419,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
                       Expanded(
                         child: _buildMiniMetric(
                           'Avg. Order',
-                          '\$${_metricsData['averageOrderValue'].toStringAsFixed(2)}',
+                          CurrencyFormatter.format(_ensureDouble(_metricsData['averageOrderValue'])), // ✅ Safe conversion
                           Icons.insert_chart_outlined,
                         ),
                       ),
@@ -581,6 +605,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
     );
   }
 
+  // ✅ Update chart data conversion
   Widget _buildSalesChart() {
     if (_salesData.isEmpty) {
       return Center(child: Text('No sales data available'));
@@ -588,12 +613,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
 
     return SfCartesianChart(
       primaryXAxis: CategoryAxis(),
-      tooltipBehavior: TooltipBehavior(enable: true),
+      tooltipBehavior: TooltipBehavior(
+        enable: true,
+        format: 'point.x: ${CurrencyFormatter.symbol}point.y',
+      ),
       series: <LineSeries<Map<String, dynamic>, String>>[
         LineSeries<Map<String, dynamic>, String>(
           dataSource: _salesData,
           xValueMapper: (data, _) => data['date'].toString(),
-          yValueMapper: (data, _) => data['sales'],
+          yValueMapper: (data, _) => _ensureDouble(data['sales']), // ✅ Safe conversion
           name: 'Sales',
           color: Theme.of(context).primaryColor,
           markerSettings: MarkerSettings(isVisible: false),
@@ -604,8 +632,29 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
   }
 
   Widget _buildDetailedSalesChart() {
-    // Similar to _buildSalesChart but with more detailed options
-    return _buildSalesChart();
+    if (_salesData.isEmpty) {
+      return Center(child: Text('No sales data available'));
+    }
+
+    return SfCartesianChart(
+      primaryXAxis: CategoryAxis(),
+      primaryYAxis: NumericAxis(
+        labelFormat: '${CurrencyFormatter.symbol}{value}',
+        numberFormat: NumberFormat.compact(),
+      ),
+      tooltipBehavior: TooltipBehavior(enable: true),
+      series: <LineSeries<Map<String, dynamic>, String>>[
+        LineSeries<Map<String, dynamic>, String>(
+          dataSource: _salesData,
+          xValueMapper: (data, _) => data['date'].toString(),
+          yValueMapper: (data, _) => _ensureDouble(data['sales']), // ✅ Safe conversion
+          name: 'Sales (₱)',
+          color: Theme.of(context).primaryColor,
+          markerSettings: MarkerSettings(isVisible: true, width: 6, height: 6),
+          enableTooltip: true,
+        )
+      ],
+    );
   }
 
   Widget _buildOrderStatusChart() {
@@ -639,12 +688,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
 
     return SfCartesianChart(
       primaryXAxis: CategoryAxis(),
-      tooltipBehavior: TooltipBehavior(enable: true),
+      tooltipBehavior: TooltipBehavior(
+        enable: true,
+        format: 'point.x: ${CurrencyFormatter.symbol}point.y',
+      ),
       series: <ColumnSeries<Map<String, dynamic>, String>>[
         ColumnSeries<Map<String, dynamic>, String>(
           dataSource: _topProducts,
           xValueMapper: (data, _) => data['name'].toString(),
-          yValueMapper: (data, _) => data['revenue'],
+          yValueMapper: (data, _) => _ensureDouble(data['revenue']), // ✅ Safe conversion
           name: 'Revenue',
           color: Theme.of(context).primaryColor,
           enableTooltip: true,
@@ -655,6 +707,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
     );
   }
 
+  // ✅ Update sales table data conversion
   Widget _buildSalesTable() {
     if (_salesData.isEmpty) {
       return Center(
@@ -673,7 +726,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
           return DataRow(
             cells: [
               DataCell(Text(data['date'].toString())),
-              DataCell(Text('\$${(data['sales'] as double).toStringAsFixed(2)}')),
+              DataCell(Text(CurrencyFormatter.format(_ensureDouble(data['sales'])))), // ✅ Safe conversion
             ],
           );
         }).toList(),
@@ -721,7 +774,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
           '${product['units']} units sold',
         ),
         trailing: Text(
-          '\$${(product['revenue'] as double).toStringAsFixed(2)}',
+          CurrencyFormatter.format(_ensureDouble(product['revenue'])), // ✅ Safe conversion
           style: GoogleFonts.poppins(
             fontWeight: FontWeight.bold,
             color: Colors.green[700],
@@ -732,6 +785,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
   }
 
   Widget _buildDetailedProductItem(Map<String, dynamic> product) {
+    final revenue = _ensureDouble(product['revenue']);
+    final units = (product['units'] ?? 1).toInt();
+    final avgPrice = units > 0 ? revenue / units : 0.0;
+
     return Card(
       margin: EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(
@@ -799,21 +856,21 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
                 Expanded(
                   child: _buildProductMetricTile(
                     'Units Sold',
-                    '${product['units']}',
+                    '${units}',
                     Icons.inventory_2_outlined,
                   ),
                 ),
                 Expanded(
                   child: _buildProductMetricTile(
                     'Revenue',
-                    '\$${(product['revenue'] as double).toStringAsFixed(2)}',
+                    CurrencyFormatter.format(revenue), // ✅ Already converted to double
                     Icons.attach_money,
                   ),
                 ),
                 Expanded(
                   child: _buildProductMetricTile(
                     'Avg. Price',
-                    '\$${(product['revenue'] / product['units']).toStringAsFixed(2)}',
+                    CurrencyFormatter.format(avgPrice), // ✅ Already calculated as double
                     Icons.trending_up,
                   ),
                 ),

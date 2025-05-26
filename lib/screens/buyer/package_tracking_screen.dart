@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../../models/order_model.dart';
 import 'dart:math' as math;
 import '../seller/order_detail_screen.dart';
+import '../../utils/currency_formatter.dart'; // ✅ Add this import
 
 class PackageTrackingScreen extends StatefulWidget {
   const PackageTrackingScreen({Key? key}) : super(key: key);

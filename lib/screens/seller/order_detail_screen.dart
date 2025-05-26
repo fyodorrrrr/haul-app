@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../utils/currency_formatter.dart'; // ✅ Add this import
 
 class OrderDetailScreen extends StatefulWidget {
   final String orderId;
@@ -399,7 +400,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     ),
                   ),
                   Text(
-                    '\$${totalPrice.toStringAsFixed(2)}',
+                    CurrencyFormatter.format(totalPrice),
                     style: GoogleFonts.poppins(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -855,7 +856,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '\$${price.toStringAsFixed(2)}',
+                CurrencyFormatter.format(price),
                 style: GoogleFonts.poppins(
                   fontWeight: FontWeight.w600,
                   fontSize: 15,
@@ -1212,7 +1213,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               Divider(height: 20),
               _buildInfoRow(
                 'Amount Paid', 
-                '\$${((_orderData!['paymentAmount'] ?? _orderData!['amountPaid']) as num).toStringAsFixed(2)}'
+                CurrencyFormatter.format(((_orderData!['paymentAmount'] ?? _orderData!['amountPaid']) as num).toDouble())
               ),
             ],
           ],
@@ -1286,11 +1287,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             ),
             SizedBox(height: 12),
             
-            _buildInfoRow('Subtotal', '\$${subtotal.toStringAsFixed(2)}'),
+            _buildInfoRow('Subtotal', CurrencyFormatter.format(subtotal)),
             if (shipping > 0)
-              _buildInfoRow('Shipping', '\$${shipping.toStringAsFixed(2)}'),
+              _buildInfoRow('Shipping', CurrencyFormatter.format(shipping)),
             if (tax > 0)
-              _buildInfoRow('Tax', '\$${tax.toStringAsFixed(2)}'),
+              _buildInfoRow('Tax', CurrencyFormatter.format(tax)),
             
             Divider(height: 20),
             
@@ -1305,7 +1306,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   ),
                 ),
                 Text(
-                  '\$${total.toStringAsFixed(2)}',
+                  CurrencyFormatter.format(total),
                   style: GoogleFonts.poppins(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -1841,24 +1842,40 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       calculatedTotal += price * quantity;
     }
     
-    return calculatedTotal.toStringAsFixed(2);
+    return CurrencyFormatter.format(calculatedTotal);
   }
 
-  // ✅ Add this missing method
+  // ✅ Update the _formatOrderTotal method (around line 1850)
   String _formatOrderTotal(dynamic total) {
-    if (total == null) return '0.00';
+    if (total == null) return CurrencyFormatter.format(0.0);
     
     if (total is num) {
-      return total.toStringAsFixed(2);
+      return CurrencyFormatter.format(total.toDouble());
     }
     
     if (total is String) {
       final parsed = double.tryParse(total);
-      return parsed?.toStringAsFixed(2) ?? '0.00';
+      return CurrencyFormatter.format(parsed ?? 0.0);
     }
     
-    return '0.00';
+    return CurrencyFormatter.format(0.0);
   }
+
+  // Add this missing method
+  // String _formatOrderTotal(dynamic total) {
+  //   if (total == null) return '0.00';
+    
+  //   if (total is num) {
+  //     return total.toStringAsFixed(2);
+  //   }
+    
+  //   if (total is String) {
+  //     final parsed = double.tryParse(total);
+  //     return parsed?.toStringAsFixed(2) ?? '0.00';
+  //   }
+    
+  //   return '0.00';
+  // }
 
   // ✅ Add this missing method for quantity extraction
   int _getItemQuantity(Map<String, dynamic> item) {

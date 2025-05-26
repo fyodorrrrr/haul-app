@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import '../../models/order_model.dart';
+import '../../utils/currency_formatter.dart'; // ✅ Add this import
 
 class StartReturnScreen extends StatefulWidget {
   final String? orderId;
@@ -328,7 +329,7 @@ class _StartReturnScreenState extends State<StartReturnScreen> {
                     ),
                     Spacer(),
                     Text(
-                      '₱${order.total.toStringAsFixed(2)}',
+                      CurrencyFormatter.format(order.total), // ✅ Changed from $ to ₱
                       style: GoogleFonts.poppins(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
@@ -482,7 +483,7 @@ class _StartReturnScreenState extends State<StartReturnScreen> {
                         ),
                         SizedBox(height: 4),
                         Text(
-                          '₱${(itemData['price'] ?? 0).toStringAsFixed(2)}',
+                          CurrencyFormatter.format(itemData['price'] ?? 0.0), // ✅ Changed from ₱ to use formatter
                           style: GoogleFonts.poppins(
                             fontSize: 12,
                             color: Colors.green[600],
