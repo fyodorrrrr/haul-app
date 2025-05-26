@@ -19,6 +19,7 @@ import 'product_form_screen.dart';
 import 'seller_profile_screen.dart';
 import 'analytics_screen.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
+import '../../utils/currency_formatter.dart'; // ✅ Add this import
 
 class SellerDashboardScreen extends StatefulWidget {
   const SellerDashboardScreen({Key? key}) : super(key: key);
@@ -325,7 +326,7 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
             }
           }
           data['total'] = calculatedTotal;
-          print('📋 Calculated total for order ${doc.id}: ₱${calculatedTotal.toStringAsFixed(2)}');
+          print('📋 Calculated total for order ${doc.id}: ${CurrencyFormatter.format(calculatedTotal)}');
         }
         
         // Debug each order
@@ -357,7 +358,7 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
       
       print('✅ Successfully processed ${orders.length} orders with totals');
       print('✅ Updated orders count: ${_salesMetrics['ordersCount']}');
-      print('✅ Updated total sales: ₱${_salesMetrics['totalSales'].toStringAsFixed(2)}');
+      print('✅ Updated total sales: ${CurrencyFormatter.format(_salesMetrics['totalSales'])}');
     }
   }
 
@@ -448,7 +449,7 @@ Future<void> _updateOrdersCount() async {
         totalSalesAmount += orderTotal;
       }
       
-      print('✅ Strategy 1 - Found ${totalOrdersCount} total orders, ₱${totalSalesAmount.toStringAsFixed(2)} total sales');
+      print('✅ Strategy 1 - Found ${totalOrdersCount} total orders, ${CurrencyFormatter.format(totalSalesAmount)} total sales');
       
     } catch (e) {
       print('❌ Strategy 1 failed: $e');
@@ -500,7 +501,7 @@ Future<void> _updateOrdersCount() async {
         }
       }
       
-      print('✅ Strategy 2 - Found ${totalOrdersCount} total orders, ₱${totalSalesAmount.toStringAsFixed(2)} total sales');
+      print('✅ Strategy 2 - Found ${totalOrdersCount} total orders, ${CurrencyFormatter.format(totalSalesAmount)} total sales');
     }
 
     // Update the metrics
@@ -513,7 +514,7 @@ Future<void> _updateOrdersCount() async {
 
     print('✅ Updated sales metrics:');
     print('  - Orders Count: ${_salesMetrics['ordersCount']}');
-    print('  - Total Sales: ₱${_salesMetrics['totalSales'].toStringAsFixed(2)}');
+    print('  - Total Sales: ${CurrencyFormatter.format(_salesMetrics['totalSales'])}');
 
   } catch (e) {
     print('❌ Error updating orders count: $e');

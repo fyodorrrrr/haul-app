@@ -11,6 +11,7 @@ import '/models/cart_model.dart';
 import '/models/product.dart';
 import '/screens/buyer/product_details_screen.dart';
 import '/widgets/not_logged_in.dart';
+import '../../utils/currency_formatter.dart';
 
 class WishlistScreen extends StatefulWidget {
   const WishlistScreen({Key? key}) : super(key: key);
@@ -197,7 +198,7 @@ class _WishlistScreenState extends State<WishlistScreen> {
                   ),
                   Expanded(
                     child: _buildStatCard(
-                      '\$${provider.totalWishlistValue.toStringAsFixed(0)}',
+                      CurrencyFormatter.formatWithCommas(provider.totalWishlistValue),
                       'Total Value',
                       Icons.monetization_on,
                       Colors.green,
@@ -488,7 +489,7 @@ class _WishlistScreenState extends State<WishlistScreen> {
                   children: [
                     Flexible(
                       child: Text(
-                        '\$${item.salePrice!.toStringAsFixed(2)}',
+                        CurrencyFormatter.format(item.salePrice!), // ✅ Changed from $ to ₱
                         style: GoogleFonts.poppins(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
@@ -499,7 +500,7 @@ class _WishlistScreenState extends State<WishlistScreen> {
                     SizedBox(width: 6),
                     Flexible(
                       child: Text(
-                        '\$${item.productPrice.toStringAsFixed(2)}',
+                        CurrencyFormatter.format(item.productPrice), // ✅ Changed from $ to ₱
                         style: GoogleFonts.poppins(
                           fontSize: 11,
                           color: Colors.grey,
@@ -511,7 +512,7 @@ class _WishlistScreenState extends State<WishlistScreen> {
                 ),
               ] else ...[
                 Text(
-                  '\$${item.productPrice.toStringAsFixed(2)}',
+                  CurrencyFormatter.format(item.productPrice), // ✅ Changed from $ to ₱
                   style: GoogleFonts.poppins(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
@@ -816,7 +817,7 @@ class _WishlistScreenState extends State<WishlistScreen> {
       
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('${item.productName} added to cart!'),
+          content: Text('${item.productName} added to cart! (${CurrencyFormatter.format(item.effectivePrice)})'), // ✅ Added price in peso
           backgroundColor: Colors.green,
           action: SnackBarAction(
             label: 'View Cart',
@@ -1020,7 +1021,7 @@ class _WishlistScreenState extends State<WishlistScreen> {
 
   void _shareProduct(WishlistModel item) {
     Share.share(
-      'Check out this ${item.productName} for ${item.displayPrice}! Found it on Haul app.',
+      'Check out this ${item.productName} for ${CurrencyFormatter.format(item.effectivePrice)}! Found it on Haul app.', // ✅ Changed from displayPrice to formatted price
       subject: 'Great find on Haul App!',
     );
   }
@@ -1030,7 +1031,7 @@ class _WishlistScreenState extends State<WishlistScreen> {
     final totalValue = provider.totalWishlistValue;
     
     Share.share(
-      'Check out my wishlist on Haul! I have $itemCount items worth \$${totalValue.toStringAsFixed(2)}. Join me in discovering amazing thrift finds!',
+      'Check out my wishlist on Haul! I have $itemCount items worth ${CurrencyFormatter.formatWithCommas(totalValue)}. Join me in discovering amazing thrift finds!', // ✅ Changed from $ to ₱
       subject: 'My Haul Wishlist',
     );
   }

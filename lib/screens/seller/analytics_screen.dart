@@ -5,7 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 import 'package:intl/intl.dart';
 import '../../models/order_model.dart';
-
+import '../../utils/currency_formatter.dart';
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({Key? key}) : super(key: key);
 
@@ -50,7 +50,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception('User not authenticated');
       
-      // Get timeframe constraints based on selected range
+      // Get timeframe constraints
       final DateTime now = DateTime.now();
       DateTime startDate;
       
@@ -71,91 +71,200 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
           startDate = DateTime(now.year, now.month, now.day).subtract(Duration(days: 30));
       }
       
-      // Query orders within the timeframe
-      final ordersQuery = await FirebaseFirestore.instance
-          .collection('orders')
-          .where('sellerIds', arrayContains: user.uid)
-          .where('createdAt', isGreaterThanOrEqualTo: startDate)
-          .orderBy('createdAt', descending: false)
-          .get();
+      print('🔍 Querying orders for seller: ${user.uid}');
+      print('📅 Date range: ${startDate.toString()} to ${now.toString()}');
       
-      // Process orders data
+      // ✅ Strategy based on seller dashboard success pattern
+      QuerySnapshot ordersQuery;
+      
+      try {
+        // Strategy 1: Try sellerIds map structure (like seller dashboard)
+        print('🔄 Trying Strategy 1: sellerIds map structure');
+        ordersQuery = await FirebaseFirestore.instance
+            .collection('orders')
+            .where('sellerIds.${user.uid}', isEqualTo: true) // ✅ Map key access
+            .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(startDate))
+            .where('createdAt', isLessThanOrEqualTo: Timestamp.fromDate(now))
+            .orderBy('createdAt', descending: false)
+            .get();
+        
+        print('📋 Strategy 1: Found ${ordersQuery.docs.length} orders');
+        
+        if (ordersQuery.docs.isEmpty) {
+          throw Exception('No orders found with map structure');
+        }
+        
+      } catch (e) {
+        print('⚠️ Strategy 1 failed: $e');
+        
+        // Strategy 2: Get all orders and filter manually (like order provider)
+        print('🔄 Trying Strategy 2: Manual filtering');
+        try {
+          ordersQuery = await FirebaseFirestore.instance
+              .collection('orders')
+              .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(startDate))
+              .where('createdAt', isLessThanOrEqualTo: Timestamp.fromDate(now))
+              .orderBy('createdAt', descending: false)
+              .get();
+          
+          print('📋 Strategy 2: Found ${ordersQuery.docs.length} total orders to filter');
+          
+        } catch (e2) {
+          print('⚠️ Strategy 2 failed: $e2');
+          
+          // Strategy 3: Get all orders without date filter (fallback)
+          print('🔄 Trying Strategy 3: All orders fallback');
+          ordersQuery = await FirebaseFirestore.instance
+              .collection('orders')
+              .get();
+          
+          print('📋 Strategy 3: Found ${ordersQuery.docs.length} total orders');
+        }
+      }
+      
+      // Initialize analytics data
       double totalSales = 0;
-      int totalOrders = ordersQuery.docs.length;
+      int totalOrders = 0;
       Map<String, double> salesByDate = {};
-      Map<String, int> ordersByStatus = {'pending': 0, 'processing': 0, 'shipped': 0, 'delivered': 0, 'cancelled': 0};
+      Map<String, int> ordersByStatus = {
+        'pending': 0, 
+        'processing': 0, 
+        'shipped': 0, 
+        'delivered': 0, 
+        'cancelled': 0
+      };
       Map<String, Map<String, dynamic>> productSales = {};
+      Set<String> processedOrderIds = {};
+      
+      // ✅ Enhanced order filtering based on order provider logic
+      print('📝 Processing ${ordersQuery.docs.length} orders...');
       
       for (var doc in ordersQuery.docs) {
-        final orderData = doc.data();
+        final orderData = doc.data() as Map<String, dynamic>;
+        final orderId = doc.id;
         
-        // Process order status
-        final status = (orderData['status'] ?? 'pending').toLowerCase();
-        ordersByStatus[status] = (ordersByStatus[status] ?? 0) + 1;
+        bool hasSellerItems = false;
+        double sellerOrderTotal = 0.0;
         
-        // Process items in this order
-        final items = orderData['items'] as List<dynamic>?;
-        if (items != null) {
-          for (var item in items) {
-            // Only count this seller's items
-            if (item['sellerId'] == user.uid) {
-              final price = (item['price'] ?? 0).toDouble();
-              final quantity = (item['quantity'] ?? 1).toInt();
-              final productId = item['productId'];
-              final productTotal = price * quantity;
-              
-              // Add to total sales
-              totalSales += productTotal;
-              
-              // Track product performance
-              if (productId != null) {
-                if (!productSales.containsKey(productId)) {
-                  productSales[productId] = {
-                    'productId': productId,
-                    'name': item['name'] ?? 'Unknown Product',
-                    'units': 0,
-                    'revenue': 0.0,
-                    'imageUrl': item['imageURL'] ?? '',
-                  };
-                }
-                
-                productSales[productId]!['units'] += quantity;
-                productSales[productId]!['revenue'] += productTotal;
+        // ✅ Check sellerIds in multiple formats (from order provider pattern)
+        final sellerIds = orderData['sellerIds'];
+        
+        if (sellerIds is Map<String, dynamic>) {
+          // Map format: {"sellerId1": true, "sellerId2": true}
+          hasSellerItems = sellerIds.containsKey(user.uid) && sellerIds[user.uid] == true;
+          print('  Order $orderId: Map format check - $hasSellerItems');
+        } else if (sellerIds is List<dynamic>) {
+          // List format: ["sellerId1", "sellerId2"]
+          hasSellerItems = sellerIds.contains(user.uid);
+          print('  Order $orderId: List format check - $hasSellerItems');
+        }
+        
+        // ✅ Also check sellerId field
+        if (!hasSellerItems && orderData['sellerId'] == user.uid) {
+          hasSellerItems = true;
+          print('  Order $orderId: sellerId field check - $hasSellerItems');
+        }
+        
+        // ✅ Fallback: Check items for seller products
+        if (!hasSellerItems) {
+          final items = orderData['items'] as List<dynamic>?;
+          if (items != null) {
+            for (var item in items) {
+              if (item is Map<String, dynamic> && item['sellerId'] == user.uid) {
+                hasSellerItems = true;
+                print('  Order $orderId: Items check - found seller item');
+                break;
               }
             }
           }
         }
         
-        // Process sales by date for the chart
-        final createdAt = orderData['createdAt'] as Timestamp?;
-        if (createdAt != null) {
-          final date = createdAt.toDate();
-          String dateKey;
-          
-          switch (_selectedTimeRange) {
-            case 'daily':
-              dateKey = DateFormat('MM/dd').format(date);
-              break;
-            case 'weekly':
-              // Group by week number
-              final weekNumber = (date.difference(startDate).inDays / 7).floor();
-              dateKey = 'Week ${weekNumber + 1}';
-              break;
-            case 'monthly':
-              dateKey = DateFormat('MMM').format(date);
-              break;
-            case 'yearly':
-              dateKey = DateFormat('MMM').format(date);
-              break;
-            default:
-              dateKey = DateFormat('MM/dd').format(date);
+        if (hasSellerItems) {
+          // ✅ Calculate order total for seller
+          final orderTotal = orderData['total'];
+          if (orderTotal != null) {
+            sellerOrderTotal = _ensureDouble(orderTotal);
           }
           
-          salesByDate[dateKey] = (salesByDate[dateKey] ?? 0) + (orderData['total'] ?? 0).toDouble();
+          // ✅ Always process items for product tracking
+          final items = orderData['items'] as List<dynamic>?;
+          if (items != null) {
+            for (var item in items) {
+              if (item is Map<String, dynamic> && item['sellerId'] == user.uid) {
+                final price = _ensureDouble(item['price']);
+                final quantity = (item['quantity'] ?? 1).toInt();
+                final itemTotal = price * quantity;
+                
+                // ✅ If no order total, calculate from items
+                if (orderTotal == null) {
+                  sellerOrderTotal += itemTotal;
+                }
+                
+                // ✅ Enhanced product tracking with better data extraction
+                final productId = item['productId']?.toString();
+                final productName = item['name']?.toString() ?? 
+                                  item['productName']?.toString() ?? 
+                                  'Unknown Product';
+                final imageUrl = item['imageURL']?.toString() ?? 
+                                item['imageUrl']?.toString() ?? 
+                                item['image']?.toString() ?? '';
+                
+                print('📦 Processing product: $productName (ID: $productId, Qty: $quantity, Price: ${CurrencyFormatter.format(price)})');
+                
+                if (productId != null && productId.isNotEmpty) {
+                  if (!productSales.containsKey(productId)) {
+                    productSales[productId] = {
+                      'productId': productId,
+                      'name': productName,
+                      'units': 0,
+                      'revenue': 0.0,
+                      'imageUrl': imageUrl,
+                    };
+                    print('✅ Created new product entry: $productName');
+                  }
+                  
+                  // ✅ Update product metrics
+                  productSales[productId]!['units'] = (productSales[productId]!['units'] as int) + quantity;
+                  productSales[productId]!['revenue'] = (productSales[productId]!['revenue'] as double) + itemTotal;
+                  
+                  print('📊 Updated ${productName}: ${productSales[productId]!['units']} units, ${CurrencyFormatter.format(productSales[productId]!['revenue'] as double)} revenue');
+                } else {
+                  print('⚠️ Missing productId for item: $productName');
+                }
+              }
+            }
+          }
+          
+          // ✅ Only count if not already processed and has meaningful total
+          if (!processedOrderIds.contains(orderId) && sellerOrderTotal > 0) {
+            processedOrderIds.add(orderId);
+            totalOrders++;
+            totalSales += sellerOrderTotal;
+            
+            // Count by status
+            final status = (orderData['status'] ?? 'pending').toString().toLowerCase();
+            if (ordersByStatus.containsKey(status)) {
+              ordersByStatus[status] = ordersByStatus[status]! + 1;
+            } else {
+              ordersByStatus['pending'] = (ordersByStatus['pending'] ?? 0) + 1;
+            }
+            
+            // Group by date for chart (only if within date range)
+            final createdAt = orderData['createdAt'] as Timestamp?;
+            if (createdAt != null) {
+              final date = createdAt.toDate();
+              if (date.isAfter(startDate) && date.isBefore(now.add(Duration(days: 1)))) {
+                String dateKey = _getDateKey(date, startDate);
+                salesByDate[dateKey] = (salesByDate[dateKey] ?? 0.0) + sellerOrderTotal;
+              }
+            }
+            
+            print('✅ Processed order $orderId: ${CurrencyFormatter.format(sellerOrderTotal)} (Status: ${orderData['status']})');
+          }
         }
       }
       
-      // Convert to list for the chart
+      // Convert sales data to chart format
       final salesChartData = salesByDate.entries.map((entry) {
         return {'date': entry.key, 'sales': entry.value};
       }).toList();
@@ -167,36 +276,94 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
       final topProducts = productSales.values.toList()
         ..sort((a, b) => (b['revenue'] as double).compareTo(a['revenue'] as double));
       
-      // Get seller profile for view count
-      final sellerDoc = await FirebaseFirestore.instance
-          .collection('sellers')
-          .doc(user.uid)
-          .get();
-          
+      // Get seller view count
       int viewCount = 0;
-      if (sellerDoc.exists) {
-        viewCount = sellerDoc.data()?['viewCount'] ?? 0;
+      try {
+        final sellerDoc = await FirebaseFirestore.instance
+            .collection('sellers')
+            .doc(user.uid)
+            .get();
+        if (sellerDoc.exists) {
+          viewCount = sellerDoc.data()?['viewCount'] ?? 0;
+        }
+      } catch (e) {
+        print('⚠️ Could not fetch seller view count: $e');
       }
       
-      // Update state with all the data
+      // ✅ Final analytics summary
+      print('📊 Final Analytics Results:');
+      print('  - Processed ${ordersQuery.docs.length} total orders');
+      print('  - Found ${processedOrderIds.length} orders with seller items');
+      print('  - Total Orders: $totalOrders');
+      print('  - Total Sales: ${CurrencyFormatter.format(totalSales)}');
+      print('  - Average Order: ${totalOrders > 0 ? CurrencyFormatter.format(totalSales / totalOrders) : "₱0.00"}');
+      print('  - Top Products: ${topProducts.length}');
+      print('  - Orders by Status: $ordersByStatus');
+      print('  - Sales by Date entries: ${salesByDate.length}');
+      
+      // Update UI
       setState(() {
         _salesData = salesChartData;
-        _topProducts = topProducts.take(5).toList(); // Top 5 products
+        _topProducts = topProducts.take(5).toList();
         _ordersByStatus = ordersByStatus;
         _metricsData = {
           'totalSales': totalSales,
           'totalOrders': totalOrders,
-          'averageOrderValue': totalOrders > 0 ? totalSales / totalOrders : 0,
+          'averageOrderValue': totalOrders > 0 ? totalSales / totalOrders : 0.0,
           'viewCount': viewCount,
         };
         _isLoading = false;
       });
+      
     } catch (e) {
-      print('Error loading analytics data: $e');
+      print('❌ Error loading analytics data: $e');
       setState(() => _isLoading = false);
+      
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load analytics data'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('Failed to load analytics: $e'),
+          backgroundColor: Colors.red,
+          action: SnackBarAction(
+            label: 'Retry',
+            onPressed: _loadAnalyticsData,
+          ),
+        ),
       );
+    }
+  }
+
+  // ✅ Helper method for date grouping
+  String _getDateKey(DateTime date, DateTime startDate) {
+    switch (_selectedTimeRange) {
+      case 'daily':
+        return DateFormat('MM/dd').format(date);
+      case 'weekly':
+        final weekNumber = (date.difference(startDate).inDays / 7).floor();
+        return 'Week ${weekNumber + 1}';
+      case 'monthly':
+        return DateFormat('MMM').format(date);
+      case 'yearly':
+        return DateFormat('MMM yyyy').format(date);
+      default:
+        return DateFormat('MM/dd').format(date);
+    }
+  }
+
+  // ✅ Add helper method for safe double conversion
+  double _ensureDouble(dynamic value) {
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? 0.0;
+    return 0.0;
+  }
+
+  // ✅ Update _formatRevenue method
+  String _formatRevenue(dynamic amount) {
+    final doubleAmount = _ensureDouble(amount);
+    if (doubleAmount >= 100000) {
+      return CurrencyFormatter.formatWithCommas(doubleAmount);
+    } else {
+      return CurrencyFormatter.format(doubleAmount);
     }
   }
 
@@ -275,7 +442,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
             children: [
               _buildMetricCard(
                 'Total Sales', 
-                '\$${_metricsData['totalSales'].toStringAsFixed(2)}',
+                _formatRevenue(_metricsData['totalSales']), // ✅ Enhanced formatting
                 Icons.attach_money,
                 Colors.green
               ),
@@ -287,7 +454,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
               ),
               _buildMetricCard(
                 'Avg. Order', 
-                '\$${_metricsData['averageOrderValue'].toStringAsFixed(2)}',
+                CurrencyFormatter.format(_metricsData['averageOrderValue']), // ✅ Changed from $ to ₱
                 Icons.insights,
                 Colors.purple
               ),
@@ -373,7 +540,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
                         ),
                       ),
                       Text(
-                        '\$${_metricsData['totalSales'].toStringAsFixed(2)}',
+                        CurrencyFormatter.formatWithCommas(_ensureDouble(_metricsData['totalSales'])), // ✅ Safe conversion
                         style: GoogleFonts.poppins(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -395,7 +562,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
                       Expanded(
                         child: _buildMiniMetric(
                           'Avg. Order',
-                          '\$${_metricsData['averageOrderValue'].toStringAsFixed(2)}',
+                          CurrencyFormatter.format(_ensureDouble(_metricsData['averageOrderValue'])), // ✅ Safe conversion
                           Icons.insert_chart_outlined,
                         ),
                       ),
@@ -581,6 +748,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
     );
   }
 
+  // ✅ Update chart data conversion
   Widget _buildSalesChart() {
     if (_salesData.isEmpty) {
       return Center(child: Text('No sales data available'));
@@ -588,12 +756,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
 
     return SfCartesianChart(
       primaryXAxis: CategoryAxis(),
-      tooltipBehavior: TooltipBehavior(enable: true),
+      tooltipBehavior: TooltipBehavior(
+        enable: true,
+        format: 'point.x: ${CurrencyFormatter.symbol}point.y',
+      ),
       series: <LineSeries<Map<String, dynamic>, String>>[
         LineSeries<Map<String, dynamic>, String>(
           dataSource: _salesData,
           xValueMapper: (data, _) => data['date'].toString(),
-          yValueMapper: (data, _) => data['sales'],
+          yValueMapper: (data, _) => _ensureDouble(data['sales']), // ✅ Safe conversion
           name: 'Sales',
           color: Theme.of(context).primaryColor,
           markerSettings: MarkerSettings(isVisible: false),
@@ -604,8 +775,29 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
   }
 
   Widget _buildDetailedSalesChart() {
-    // Similar to _buildSalesChart but with more detailed options
-    return _buildSalesChart();
+    if (_salesData.isEmpty) {
+      return Center(child: Text('No sales data available'));
+    }
+
+    return SfCartesianChart(
+      primaryXAxis: CategoryAxis(),
+      primaryYAxis: NumericAxis(
+        labelFormat: '${CurrencyFormatter.symbol}{value}',
+        numberFormat: NumberFormat.compact(),
+      ),
+      tooltipBehavior: TooltipBehavior(enable: true),
+      series: <LineSeries<Map<String, dynamic>, String>>[
+        LineSeries<Map<String, dynamic>, String>(
+          dataSource: _salesData,
+          xValueMapper: (data, _) => data['date'].toString(),
+          yValueMapper: (data, _) => _ensureDouble(data['sales']), // ✅ Safe conversion
+          name: 'Sales (₱)',
+          color: Theme.of(context).primaryColor,
+          markerSettings: MarkerSettings(isVisible: true, width: 6, height: 6),
+          enableTooltip: true,
+        )
+      ],
+    );
   }
 
   Widget _buildOrderStatusChart() {
@@ -639,12 +831,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
 
     return SfCartesianChart(
       primaryXAxis: CategoryAxis(),
-      tooltipBehavior: TooltipBehavior(enable: true),
+      tooltipBehavior: TooltipBehavior(
+        enable: true,
+        format: 'point.x: ${CurrencyFormatter.symbol}point.y',
+      ),
       series: <ColumnSeries<Map<String, dynamic>, String>>[
         ColumnSeries<Map<String, dynamic>, String>(
           dataSource: _topProducts,
           xValueMapper: (data, _) => data['name'].toString(),
-          yValueMapper: (data, _) => data['revenue'],
+          yValueMapper: (data, _) => _ensureDouble(data['revenue']), // ✅ Safe conversion
           name: 'Revenue',
           color: Theme.of(context).primaryColor,
           enableTooltip: true,
@@ -655,6 +850,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
     );
   }
 
+  // ✅ Update sales table data conversion
   Widget _buildSalesTable() {
     if (_salesData.isEmpty) {
       return Center(
@@ -673,7 +869,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
           return DataRow(
             cells: [
               DataCell(Text(data['date'].toString())),
-              DataCell(Text('\$${(data['sales'] as double).toStringAsFixed(2)}')),
+              DataCell(Text(CurrencyFormatter.format(_ensureDouble(data['sales'])))), // ✅ Safe conversion
             ],
           );
         }).toList(),
@@ -721,7 +917,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
           '${product['units']} units sold',
         ),
         trailing: Text(
-          '\$${(product['revenue'] as double).toStringAsFixed(2)}',
+          CurrencyFormatter.format(_ensureDouble(product['revenue'])), // ✅ Safe conversion
           style: GoogleFonts.poppins(
             fontWeight: FontWeight.bold,
             color: Colors.green[700],
@@ -732,6 +928,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
   }
 
   Widget _buildDetailedProductItem(Map<String, dynamic> product) {
+    final revenue = _ensureDouble(product['revenue']);
+    final units = (product['units'] ?? 1).toInt();
+    final avgPrice = units > 0 ? revenue / units : 0.0;
+
     return Card(
       margin: EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(
@@ -799,21 +999,21 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
                 Expanded(
                   child: _buildProductMetricTile(
                     'Units Sold',
-                    '${product['units']}',
+                    '${units}',
                     Icons.inventory_2_outlined,
                   ),
                 ),
                 Expanded(
                   child: _buildProductMetricTile(
                     'Revenue',
-                    '\$${(product['revenue'] as double).toStringAsFixed(2)}',
+                    CurrencyFormatter.format(revenue), // ✅ Already converted to double
                     Icons.attach_money,
                   ),
                 ),
                 Expanded(
                   child: _buildProductMetricTile(
                     'Avg. Price',
-                    '\$${(product['revenue'] / product['units']).toStringAsFixed(2)}',
+                    CurrencyFormatter.format(avgPrice), // ✅ Already calculated as double
                     Icons.trending_up,
                   ),
                 ),

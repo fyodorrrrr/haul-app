@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../providers/order_provider.dart';
 import 'order_detail_screen.dart';
+import '../../utils/currency_formatter.dart'; // ✅ Add this import
 
 class SellerOrdersScreen extends StatefulWidget {
   const SellerOrdersScreen({Key? key}) : super(key: key);
@@ -367,7 +368,13 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> {
   String _calculateOrderTotal(Map<String, dynamic> order, List<Map<String, dynamic>> orderItems) {
     // Try to get total from order
     if (order['total'] != null) {
-      return _formatOrderTotal(order['total']);
+      if (order['total'] is num) {
+        return CurrencyFormatter.format(order['total'].toDouble());
+      }
+      if (order['total'] is String) {
+        final parsed = double.tryParse(order['total']);
+        return CurrencyFormatter.format(parsed ?? 0.0);
+      }
     }
     
     // Calculate from items if no total in order
@@ -378,7 +385,7 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> {
       calculatedTotal += price * quantity;
     }
     
-    return calculatedTotal.toStringAsFixed(2);
+    return CurrencyFormatter.format(calculatedTotal);
   }
 
   double _getItemPrice(Map<String, dynamic> item) {

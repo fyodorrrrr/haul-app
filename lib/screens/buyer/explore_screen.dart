@@ -10,6 +10,7 @@ import '../../models/wishlist_model.dart';
 import '../../providers/user_profile_provider.dart';
 import '../../providers/wishlist_providers.dart';
 import '../../utils/snackbar_helper.dart';
+import '../../utils/currency_formatter.dart'; // ✅ Add this import
 import '../../widgets/not_logged_in.dart';
 import '../buyer/product_details_screen.dart'; // Import the ProductDetailScreen
 
@@ -963,9 +964,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      '₱${product.effectivePrice.toStringAsFixed(0)}',
+                      CurrencyFormatter.formatWhole(product.effectivePrice), // ✅ Changed from $ to ₱
                       style: GoogleFonts.poppins(
-                        fontSize: 14, // ✅ Reduced from 18
+                        fontSize: 14,
                         fontWeight: FontWeight.bold,
                         color: Colors.black87,
                       ),
