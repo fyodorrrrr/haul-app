@@ -61,11 +61,11 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.example.haul" // Your app ID
-        minSdkVersion 21 // ✅ Make sure this is 21 or higher
-        targetSdkVersion 34 // ✅ Make sure this is 34 or higher
-        versionCode flutterVersionCode.toInteger()
-        versionName flutterVersionName
+        applicationId "com.haul.testapp"  // ✅ Different app ID for test
+        minSdkVersion 21
+        targetSdkVersion 34
+        versionCode 1
+        versionName "1.0.0-beta"  // ✅ Mark as beta
         
         // ✅ Add multidex support if needed
         multiDexEnabled true
@@ -85,12 +85,10 @@ android {
 
     buildTypes {
         release {
-            // Only use signing config if keystore exists
-            if (keystorePropertiesFile.exists()) {
-                signingConfig signingConfigs.release
-            }
-            minifyEnabled = false
-            shrinkResources = false
+            // ✅ Simple release config for test
+            minifyEnabled false
+            shrinkResources false
+            signingConfig signingConfigs.debug  // ✅ Use debug signing for test
         }
         debug {
             debuggable = true

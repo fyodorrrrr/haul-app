@@ -14,7 +14,7 @@
     <application
         android:label="Haul"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@mipmap/haul_logo"
         android:usesCleartextTraffic="true">
         
         <activity
