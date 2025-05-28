@@ -342,6 +342,22 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
+## 📦 Project Deliverables
+
+### 🎯 **Application**
+- **📱 Android APK**: [Download APK](https://drive.google.com/file/d/1cQ-T6f2KTzzrUeprLFO1KI5dZDEEJiw2/view?usp=sharing)
+- **📂 Source Code**: [GitHub Repository](https://github.com/fyodorrrrr/haul-app)
+
+### 📋 **Documentation**
+- **📖 Technical Documentation**: [View Documentation](https://drive.google.com/drive/u/0/folders/1xZi16R9zbZ2PjJK1JMT55jMT7Sulw6Kn)
+- **👥 Team Evaluation**: [User Manual](link-to-user-guide)
+
+### 🎥 **Media & Presentation**
+- **🎬 Promo Video**: [Watch Video](https://drive.google.com/drive/u/0/folders/1xZi16R9zbZ2PjJK1JMT55jMT7Sulw6Kn)
+- **📊 Project Presentation**: [View Slides](https://www.canva.com/design/DAGodBLxfFA/PePvZ-uOuCKAFjSSJBMC5Q/view?utm_content=DAGodBLxfFA&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=h8302d63868)
+
+---
+
 <div align="center">
 
 **Built with ❤️ using Flutter**
