@@ -350,7 +350,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ### 📋 **Documentation**
 - **📖 Technical Documentation**: [View Documentation](https://drive.google.com/drive/u/0/folders/1xZi16R9zbZ2PjJK1JMT55jMT7Sulw6Kn)
-- **👥 Team Evaluation**: [User Manual](link-to-user-guide)
+- **👥 Team Evaluation**: [Evaluation Report](link-to-evaluation-report)
 
 ### 🎥 **Media & Presentation**
 - **🎬 Promo Video**: [Watch Video](https://drive.google.com/drive/u/0/folders/1xZi16R9zbZ2PjJK1JMT55jMT7Sulw6Kn)
