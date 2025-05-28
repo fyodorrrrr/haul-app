@@ -362,6 +362,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Built with ❤️ using Flutter**
 
-[⭐ Star this repo](https://github.com/yourusername/haul-app) • [🐛 Report Bug](https://github.com/yourusername/haul-app/issues) • [✨ Request Feature](https://github.com/yourusername/haul-app/issues)
+[⭐ Star this repo](https://github.com/fyodorrrrr/haul-app) • [🐛 Report Bug](https://github.com/fyodorrrrr/haul-app/issues) • [✨ Request Feature](https://github.com/fyodorrrrr/haul-app/issues)
 
 </div>
