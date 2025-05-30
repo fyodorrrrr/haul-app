@@ -323,8 +323,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [Firebase Documentation](https://firebase.google.com/docs)
 
 ### Community
-- [Issues](https://github.com/yourusername/haul-app/issues) - Report bugs or request features
-- [Discussions](https://github.com/yourusername/haul-app/discussions) - Ask questions and share ideas
+- [Issues](https://github.com/fyodorrrrr/haul-app/issues) - Report bugs or request features
+- [Discussions](https://github.com/fyodorrrrr/haul-app/discussions) - Ask questions and share ideas
 
 ### Contact
 - **Email**: support@haulapp.com
@@ -349,11 +349,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **📂 Source Code**: [GitHub Repository](https://github.com/fyodorrrrr/haul-app)
 
 ### 📋 **Documentation**
-- **📖 Technical Documentation**: [View Documentation](https://drive.google.com/drive/u/0/folders/1xZi16R9zbZ2PjJK1JMT55jMT7Sulw6Kn)
-- **👥 Team Evaluation**: [Evaluation Report](link-to-evaluation-report)
+- **📖 Project Documentation**: [View Documentation](https://drive.google.com/file/d/1bbtbmQ0LZiTCN-54A2ZM9nUnNr4YRmoK/view?usp=sharing)
 
 ### 🎥 **Media & Presentation**
-- **🎬 Promo Video**: [Watch Video](https://drive.google.com/drive/u/0/folders/1xZi16R9zbZ2PjJK1JMT55jMT7Sulw6Kn)
+- **🎬 Promo Video**: [Watch Video](https://drive.google.com/file/d/1ktn-kfIdoi9m2IJzeSSG4qj4Cxym4va-/view?t=4)
 - **📊 Project Presentation**: [View Slides](https://www.canva.com/design/DAGodBLxfFA/PePvZ-uOuCKAFjSSJBMC5Q/view?utm_content=DAGodBLxfFA&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=h8302d63868)
 
 ---
